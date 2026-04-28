@@ -1,0 +1,100 @@
+# ITOps Intelligence Platform - 示例配置文件
+# 此文件为开发/测试配置，生产环境请复制为 prod.yaml 并修改相应值
+
+app:
+  host: 0.0.0.0
+  port: 8080
+  debug: true
+  secret_key: dev-secret-key-change-in-production
+  cors_origins:
+    - "http://localhost:3000"
+    - "http://localhost:8080"
+  log_level: DEBUG
+
+# 数据库配置
+database:
+  host: localhost
+  port: 3306
+  username: root
+  password: ""
+  database: itops_platform
+  pool_size: 10
+  max_overflow: 20
+  echo: false
+
+# Redis配置
+redis:
+  host: localhost
+  port: 6379
+  password: ""
+  db: 0
+  max_connections: 50
+
+# 监控配置
+monitor:
+  snmp_timeout: 5
+  snmp_retries: 3
+  agent_port: 10050
+  collection_interval: 60
+  alert_check_interval: 30
+
+# 时序数据库配置
+timeseries:
+  type: tdengine  # tdengine, influxdb
+  host: localhost
+  port: 6030
+  username: root
+  password: ""
+  database: itops_metrics
+  retention_days: 90
+
+# 向量数据库配置
+vector_db:
+  type: qdrant  # qdrant, chroma
+  host: localhost
+  port: 6333
+  collection_name: itops_knowledge
+
+# 文件存储配置
+storage:
+  type: local  # local, minio
+  local_path: /data/itops/files
+  backup_path: /data/itops/backups
+
+# AI配置
+ai:
+  provider: ollama
+  base_url: http://localhost:11434
+  model: qwen2.5:7b
+  temperature: 0.7
+  max_tokens: 4096
+
+# 邮件配置（告警通知）
+mail:
+  enabled: false
+  smtp_host: smtp.example.com
+  smtp_port: 587
+  smtp_user: ""
+  smtp_password: ""
+  from_addr: itops@example.com
+
+# 钉钉配置（告警通知）
+dingtalk:
+  enabled: false
+  webhook_url: ""
+  secret: ""
+
+# 飞书配置（告警通知）
+feishu:
+  enabled: false
+  webhook_url: ""
+  secret: ""
+
+# 加密密钥（生产环境必须修改）
+encryption_key: change-me-in-production
+
+# 浏览器自动化配置
+browser:
+  headless: true
+  timeout: 30000
+  screenshot_dir: /data/itops/screenshots

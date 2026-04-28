@@ -1,0 +1,56 @@
+# API采集模块配置模板
+# CM-02
+
+[http_client]
+# 默认超时时间
+timeout = 30
+# 最大重试次数
+max_retries = 3
+# 重试延迟（秒）
+retry_delay = 1.0
+# 是否验证SSL
+ssl_verify = true
+# 默认请求头
+default_headers.Content-Type = application/json
+default_headers.User-Agent = ITOps-Collector/1.0
+
+[proxy]
+# 代理配置（可选）
+http_proxy = 
+https_proxy = 
+
+# Zabbix配置
+[zabbix]
+# Zabbix API地址
+url = http://localhost/zabbix/api_jsonrpc.php
+# 认证信息
+username = Admin
+password = zabbix
+# 批量大小
+batch_size = 100
+# 超时时间
+timeout = 60
+
+# Prometheus配置
+[prometheus]
+# Prometheus服务器地址
+url = http://localhost:9090
+# 查询超时
+query_timeout = 60
+# 默认查询步长
+default_step = 15s
+# 最大查询范围（秒）
+max_query_range = 86400
+
+# 采集配置
+[collection]
+# 采集间隔（秒）
+interval = 60
+# 并发采集数
+concurrency = 5
+# 数据缓冲大小
+buffer_size = 1000
+
+[logging]
+level = INFO
+file = logs/api_collector.log

@@ -1,0 +1,44 @@
+# MinIO对象存储配置模板
+# SM-03
+
+[connection]
+# MinIO服务地址
+endpoint = localhost:9000
+# S3兼容访问密钥
+access_key = minioadmin
+secret_key = minioadmin
+# 是否使用HTTPS
+secure = false
+
+[storage]
+# 默认存储桶
+bucket = itops
+# 区域
+region = us-east-1
+
+# 上传配置
+[upload]
+# 分块大小
+part_size = 5242880  # 5MB
+# 最大文件大小
+max_file_size = 5GB
+# 并发上传线程数
+concurrent_requests = 3
+
+# 下载配置
+[download]
+# 超时时间
+timeout = 300
+# 最大重试次数
+max_retries = 3
+
+# 本地存储后备配置
+[local_fallback]
+# 当MinIO不可用时使用的本地路径
+path = /var/data/itops/storage
+# 最大存储大小
+max_size = 100GB
+
+[logging]
+level = INFO
+file = logs/minio.log

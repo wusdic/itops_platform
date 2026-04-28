@@ -1,0 +1,27 @@
+# InfluxDB时序数据库配置模板
+# SM-01
+
+[connection]
+url = http://localhost:8086
+token = your-token-here
+org = myorg
+bucket = monitoring
+timeout = 30
+
+[options]
+# 写入配置
+batch_size = 5000
+flush_interval = 10
+retry_interval = 5
+max_retries = 3
+
+# 查询配置
+query_timeout = 60
+max_rows_per_query = 100000
+
+# 精度配置
+time_precision = ms
+
+[logging]
+level = INFO
+file = logs/influxdb.log

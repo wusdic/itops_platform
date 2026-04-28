@@ -1,0 +1,28 @@
+# TDengine时序数据库配置模板
+# SM-01
+
+[connection]
+host = localhost
+port = 6041
+username = root
+password = taosdata
+database = power
+timezone = Asia/Shanghai
+
+[options]
+timeout = 30
+retry = 3
+retry_interval = 1
+
+# 性能配置
+[performance]
+batch_size = 1000
+max_connections = 10
+compression = true
+
+# 日志配置
+[logging]
+level = INFO
+file = logs/tdengine.log
+max_size = 100MB
+backup_count = 5

@@ -1,0 +1,47 @@
+# Redis缓存配置模板
+# SM-04
+
+[connection]
+host = localhost
+port = 6379
+password = 
+db = 0
+ssl = false
+timeout = 30
+
+# 连接池配置
+[pool]
+max_connections = 50
+max_idle_time = 300
+socket_keepalive = true
+
+# 默认TTL配置
+[ttl]
+# 默认键过期时间（秒）
+default_ttl = 3600
+# 不同数据类型的默认TTL
+string_ttl = 1800
+hash_ttl = 3600
+list_ttl = 300
+set_ttl = 3600
+zset_ttl = 3600
+
+# 缓存策略
+[cache]
+# 最大缓存条目数（0=无限制）
+max_entries = 0
+# 缓存键前缀
+key_prefix = itops:
+# 是否启用压缩
+compression = false
+
+# 分布式锁配置
+[lock]
+# 锁默认过期时间
+default_timeout = 10
+# 锁获取等待超时
+blocking_timeout = 3
+
+[logging]
+level = INFO
+file = logs/redis.log

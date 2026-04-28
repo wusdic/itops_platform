@@ -1,0 +1,33 @@
+# Qdrant向量数据库配置模板
+# SM-02
+
+[connection]
+host = localhost
+port = 6333
+api_key = 
+timeout = 30
+https = false
+
+[storage]
+# 集合前缀（用于多租户隔离）
+collection_prefix = itops_
+
+# 性能配置
+max_connections = 100
+connection_timeout = 30
+request_timeout = 60
+
+# 索引配置
+[indexing]
+indexing_threshold = 20000
+memmap_threshold = 50000
+on_disk_payload = false
+
+# WAL配置
+[wal]
+wal_capacity_mb = 32
+wal_segments_ahead = 0
+
+[logging]
+level = INFO
+file = logs/qdrant.log
