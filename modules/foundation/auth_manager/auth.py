@@ -157,7 +157,7 @@ class JWTManager:
             return payload
         except jwt.ExpiredSignatureError:
             return None
-        except jwt.InvalidTokenError:
+        except jwt.JWTError:
             return None
 
     def refresh_access_token(self, refresh_token: str) -> Optional[Dict[str, str]]:

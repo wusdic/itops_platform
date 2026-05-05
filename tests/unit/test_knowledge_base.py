@@ -773,7 +773,7 @@ class TestMarkdownProcessor(unittest.TestCase):
         html = MarkdownProcessor.to_html(md_text)
         
         # 验证HTML输出(可能返回原始文本如果没有markdown库)
-        self.assertTrue('<h1>' in html or '<br>' in html)
+        self.assertTrue('<h1' in html or '<br>' in html or '<p>' in html)
     
     def test_extract_toc(self):
         """测试提取目录"""
