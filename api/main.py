@@ -25,6 +25,7 @@ from api.routes import (
     ai_router,
     admin_router,
     notification_router,
+    device_router,
 )
 from api.dependencies import get_settings
 from api.middleware.logging import LoggingMiddleware
@@ -176,7 +177,13 @@ def create_app() -> FastAPI:
         prefix="/api/v1/notifications",
         tags=["通知渠道"],
     )
-    
+
+    app.include_router(
+        device_router,
+        prefix="/api/v1/devices",
+        tags=["设备管理"],
+    )
+
     # 健康检查端点
     @app.get("/health", tags=["系统"])
     async def health_check():
