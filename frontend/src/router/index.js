@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import Dashboard from '../views/Dashboard.vue'
+import Devices from '../views/Devices.vue'
 import Alerts from '../views/Alerts.vue'
 import WorkOrder from '../views/WorkOrder.vue'
 import Knowledge from '../views/Knowledge.vue'
@@ -21,6 +22,7 @@ const routes = [
   { path: '/', redirect: '/dashboard' },
   { path: '/login', name: 'Login', component: Login, meta: { requiresAuth: false } },
   { path: '/dashboard', name: 'Dashboard', component: Dashboard, meta: { requiresAuth: true, title: '监控仪表盘' } },
+  { path: '/devices', name: 'Devices', component: Devices, meta: { requiresAuth: true, title: '设备管理' } },
   { path: '/alerts', name: 'Alerts', component: Alerts, meta: { requiresAuth: true, title: '告警中心' } },
   { path: '/workorder', name: 'WorkOrder', component: WorkOrder, meta: { requiresAuth: true, title: '工单管理' } },
   { path: '/knowledge', name: 'Knowledge', component: Knowledge, meta: { requiresAuth: true, title: '知识库' } },

@@ -40,7 +40,7 @@
         <el-tag 
           v-for="tag in popularTags" 
           :key="tag" 
-          : closable
+          closable
           @close="handleRemoveTag(tag)"
           @click="handleTagClick(tag)"
         >

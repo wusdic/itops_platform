@@ -1,179 +1,293 @@
 <template>
-  <div class="empty-state" :class="[size]">
-    <!-- SVG插画 -->
-    <div class="empty-illustration">
-      <svg v-if="type === 'data'" viewBox="0 0 200 160" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="30" y="80" width="140" height="60" rx="8" fill="#f0f2f5"/>
-        <rect x="30" y="60" width="140" height="20" rx="4" fill="#e5e7eb"/>
-        <circle cx="100" cy="100" r="20" fill="#d1d5db"/>
-        <path d="M90 100L100 90L110 100L100 110L90 100Z" fill="white"/>
-        <rect x="50" y="40" width="20" height="30" rx="2" fill="#e5e7eb"/>
-        <rect x="80" y="30" width="20" height="40" rx="2" fill="#d1d5db"/>
-        <rect x="110" y="35" width="20" height="35" rx="2" fill="#e5e7eb"/>
-        <rect x="140" y="45" width="20" height="25" rx="2" fill="#d1d5db"/>
-      </svg>
-      
-      <svg v-else-if="type === 'search'" viewBox="0 0 200 160" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="80" cy="70" r="40" fill="#f0f2f5"/>
-        <circle cx="80" cy="70" r="30" stroke="#d1d5db" stroke-width="4" fill="none"/>
-        <line x1="105" y1="95" x2="130" y2="120" stroke="#d1d5db" stroke-width="6" stroke-linecap="round"/>
-        <circle cx="80" cy="70" r="10" fill="#165dff" opacity="0.3"/>
-        <rect x="40" y="130" width="80" height="8" rx="4" fill="#e5e7eb"/>
-        <rect x="50" y="145" width="60" height="6" rx="3" fill="#f0f2f5"/>
-      </svg>
-      
-      <svg v-else-if="type === 'chat'" viewBox="0 0 200 160" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="40" y="30" width="120" height="80" rx="12" fill="#f0f2f5"/>
-        <path d="M60 50H140" stroke="#e5e7eb" stroke-width="6" stroke-linecap="round"/>
-        <path d="M60 70H120" stroke="#d1d5db" stroke-width="6" stroke-linecap="round"/>
-        <path d="M60 90H100" stroke="#e5e7eb" stroke-width="6" stroke-linecap="round"/>
-        <circle cx="145" cy="125" r="25" fill="#165dff" opacity="0.1"/>
-        <circle cx="145" cy="125" r="15" fill="#165dff" opacity="0.2"/>
-        <path d="M140 120L145 125L150 120" stroke="#165dff" stroke-width="2" stroke-linecap="round"/>
-        <path d="M145 125V130" stroke="#165dff" stroke-width="2" stroke-linecap="round"/>
-      </svg>
-      
-      <svg v-else-if="type === 'file'" viewBox="0 0 200 160" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="60" y="20" width="80" height="100" rx="8" fill="#f0f2f5"/>
-        <rect x="70" y="30" width="60" height="80" rx="4" fill="white" stroke="#e5e7eb" stroke-width="2"/>
-        <path d="M100 20V40H130" fill="#e5e7eb"/>
-        <path d="M100 20L130 40H100V20Z" fill="#d1d5db"/>
-        <rect x="80" y="50" width="40" height="4" rx="2" fill="#e5e7eb"/>
-        <rect x="80" y="60" width="35" height="4" rx="2" fill="#f0f2f5"/>
-        <rect x="80" y="70" width="40" height="4" rx="2" fill="#e5e7eb"/>
-        <rect x="80" y="80" width="30" height="4" rx="2" fill="#f0f2f5"/>
-      </svg>
-      
-      <svg v-else-if="type === 'alert'" viewBox="0 0 200 160" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="100" cy="80" r="50" fill="#fff7e6"/>
-        <path d="M100 45L130 110H70L100 45Z" fill="#ff9d00" opacity="0.3"/>
-        <path d="M100 45L130 110H70L100 45Z" stroke="#ff7d00" stroke-width="4" fill="none"/>
-        <circle cx="100" cy="90" r="8" fill="#ff7d00"/>
-        <line x1="100" y1="98" x2="100" y2="105" stroke="#ff7d00" stroke-width="4" stroke-linecap="round"/>
-        <rect x="60" y="140" width="80" height="8" rx="4" fill="#f0f2f5"/>
-      </svg>
-      
-      <svg v-else-if="type === 'success'" viewBox="0 0 200 160" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="100" cy="80" r="50" fill="#e8ffea"/>
-        <circle cx="100" cy="80" r="40" stroke="#00b42a" stroke-width="4" fill="none"/>
-        <path d="M80 80L95 95L120 65" stroke="#00b42a" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-        <rect x="50" y="140" width="100" height="8" rx="4" fill="#f0f2f5"/>
-      </svg>
-      
-      <svg v-else viewBox="0 0 200 160" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="40" y="30" width="120" height="100" rx="12" fill="#f0f2f5"/>
-        <circle cx="100" cy="70" r="25" fill="#e5e7eb"/>
-        <rect x="70" y="100" width="60" height="8" rx="4" fill="#d1d5db"/>
-        <rect x="80" y="115" width="40" height="6" rx="3" fill="#e5e7eb"/>
-      </svg>
+  <div class="empty-state" :class="[`size-${size}`, { 'is-center': center }]">
+    <!-- 装饰性背景 -->
+    <div class="empty-bg">
+      <div class="bg-circle bg-circle-1"></div>
+      <div class="bg-circle bg-circle-2"></div>
+      <div class="bg-circle bg-circle-3"></div>
     </div>
 
-    <!-- 文字内容 -->
-    <div class="empty-content">
-      <h3 class="empty-title">{{ title || '暂无数据' }}</h3>
-      <p class="empty-desc">{{ description || '当前没有内容，请稍后再试' }}</p>
-      
-      <div class="empty-actions" v-if="$slots.actions || actionText">
-        <slot name="actions">
-          <el-button
-            v-if="actionText"
-            :type="actionType"
-            @click="$emit('action')"
-          >
-            {{ actionText }}
-          </el-button>
-        </slot>
+    <!-- 插画/SVG -->
+    <div class="empty-illustration" v-if="!hideIcon">
+      <div class="illustration-wrapper" :class="{ 'animate-bounce': animate }">
+        <component :is="illustrationComponent" />
       </div>
+    </div>
+
+    <!-- 文案 -->
+    <div class="empty-content">
+      <h3 class="empty-title">{{ title }}</h3>
+      <p class="empty-description" v-if="description">{{ description }}</p>
+      
+      <!-- 插槽：额外的描述信息 -->
+      <div class="empty-extra" v-if="$slots.extra">
+        <slot name="extra"/>
+      </div>
+    </div>
+
+    <!-- 操作按钮 -->
+    <div class="empty-actions" v-if="$slots.actions || actionText">
+      <slot name="actions">
+        <el-button 
+          v-if="actionText" 
+          :type="actionType" 
+          :size="buttonSize"
+          @click="$emit('action')"
+        >
+          <el-icon v-if="actionIcon" :size="14" class="mr-1"><component :is="actionIcon"/></el-icon>
+          {{ actionText }}
+        </el-button>
+      </slot>
+    </div>
+
+    <!-- 快捷提示 -->
+    <div class="empty-tips" v-if="tips && tips.length">
+      <div class="tips-label" v-if="tipsLabel">{{ tipsLabel }}</div>
+      <ul class="tips-list">
+        <li v-for="(tip, i) in tips" :key="i" class="tips-item">
+          <el-icon :size="12"><ArrowRight /></el-icon>
+          {{ tip }}
+        </li>
+      </ul>
     </div>
   </div>
 </template>
 
 <script setup>
-defineProps({
-  title: { type: String, default: '' },
+import { computed } from 'vue'
+import { ArrowRight } from '@element-plus/icons-vue'
+import EmptyServer from './illustrations/EmptyServer.vue'
+import EmptyData from './illustrations/EmptyData.vue'
+import EmptySearch from './illustrations/EmptySearch.vue'
+import EmptyAlert from './illustrations/EmptyAlert.vue'
+import EmptyChart from './illustrations/EmptyChart.vue'
+
+const props = defineProps({
+  // 类型：server/data/search/alert/chart
+  type: { type: String, default: 'data' },
+  // 文案
+  title: { type: String, default: '暂无数据' },
   description: { type: String, default: '' },
+  // 是否居中
+  center: { type: Boolean, default: true },
+  // 尺寸
+  size: { 
+    type: String, 
+    default: 'md',
+    validator: (v) => ['sm', 'md', 'lg'].includes(v)
+  },
+  // 动画
+  animate: { type: Boolean, default: true },
+  // 隐藏图标
+  hideIcon: { type: Boolean, default: false },
+  // 操作按钮
   actionText: { type: String, default: '' },
   actionType: { type: String, default: 'primary' },
-  type: { 
-    type: String, 
-    default: 'default',
-    validator: (v) => ['default', 'data', 'search', 'chat', 'file', 'alert', 'success'].includes(v)
-  },
-  size: {
-    type: String,
-    default: 'medium',
-    validator: (v) => ['small', 'medium', 'large'].includes(v)
-  }
+  actionIcon: { type: String, default: '' },
+  buttonSize: { type: String, default: 'default' },
+  // 提示语
+  tipsLabel: { type: String, default: '你可以尝试' },
+  tips: { type: Array, default: () => [] }
 })
 
 defineEmits(['action'])
+
+const illustrationMap = {
+  server: EmptyServer,
+  data: EmptyData,
+  search: EmptySearch,
+  alert: EmptyAlert,
+  chart: EmptyChart
+}
+
+const illustrationComponent = computed(() => illustrationMap[props.type] || EmptyData)
 </script>
 
 <style scoped lang="scss">
 @use '@/styles/variables.scss' as *;
 
 .empty-state {
-  @include flex-center;
+  display: flex;
   flex-direction: column;
-  padding: $space-10 0;
-  text-align: center;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-xl * 2 $spacing-xl;
+  position: relative;
+  overflow: hidden;
 
-  &.small {
-    .empty-illustration svg {
-      width: 120px;
-      height: 96px;
+  &.is-center {
+    text-align: center;
+  }
+
+  // 尺寸
+  &.size-sm {
+    padding: $spacing-xl;
+
+    .empty-illustration {
+      width: 80px;
+      height: 80px;
     }
-    
+
     .empty-title {
-      font-size: $font-size-base;
+      font-size: $font-size-md;
     }
   }
 
-  &.large {
-    .empty-illustration svg {
-      width: 200px;
+  &.size-lg {
+    .empty-illustration {
+      width: 160px;
       height: 160px;
     }
-    
+
     .empty-title {
       font-size: $font-size-xl;
     }
   }
 }
 
-.empty-illustration {
-  margin-bottom: $space-6;
-  
-  svg {
-    width: 160px;
-    height: 128px;
-    animation: fadeInUp 0.6s ease-out;
-    
-    path, rect, circle, line {
-      animation: float 3s ease-in-out infinite;
+// 装饰背景
+.empty-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+
+  .bg-circle {
+    position: absolute;
+    border-radius: 50%;
+    opacity: 0.06;
+
+    &.bg-circle-1 {
+      width: 200px;
+      height: 200px;
+      background: $primary;
+      top: -60px;
+      right: -40px;
+      animation: float-slow 8s ease-in-out infinite;
+    }
+
+    &.bg-circle-2 {
+      width: 150px;
+      height: 150px;
+      background: $success;
+      bottom: -30px;
+      left: -20px;
+      animation: float-slow 6s ease-in-out infinite reverse;
+    }
+
+    &.bg-circle-3 {
+      width: 80px;
+      height: 80px;
+      background: $warning;
+      top: 40%;
+      right: 20%;
+      animation: float-slow 5s ease-in-out infinite 1s;
     }
   }
 }
 
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-20px) rotate(5deg); }
+}
+
+// 插画容器
+.empty-illustration {
+  width: 120px;
+  height: 120px;
+  margin-bottom: $spacing-xl;
+  position: relative;
+  z-index: 1;
+
+  .illustration-wrapper {
+    width: 100%;
+    height: 100%;
+
+    &.animate-bounce {
+      animation: illustration-bounce 3s ease-in-out infinite;
+    }
+  }
+
+  :deep(svg) {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+@keyframes illustration-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+// 内容区
 .empty-content {
+  position: relative;
+  z-index: 1;
   max-width: 400px;
+
+  .empty-title {
+    font-size: $font-size-lg;
+    font-weight: $font-weight-semibold;
+    color: $text-primary;
+    margin: 0 0 $space-2 0;
+  }
+
+  .empty-description {
+    font-size: $font-size-sm;
+    color: $text-secondary;
+    margin: $space-1 0 0 0;
+    line-height: 1.6;
+  }
+
+  .empty-extra {
+    margin-top: $spacing-md;
+  }
 }
 
-.empty-title {
-  font-size: $font-size-lg;
-  font-weight: $font-weight-semibold;
-  color: $text-primary;
-  margin: 0 0 $space-2 0;
-}
-
-.empty-desc {
-  font-size: $font-size-sm;
-  color: $text-secondary;
-  margin: 0 0 $space-6 0;
-  line-height: 1.6;
-}
-
+// 操作按钮
 .empty-actions {
-  margin-top: $space-4;
+  margin-top: $spacing-xl;
+  position: relative;
+  z-index: 1;
 }
+
+// 快捷提示
+.empty-tips {
+  margin-top: $spacing-xl;
+  padding: $spacing-md $spacing-lg;
+  background: $bg-page;
+  border-radius: $radius-md;
+  border: 1px dashed $border;
+  position: relative;
+  z-index: 1;
+  max-width: 360px;
+
+  .tips-label {
+    font-size: $font-size-xs;
+    color: $text-placeholder;
+    margin-bottom: $spacing-sm;
+  }
+
+  .tips-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+
+    .tips-item {
+      display: flex;
+      align-items: center;
+      gap: $space-1;
+      font-size: $font-size-sm;
+      color: $text-secondary;
+      padding: 4px 0;
+
+      .el-icon {
+        color: $text-placeholder;
+        flex-shrink: 0;
+      }
+    }
+  }
+}
+
+.mr-1 { margin-right: 4px; }
 </style>

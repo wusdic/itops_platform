@@ -14,13 +14,11 @@
         </div>
 
         <div class="sidebar-content" v-if="!sidebarCollapsed">
-          <!-- 新建对话 -->
           <el-button type="primary" class="new-chat-btn" @click="startNewChat">
             <el-icon><Plus /></el-icon>
             新建对话
           </el-button>
 
-          <!-- 对话历史 -->
           <div class="chat-history">
             <div class="history-label">历史对话</div>
             <div class="history-list">
@@ -49,7 +47,6 @@
           </div>
         </div>
 
-        <!-- 模型状态 -->
         <div class="sidebar-footer" v-if="!sidebarCollapsed">
           <div class="model-status">
             <div class="model-indicator" :class="modelStatus"></div>
@@ -69,7 +66,7 @@
         <!-- 聊天头部 -->
         <header class="chat-header">
           <div class="header-info">
-            <div class="chat-title">{{ currentChatTitle }}</div>
+            <h2 class="chat-title">{{ currentChatTitle }}</h2>
             <div class="chat-meta">
               <span class="meta-item">
                 <el-icon><Clock /></el-icon>
@@ -100,31 +97,47 @@
 
         <!-- 消息区域 -->
         <div class="chat-messages" ref="messagesContainer">
-          <!-- 空状态 -->
+          <!-- 空状态：使用新的EmptyState组件 -->
           <div v-if="messages.length === 0" class="empty-state">
-            <div class="empty-illustration">
-              <div class="ai-orb">
-                <div class="orb-inner"></div>
-                <div class="orb-ring"></div>
-              </div>
-            </div>
-            <h3 class="empty-title">你好，我是 AI 运维助手</h3>
-            <p class="empty-desc">我可以帮你进行故障诊断、日志分析、脚本生成、性能优化等工作</p>
-
-            <!-- 快捷指令 -->
-            <div class="quick-prompts-grid">
-              <div 
-                v-for="prompt in quickPrompts" 
-                :key="prompt.title"
-                class="prompt-card"
-                @click="usePrompt(prompt)"
-              >
-                <div class="prompt-icon" :style="{ background: prompt.bgColor }">
-                  <el-icon><component :is="prompt.icon" /></el-icon>
+            <EmptyState
+              type="search"
+              :title="welcomeTitle"
+              :description="welcomeDesc"
+              size="lg"
+              :animate="true"
+              :action-text="'开始对话'"
+              :action-icon="'ChatDotRound'"
+              @action="handleStartChat"
+            >
+              <template #extra>
+                <div class="quick-prompts-grid">
+                  <div 
+                    v-for="prompt in quickPrompts" 
+                    :key="prompt.title"
+                    class="prompt-card"
+                    @click="usePrompt(prompt)"
+                  >
+                    <div class="prompt-icon" :style="{ background: prompt.bgColor }">
+                      <el-icon><component :is="prompt.icon" /></el-icon>
+                    </div>
+                    <div class="prompt-text">{{ prompt.title }}</div>
+                  </div>
                 </div>
-                <div class="prompt-text">{{ prompt.title }}</div>
-              </div>
-            </div>
+              </template>
+              <template #actions>
+                <div class="empty-actions-row">
+                  <el-button 
+                    v-for="action in quickActions" 
+                    :key="action.title"
+                    size="small"
+                    @click="usePrompt(action)"
+                  >
+                    <el-icon><component :is="action.icon" /></el-icon>
+                    {{ action.title }}
+                  </el-button>
+                </div>
+              </template>
+            </EmptyState>
           </div>
 
           <!-- 消息列表 -->
@@ -264,7 +277,6 @@
           </div>
         </div>
 
-        <!-- 上下文提示 -->
         <div class="context-section">
           <div class="section-title">
             <el-icon><Connection /></el-icon>
@@ -283,7 +295,6 @@
           </div>
         </div>
 
-        <!-- 使用统计 -->
         <div class="stats-section">
           <div class="section-title">
             <el-icon><DataAnalysis /></el-icon>
@@ -306,7 +317,6 @@
         </div>
       </aside>
 
-      <!-- 展开功能面板按钮 -->
       <button class="features-toggle" @click="featuresCollapsed = false" v-if="featuresCollapsed">
         <el-icon><ArrowLeft /></el-icon>
       </button>
@@ -362,6 +372,7 @@
 
 <script setup>
 import { ref, reactive, computed, nextTick, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   MagicStick, Plus, ChatLineSquare, MoreFilled, User, Clock, ChatDotRound,
@@ -369,8 +380,10 @@ import {
   Promotion, Paperclip, Connection, DataAnalysis, ArrowLeft, VideoPlay, Document,
   DataLine, Warning, Odometer, Search, Operation, Star, Sparkles, Histogram, Bell
 } from '@element-plus/icons-vue'
+import EmptyState from '@/components/EmptyState.vue'
 
-// 状态
+const router = useRouter()
+
 const sidebarCollapsed = ref(false)
 const featuresCollapsed = ref(true)
 const showModelSelector = ref(false)
@@ -386,12 +399,10 @@ const currentChatId = ref(1)
 const currentChatTitle = ref('新对话')
 const currentChat = reactive({ createdAt: new Date() })
 
-// 模型状态
 const modelStatus = ref('online')
 const modelStatusText = ref('在线')
 const currentModel = ref('Qwen3.5-8B')
 
-// 设置
 const settings = reactive({
   temperature: 0.7,
   maxTokens: 2000,
@@ -407,21 +418,18 @@ const tempMarks = {
   2: '狂野'
 }
 
-// 对话历史
 const chatHistory = ref([
   { id: 1, title: '服务器故障排查', createdAt: '2026-05-04' },
   { id: 2, title: 'Nginx 配置优化', createdAt: '2026-05-03' },
   { id: 3, title: '数据库性能分析', createdAt: '2026-05-02' }
 ])
 
-// 可用模型
 const availableModels = [
   { id: 'Qwen3.5-8B', name: 'Qwen 3.5 8B', description: '平衡性能与速度', icon: 'Sparkles', recommended: true },
   { id: 'Qwen3.5-14B', name: 'Qwen 3.5 14B', description: '更高精度，资源占用中等', icon: 'Star', recommended: false },
   { id: 'Qwen3.5-32B', name: 'Qwen 3.5 32B', description: '高精度，适合复杂任务', icon: 'Histogram', recommended: false }
 ]
 
-// 快捷操作
 const quickActions = [
   { title: '故障诊断', icon: 'Search', prompt: '帮我分析最近的服务器故障', bgColor: '#f56c6c' },
   { title: '日志分析', icon: 'Document', prompt: '分析昨天的错误日志', bgColor: '#409eff' },
@@ -429,7 +437,6 @@ const quickActions = [
   { title: '性能优化', icon: 'Odometer', prompt: '给出服务器性能优化建议', bgColor: '#e6a23c' }
 ]
 
-// 快捷指令
 const quickPrompts = [
   { title: '服务器故障排查', icon: 'Warning', bgColor: 'linear-gradient(135deg, #f56c6c, #ff7875)' },
   { title: '日志分析解读', icon: 'Document', bgColor: 'linear-gradient(135deg, #409eff, #53a8ff)' },
@@ -437,7 +444,6 @@ const quickPrompts = [
   { title: '性能优化建议', icon: 'Odometer', bgColor: 'linear-gradient(135deg, #e6a23c, #ebb563)' }
 ]
 
-// 功能说明
 const capabilities = [
   { title: '智能问答', icon: 'ChatDotRound', description: '回答运维相关问题，提供解决方案建议', bgColor: '#409eff' },
   { title: '故障诊断', icon: 'Warning', description: '分析告警原因，提供故障排查指导', bgColor: '#f56c6c' },
@@ -445,20 +451,20 @@ const capabilities = [
   { title: '日志分析', icon: 'Document', description: '解析日志内容，提取关键错误信息', bgColor: '#e6a23c' }
 ]
 
-// 当前上下文
 const currentContext = reactive({
   server: '',
   service: ''
 })
 
-// 今日统计
 const todayStats = reactive({
   conversations: 5,
   messages: 23,
   tokens: '12.5K'
 })
 
-// 辅助函数
+const welcomeTitle = '你好，我是 AI 运维助手'
+const welcomeDesc = '我可以帮你进行故障诊断、日志分析、脚本生成、性能优化等工作'
+
 const formatDate = (date) => {
   if (!date) return ''
   return new Date(date).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
@@ -475,391 +481,143 @@ const scrollToBottom = () => {
 const formatMessage = (content) => {
   if (!content) return ''
   let html = content
-    // 代码块
     .replace(/```(\w+)?\n?([\s\S]*?)```/g, (match, lang, code) => {
       return `<pre class="code-block"><code class="language-${lang || 'plain'}">${escapeHtml(code.trim())}</code></pre>`
     })
-    // 行内代码
     .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
-    // 粗体
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    // 斜体
     .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-    // 标题
     .replace(/^### (.+)$/gm, '<h4>$1</h4>')
     .replace(/^## (.+)$/gm, '<h3>$1</h3>')
     .replace(/^# (.+)$/gm, '<h2>$1</h2>')
-    // 列表
     .replace(/^- (.+)$/gm, '<li>$1</li>')
     .replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>')
-    // 换行
     .replace(/\n/g, '<br>')
-
   return html
 }
 
 const escapeHtml = (str) => {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;')
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
-// 发送消息
-const sendMessage = async () => {
-  if (!inputMessage.value.trim() || isTyping.value) return
-
-  // 添加用户消息
-  messages.value.push({
-    role: 'user',
-    content: inputMessage.value.trim(),
-    time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-  })
-
-  const userMessage = inputMessage.value
-  inputMessage.value = ''
-  isTyping.value = true
-  scrollToBottom()
-
-  // 更新统计
-  todayStats.messages++
-
-  try {
-    // 模拟 AI 响应
-    await new Promise(resolve => setTimeout(resolve, 1500))
-
-    const response = getLocalResponse(userMessage)
-    messages.value.push({
-      role: 'assistant',
-      content: response,
-      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-    })
-
-    todayStats.messages++
-  } catch (error) {
-    console.error('AI chat error:', error)
-    ElMessage.error('AI 服务暂时不可用')
-  } finally {
-    isTyping.value = false
-    scrollToBottom()
-  }
+const handleStartChat = () => {
+  inputMessage.value = '你好，请帮我...'
 }
 
-// 本地响应
-const getLocalResponse = (question) => {
-  const q = question.toLowerCase()
-
-  if (q.includes('cpu') || q.includes('处理器') || q.includes('负载')) {
-    return `根据您的问题，以下是 CPU 负载高的排查步骤：
-
-**1. 查看系统负载**
-\`\`\`bash
-top -c
-htop
-uptime
-\`\`\`
-
-**2. 找出高占用进程**
-\`\`\`bash
-ps aux | sort -k3nr | head -10
-\`\`\`
-
-**3. 查看进程详情**
-\`\`\`bash
-pidstat -p <pid> 1 5
-strace -p <pid>
-\`\`\`
-
-**4. Java 进程检查**
-\`\`\`bash
-jstat -gc <pid>
-jstack <pid>
-\`\`\`
-
-**建议**: 如果是突发性负载，先检查是否有定时任务或批处理作业在运行。`
-
-  } else if (q.includes('磁盘') || q.includes('空间') || q.includes('硬盘')) {
-    return `磁盘空间不足的处理方案：
-
-**1. 查看磁盘使用情况**
-\`\`\`bash
-df -h
-du -sh /* | sort -hr | head -20
-\`\`\`
-
-**2. 查找大文件**
-\`\`\`bash
-find / -type f -size +100M -exec ls -lh {} \\; 2>/dev/null
-\`\`\`
-
-**3. 清理建议**
-\`\`\`bash
-# 清理日志
-find /var/log -name "*.log" -mtime +7 -delete
-
-# 清理缓存
-yum clean all  # CentOS
-apt clean      # Ubuntu
-
-# 清理旧内核
-yum autoremove
-\`\`\`
-
-**4. 设置告警阈值**
-建议在磁盘使用率达到 80% 时设置告警，90% 时紧急告警。`
-
-  } else if (q.includes('nginx')) {
-    return `Nginx 配置检查与优化建议：
-
-**1. 配置语法检查**
-\`\`\`bash
-nginx -t
-nginx -T  # 查看完整配置
-\`\`\`
-
-**2. 查看连接状态**
-\`\`\`bash
-nginx -s reload
-curl -I http://localhost/status
-\`\`\`
-
-**3. 常见优化参数**
-\`\`\`nginx
-worker_processes auto;
-worker_connections 65535;
-keepalive_timeout 65;
-gzip on;
-client_max_body_size 100m;
-\`\`\`
-
-**4. 性能监控**
-- 监控活跃连接数
-- 监控请求延迟
-- 监控 upstream 响应时间
-- 检查错误日志
-
-需要我帮您分析具体的 Nginx 配置吗？`
-
-  } else if (q.includes('mysql') || q.includes('数据库') || q.includes('慢查询')) {
-    return `MySQL 慢查询优化指南：
-
-**1. 开启慢查询日志**
-\`\`\`sql
-SET GLOBAL slow_query_log = 'ON';
-SET GLOBAL long_query_time = 2;
-SET GLOBAL slow_query_log_file = '/var/log/mysql/slow.log';
-\`\`\`
-
-**2. 分析慢查询**
-\`\`\`bash
-mysqldumpslow -s t -t 10 /var/log/mysql/slow.log
-pt-query-digest /var/log/mysql/slow.log
-\`\`\`
-
-**3. 使用 EXPLAIN**
-\`\`\`sql
-EXPLAIN SELECT * FROM users WHERE status = 1;
-EXPLAIN ANALYZE SELECT * FROM orders WHERE created_at > '2026-01-01';
-\`\`\`
-
-**4. 索引优化**
-\`\`\`sql
--- 添加索引
-ALTER TABLE orders ADD INDEX idx_created_at(created_at);
-
--- 查看索引
-SHOW INDEX FROM orders;
-\`\`\`
-
-**5. 连接数监控**
-\`\`\`sql
-SHOW PROCESSLIST;
-SHOW STATUS LIKE 'Max_used_connections';
-\`\`\`
-
-建议使用 pt-query-digest 工具进行深度分析。`
-
-  } else if (q.includes('内存') || q.includes('oom') || q.includes('out of memory')) {
-    return `内存问题排查与优化：
-
-**1. 查看内存使用**
-\`\`\`bash
-free -h
-cat /proc/meminfo
-vmstat 1 5
-\`\`\`
-
-**2. 找出高内存进程**
-\`\`\`bash
-ps aux --sort=-%mem | head -10
-top -o %MEM
-\`\`\`
-
-**3. 内存泄漏检测**
-\`\`\`bash
-# Linux
-valgrind --leak-check=full ./your_program
-
-# Java
-jmap -dump:format=b,file=heap.hprof <pid>
-\`\`\`
-
-**4. 清理缓存**
-\`\`\`bash
-sync
-echo 3 > /proc/sys/vm/drop_caches
-\`\`\`
-
-**5. OOM 排查**
-检查 /var/log/messages 或 journalctl 中是否有 OOM killer 记录。`
-
-  } else {
-    return `我来帮您分析这个问题。
-
-**通用排查步骤：**
-
-1. **查看系统日志**
-\`\`\`bash
-journalctl -xe
-tail -f /var/log/messages
-\`\`\`
-
-2. **检查服务状态**
-\`\`\`bash
-systemctl status <service-name>
-systemctl restart <service-name>
-\`\`\`
-
-3. **查看资源使用**
-\`\`\`bash
-top
-free -h
-df -h
-netstat -tuln
-\`\`\`
-
-4. **检查网络连接**
-\`\`\`bash
-ss -s
-netstat -an | grep ESTABLISHED
-\`\`\`
-
-请描述更具体的问题，我可以给出更准确的建议。例如：
-- 具体的服务器 IP 或主机名？
-- 问题发生的时间点？
-- 有哪些错误信息？`
-  }
-}
-
-// 新建对话
 const startNewChat = () => {
   messages.value = []
-  currentChatId.value = Date.now()
   currentChatTitle.value = '新对话'
   currentChat.createdAt = new Date()
-  todayStats.conversations++
+  ElMessage.success('已创建新对话')
 }
 
-// 加载历史对话
 const loadChat = (chat) => {
   currentChatId.value = chat.id
   currentChatTitle.value = chat.title
+  ElMessage.info('加载对话: ' + chat.title)
 }
 
-// 处理历史命令
 const handleHistoryCommand = (command, chat) => {
-  switch (command) {
-    case 'rename':
-      ElMessageBox.prompt('请输入新的对话名称', '重命名', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消'
-      }).then(({ value }) => {
-        chat.title = value
-        if (currentChatId.value === chat.id) {
-          currentChatTitle.value = value
-        }
-      }).catch(() => {})
-      break
-    case 'delete':
-      ElMessageBox.confirm('确定要删除该对话吗？', '提示', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }).then(() => {
-        chatHistory.value = chatHistory.value.filter(c => c.id !== chat.id)
-        ElMessage.success('已删除')
-      }).catch(() => {})
-      break
-  }
-}
-
-// 清空对话
-const clearHistory = async () => {
-  try {
-    await ElMessageBox.confirm('确定要清空当前对话记录吗？', '提示', {
+  if (command === 'rename') {
+    ElMessageBox.prompt('请输入新的对话标题', '重命名', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      inputValue: chat.title
+    }).then(({ value }) => {
+      chat.title = value
+      ElMessage.success('已重命名')
+    })
+  } else if (command === 'delete') {
+    ElMessageBox.confirm('确定要删除这个对话吗?', '删除对话', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
       type: 'warning'
+    }).then(() => {
+      const index = chatHistory.value.findIndex(c => c.id === chat.id)
+      if (index > -1) {
+        chatHistory.value.splice(index, 1)
+      }
+      ElMessage.success('已删除')
     })
-    messages.value = []
-    ElMessage.success('已清空对话')
-  } catch (e) {}
+  }
 }
 
-// 复制消息
+const sendMessage = () => {
+  if (!inputMessage.value.trim() || isTyping.value) return
+  
+  const userMsg = {
+    role: 'user',
+    content: inputMessage.value,
+    time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  }
+  messages.value.push(userMsg)
+  const query = inputMessage.value
+  inputMessage.value = ''
+  isTyping.value = true
+  scrollToBottom()
+  
+  setTimeout(() => {
+    isTyping.value = false
+    messages.value.push({
+      role: 'assistant',
+      content: `这是对"${query}"的模拟回复。实际使用时，AI会根据您的本地模型（Qwen3.5）进行智能回复，支持故障诊断、日志分析、脚本生成等多种能力。`,
+      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+    })
+    scrollToBottom()
+  }, 1500)
+}
+
 const copyMessage = (content) => {
   navigator.clipboard.writeText(content)
   ElMessage.success('已复制到剪贴板')
 }
 
-// 重新生成
 const regenerateMessage = (index) => {
-  if (index > 0) {
-    const userMsg = messages.value[index - 1]
-    messages.value.splice(index, 1)
-    inputMessage.value = userMsg.content
-    sendMessage()
-  }
+  ElMessage.info('重新生成回复中...')
+  messages.value.splice(index, 1)
 }
 
-// 使用快捷指令
-const usePrompt = (prompt) => {
-  inputMessage.value = prompt.prompt || prompt.title
-  sendMessage()
+const exportChat = () => {
+  const content = messages.value.map(m => `${m.role === 'user' ? '用户' : 'AI'}: ${m.content}`).join('\n\n')
+  const blob = new Blob([content], { type: 'text/plain' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `对话记录_${Date.now()}.txt`
+  a.click()
+  URL.revokeObjectURL(url)
+  ElMessage.success('对话已导出')
 }
 
-// 选择模型
+const clearHistory = () => {
+  ElMessageBox.confirm('确定要清空当前对话吗?', '清空对话', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(() => {
+    messages.value = []
+    ElMessage.success('对话已清空')
+  })
+}
+
 const selectModel = (model) => {
   currentModel.value = model.id
   showModelSelector.value = false
   ElMessage.success(`已切换到 ${model.name}`)
 }
 
-// 移除上下文
 const removeContext = (type) => {
-  currentContext[type] = ''
+  if (type === 'server') currentContext.server = ''
+  if (type === 'service') currentContext.service = ''
 }
 
-// 导出对话
-const exportChat = () => {
-  const content = messages.value.map(m =>
-    `${m.role === 'user' ? '用户' : 'AI'}: ${m.content}`
-  ).join('\n\n')
-
-  const blob = new Blob([content], { type: 'text/markdown' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `对话记录_${new Date().toLocaleDateString()}.md`
-  a.click()
-  URL.revokeObjectURL(url)
+const usePrompt = (prompt) => {
+  inputMessage.value = prompt.prompt
+  sendMessage()
 }
 
-// 初始化欢迎消息
 onMounted(() => {
-  // 可以在这里加载历史对话
+  // 初始化
 })
 </script>
 
@@ -867,26 +625,24 @@ onMounted(() => {
 @use '@/styles/variables.scss' as *;
 
 .ai-copilot-page {
-  height: calc(100vh - 140px);
-  animation: fadeIn 0.3s ease;
+  height: 100%;
+  background: $bg-page;
 }
 
 .copilot-container {
   display: flex;
   height: 100%;
-  gap: 0;
-  background: $bg-page;
+  overflow: hidden;
 }
 
-// ========== 侧边栏 ==========
+// 侧边栏
 .sidebar {
-  width: 280px;
+  width: 260px;
   background: $bg-container;
   border-right: 1px solid $border-light;
   display: flex;
   flex-direction: column;
-  transition: all 0.3s ease;
-  overflow: hidden;
+  transition: all 0.3s;
 
   &.collapsed {
     width: 60px;
@@ -904,16 +660,16 @@ onMounted(() => {
     display: flex;
     align-items: center;
     gap: $spacing-sm;
+    font-weight: $font-weight-semibold;
+    font-size: $font-size-md;
     color: $primary;
-    font-weight: $font-weight-bold;
-    font-size: $font-size-lg;
   }
 }
 
 .sidebar-content {
   flex: 1;
+  padding: $spacing-md;
   overflow-y: auto;
-  padding: $spacing-lg;
 }
 
 .new-chat-btn {
@@ -925,100 +681,95 @@ onMounted(() => {
   .history-label {
     font-size: $font-size-xs;
     color: $text-placeholder;
-    margin-bottom: $spacing-sm;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    padding: $spacing-sm 0;
+    letter-spacing: 0.5px;
   }
 
   .history-list {
-    display: flex;
-    flex-direction: column;
-    gap: $spacing-xs;
-  }
+    .history-item {
+      display: flex;
+      align-items: center;
+      gap: $spacing-sm;
+      padding: $spacing-sm $spacing-md;
+      border-radius: $radius-md;
+      cursor: pointer;
+      transition: all 0.15s;
+      margin-bottom: 2px;
 
-  .history-item {
-    display: flex;
-    align-items: center;
-    gap: $spacing-sm;
-    padding: $spacing-sm $spacing-md;
-    border-radius: $border-radius-md;
-    cursor: pointer;
-    transition: all 0.2s ease;
+      &:hover {
+        background: $bg-page;
+      }
 
-    &:hover {
-      background: $bg-page;
-    }
+      &.active {
+        background: $primary-lighter;
+        color: $primary;
+      }
 
-    &.active {
-      background: rgba($primary, 0.1);
-      color: $primary;
-    }
+      .el-icon {
+        flex-shrink: 0;
+        color: $text-secondary;
+      }
 
-    .history-title {
-      flex: 1;
-      font-size: $font-size-sm;
-      @include multi-ellipsis(1);
-    }
+      .history-title {
+        flex: 1;
+        font-size: $font-size-sm;
+        @include text-ellipsis;
+      }
 
-    .history-menu {
-      opacity: 0;
-      transition: opacity 0.2s;
-    }
+      .history-menu {
+        opacity: 0;
+        transition: opacity 0.15s;
+      }
 
-    &:hover .history-menu {
-      opacity: 1;
+      &:hover .history-menu {
+        opacity: 1;
+      }
     }
   }
 }
 
 .sidebar-footer {
-  padding: $spacing-lg;
+  padding: $spacing-md;
   border-top: 1px solid $border-light;
 }
 
 .model-status {
   display: flex;
   align-items: center;
-  gap: $spacing-md;
+  gap: $spacing-sm;
+  padding: $spacing-sm;
+  background: $bg-page;
+  border-radius: $radius-md;
 
   .model-indicator {
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
-    background: $success;
-
-    &.offline {
-      background: $danger;
-    }
-
-    &.connecting {
-      background: $warning;
-      animation: pulse 1s infinite;
-    }
+    
+    &.online { background: $success; }
+    &.offline { background: $danger; }
+    &.loading { background: $warning; animation: pulse 1s infinite; }
   }
 
   .model-info {
     flex: 1;
-
-    .model-name {
-      font-size: $font-size-sm;
-      font-weight: $font-weight-medium;
-    }
-
-    .model-status-text {
-      font-size: $font-size-xs;
-      color: $text-secondary;
-    }
+    .model-name { font-size: $font-size-sm; font-weight: $font-weight-medium; }
+    .model-status-text { font-size: $font-size-xs; color: $text-secondary; }
   }
 }
 
-// ========== 主聊天区域 ==========
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+// 主聊天区域
 .chat-main {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: $bg-container;
-  overflow: hidden;
+  min-width: 0;
 }
 
 .chat-header {
@@ -1026,34 +777,33 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: $spacing-lg $spacing-xl;
-  border-bottom: 1px solid $border-light;
   background: $bg-container;
+  border-bottom: 1px solid $border-light;
 
   .header-info {
     .chat-title {
       font-size: $font-size-lg;
       font-weight: $font-weight-semibold;
-      color: $text-primary;
-      margin-bottom: $spacing-xs;
+      margin: 0 0 $space-2 0;
     }
 
     .chat-meta {
       display: flex;
-      gap: $spacing-lg;
+      gap: $spacing-md;
+      font-size: $font-size-sm;
+      color: $text-secondary;
 
       .meta-item {
         display: flex;
         align-items: center;
-        gap: $spacing-xs;
-        font-size: $font-size-xs;
-        color: $text-secondary;
+        gap: 4px;
       }
     }
   }
 
   .header-actions {
     display: flex;
-    gap: $spacing-sm;
+    gap: $spacing-xs;
   }
 }
 
@@ -1061,15 +811,7 @@ onMounted(() => {
   flex: 1;
   overflow-y: auto;
   padding: $spacing-xl;
-
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background: $border-light;
-    border-radius: 3px;
-  }
+  background: $bg-page;
 }
 
 // 空状态
@@ -1079,122 +821,70 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   height: 100%;
-  padding: $spacing-xxl;
-
-  .empty-illustration {
-    margin-bottom: $spacing-xl;
-  }
-
-  .ai-orb {
-    position: relative;
-    width: 120px;
-    height: 120px;
-
-    .orb-inner {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 80px;
-      height: 80px;
-      background: linear-gradient(135deg, $primary, #4080ff);
-      border-radius: 50%;
-      animation: orb-pulse 3s ease-in-out infinite;
-
-      &::after {
-        content: '';
-        position: absolute;
-        top: 20%;
-        left: 25%;
-        width: 30px;
-        height: 20px;
-        background: rgba(255, 255, 255, 0.3);
-        border-radius: 50%;
-        filter: blur(5px);
-      }
-    }
-
-    .orb-ring {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 120px;
-      height: 120px;
-      border: 2px solid rgba($primary, 0.3);
-      border-radius: 50%;
-      animation: ring-expand 2s ease-out infinite;
-    }
-  }
-
-  .empty-title {
-    font-size: $font-size-xl;
-    font-weight: $font-weight-semibold;
-    color: $text-primary;
-    margin: 0 0 $spacing-sm 0;
-  }
-
-  .empty-desc {
-    font-size: $font-size-md;
-    color: $text-secondary;
-    margin: 0 0 $spacing-xxl 0;
-    text-align: center;
-  }
+  min-height: 400px;
 }
 
 .quick-prompts-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: $spacing-md;
-  width: 100%;
+  margin-top: $spacing-xl;
   max-width: 500px;
+}
 
-  .prompt-card {
+.prompt-card {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  padding: $spacing-md $spacing-lg;
+  background: $bg-container;
+  border-radius: $radius-lg;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: $shadow-base;
+    border-color: $primary-lighter;
+  }
+
+  .prompt-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: $radius-md;
     display: flex;
     align-items: center;
-    gap: $spacing-md;
-    padding: $spacing-md $spacing-lg;
-    background: $bg-container;
-    border: 1px solid $border-light;
-    border-radius: $border-radius-lg;
-    cursor: pointer;
-    transition: all 0.25s ease;
-
-    &:hover {
-      transform: translateY(-2px);
-      box-shadow: $shadow-base;
-      border-color: $primary;
-    }
-
-    .prompt-icon {
-      width: 44px;
-      height: 44px;
-      border-radius: $border-radius-md;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #fff;
-      font-size: 20px;
-    }
-
-    .prompt-text {
-      font-size: $font-size-sm;
-      font-weight: $font-weight-medium;
-      color: $text-primary;
-    }
+    justify-content: center;
+    color: #fff;
+    flex-shrink: 0;
   }
+
+  .prompt-text {
+    font-size: $font-size-sm;
+    font-weight: $font-weight-medium;
+  }
+}
+
+.empty-actions-row {
+  display: flex;
+  gap: $spacing-sm;
+  margin-top: $spacing-lg;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 // 消息列表
 .messages-list {
-  display: flex;
-  flex-direction: column;
-  gap: $spacing-lg;
+  max-width: 800px;
+  margin: 0 auto;
 }
 
 .message-wrapper {
   display: flex;
   gap: $spacing-md;
+  margin-bottom: $spacing-xl;
+  animation: fadeInUp 0.3s ease-out;
 
   &.user {
     flex-direction: row-reverse;
@@ -1202,22 +892,27 @@ onMounted(() => {
     .message-bubble {
       background: $primary;
       color: #fff;
-
-      .message-content {
-        :deep(code.inline-code) {
-          background: rgba(255, 255, 255, 0.2);
-        }
-
-        :deep(.code-block) {
-          background: rgba(0, 0, 0, 0.3);
-        }
-      }
+      border-radius: $radius-lg $radius-lg $radius-sm $radius-lg;
 
       .message-footer {
-        .message-time {
-          color: rgba(255, 255, 255, 0.7);
-        }
+        .message-time { color: rgba(255,255,255,0.7); }
       }
+    }
+
+    .avatar-circle {
+      background: linear-gradient(135deg, $primary, $primary-light);
+    }
+  }
+
+  &.assistant {
+    .message-bubble {
+      background: $bg-container;
+      border-radius: $radius-lg $radius-lg $radius-lg $radius-sm;
+      box-shadow: $shadow-sm;
+    }
+
+    .avatar-circle {
+      background: linear-gradient(135deg, #667eea, #764ba2);
     }
   }
 }
@@ -1228,77 +923,47 @@ onMounted(() => {
   .avatar-circle {
     width: 40px;
     height: 40px;
-    border-radius: 50%;
+    border-radius: $radius-round;
     display: flex;
     align-items: center;
     justify-content: center;
     color: #fff;
-
-    &.user {
-      background: $primary;
-    }
-
-    &.assistant {
-      background: linear-gradient(135deg, $success, #23c343);
-    }
   }
 }
 
 .message-bubble {
+  flex: 1;
   max-width: 70%;
   padding: $spacing-md $spacing-lg;
-  border-radius: $border-radius-lg;
-  background: $bg-page;
-
-  &.typing {
-    display: flex;
-    align-items: center;
-    gap: $spacing-md;
-    padding: $spacing-md $spacing-lg;
-  }
 
   .message-content {
-    font-size: $font-size-md;
-    line-height: 1.8;
-    color: $text-primary;
+    font-size: $font-size-base;
+    line-height: 1.7;
 
     :deep(.code-block) {
       background: #1e1e1e;
-      border-radius: $border-radius-md;
+      color: #d4d4d4;
       padding: $spacing-md;
+      border-radius: $radius-md;
       margin: $spacing-md 0;
       overflow-x: auto;
-      font-family: 'Monaco', 'Consolas', monospace;
+      font-family: 'Monaco', 'Menlo', monospace;
       font-size: $font-size-sm;
-      color: #d4d4d4;
-
-      code {
-        color: #d4d4d4;
-      }
     }
 
     :deep(.inline-code) {
-      background: $bg-page;
+      background: rgba(0,0,0,0.08);
       padding: 2px 6px;
-      border-radius: $border-radius-sm;
-      font-family: 'Monaco', monospace;
+      border-radius: 4px;
+      font-family: monospace;
       font-size: 0.9em;
-      color: $primary;
     }
 
-    :deep(h2, h3, h4) {
-      margin: $spacing-md 0;
-      color: $text-primary;
-    }
-
-    :deep(ul) {
-      margin: $spacing-md 0;
-      padding-left: $spacing-lg;
-
-      li {
-        margin-bottom: $spacing-xs;
-      }
-    }
+    :deep(strong) { font-weight: $font-weight-semibold; }
+    :deep(em) { font-style: italic; }
+    :deep(ul), :deep(ol) { padding-left: $spacing-lg; margin: $spacing-sm 0; }
+    :deep(li) { margin: $space-1 0; }
+    :deep(h2), :deep(h3), :deep(h4) { margin: $spacing-md 0 $space-2 0; }
   }
 
   .message-footer {
@@ -1306,8 +971,8 @@ onMounted(() => {
     align-items: center;
     justify-content: space-between;
     margin-top: $spacing-sm;
-    padding-top: $spacing-sm;
-    border-top: 1px solid rgba(0, 0, 0, 0.05);
+    opacity: 0;
+    transition: opacity 0.2s;
 
     .message-time {
       font-size: $font-size-xs;
@@ -1316,22 +981,18 @@ onMounted(() => {
 
     .message-actions {
       display: flex;
-      gap: $spacing-xs;
-      opacity: 0;
-      transition: opacity 0.2s;
-
-      :deep(.el-button) {
-        color: $text-secondary;
-
-        &:hover {
-          color: $primary;
-        }
-      }
+      gap: $space-1;
     }
   }
 
-  &:hover .message-actions {
+  &:hover .message-footer {
     opacity: 1;
+  }
+
+  &.typing {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
   }
 }
 
@@ -1342,12 +1003,24 @@ onMounted(() => {
   .dot {
     width: 8px;
     height: 8px;
-    background: $text-secondary;
+    background: $primary;
     border-radius: 50%;
     animation: typing-bounce 1.4s infinite;
 
+    &:nth-child(1) { animation-delay: 0s; }
     &:nth-child(2) { animation-delay: 0.2s; }
     &:nth-child(3) { animation-delay: 0.4s; }
+  }
+}
+
+@keyframes typing-bounce {
+  0%, 80%, 100% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
   }
 }
 
@@ -1358,160 +1031,150 @@ onMounted(() => {
 
 // 快捷操作栏
 .quick-actions-bar {
-  padding: $spacing-md $spacing-xl;
+  padding: $spacing-sm $spacing-xl;
+  background: $bg-container;
   border-top: 1px solid $border-light;
+  overflow-x: auto;
+
+  &::-webkit-scrollbar { height: 0; }
 
   .quick-actions-scroll {
     display: flex;
     gap: $spacing-sm;
-    overflow-x: auto;
-    padding: $spacing-xs 0;
-
-    &::-webkit-scrollbar {
-      height: 4px;
-    }
-
-    &::-webkit-scrollbar-thumb {
-      background: $border-light;
-      border-radius: 2px;
-    }
   }
 
   .quick-action-chip {
     display: flex;
     align-items: center;
     gap: $spacing-xs;
-    padding: $spacing-xs $spacing-md;
+    padding: 6px 14px;
     background: $bg-page;
     border: 1px solid $border-light;
-    border-radius: 20px;
-    font-size: $font-size-xs;
-    color: $text-secondary;
+    border-radius: $radius-pill;
+    font-size: $font-size-sm;
     cursor: pointer;
     white-space: nowrap;
-    transition: all 0.2s ease;
+    transition: all 0.15s;
 
     &:hover {
-      background: $primary;
-      color: #fff;
+      background: $primary-lighter;
       border-color: $primary;
+      color: $primary;
     }
   }
 }
 
 // 输入区域
 .chat-footer {
-  padding: $spacing-lg $spacing-xl;
+  padding: $spacing-md $spacing-xl;
   background: $bg-container;
   border-top: 1px solid $border-light;
 }
 
 .input-container {
-  .input-wrapper {
-    display: flex;
-    align-items: flex-end;
-    gap: $spacing-md;
-    padding: $spacing-md;
-    background: $bg-page;
-    border: 2px solid transparent;
-    border-radius: $border-radius-lg;
-    transition: all 0.2s ease;
+  max-width: 800px;
+  margin: 0 auto;
+}
 
-    &.focused {
-      border-color: $primary;
-      box-shadow: 0 0 0 3px rgba($primary, 0.1);
-    }
+.input-wrapper {
+  display: flex;
+  align-items: flex-end;
+  gap: $spacing-sm;
+  background: $bg-page;
+  border: 1px solid $border-light;
+  border-radius: $radius-lg;
+  padding: $spacing-sm;
+  transition: all 0.2s;
 
-    :deep(.message-input) {
-      flex: 1;
+  &.focused {
+    border-color: $primary;
+    box-shadow: 0 0 0 3px rgba($primary, 0.1);
+  }
 
-      .el-textarea__inner {
-        border: none;
-        background: transparent;
-        resize: none;
-        font-size: $font-size-md;
-        line-height: 1.6;
-        padding: 0;
+  .message-input {
+    flex: 1;
 
-        &:focus {
-          box-shadow: none;
-        }
+    :deep(.el-textarea__inner) {
+      border: none;
+      background: transparent;
+      resize: none;
+      padding: 8px 0;
+      font-size: $font-size-base;
+
+      &::placeholder {
+        color: $text-placeholder;
       }
-    }
 
-    .input-actions {
-      display: flex;
-      align-items: center;
-      gap: $spacing-sm;
-
-      .send-btn {
-        :deep(.el-button) {
-          padding: $spacing-sm $spacing-lg;
-        }
+      &:focus {
+        box-shadow: none;
       }
     }
   }
 
-  .input-hint {
-    margin-top: $spacing-xs;
-    font-size: $font-size-xs;
-    color: $text-placeholder;
-    text-align: center;
+  .input-actions {
+    display: flex;
+    align-items: center;
+    gap: $spacing-xs;
+    flex-shrink: 0;
   }
 }
 
-// ========== 功能面板 ==========
+.input-hint {
+  text-align: center;
+  font-size: $font-size-xs;
+  color: $text-placeholder;
+  margin-top: $spacing-sm;
+}
+
+// 功能面板
 .features-panel {
   width: 300px;
   background: $bg-container;
   border-left: 1px solid $border-light;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  padding: $spacing-lg;
+  overflow-y: auto;
 }
 
 .panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: $spacing-lg;
-  border-bottom: 1px solid $border-light;
+  margin-bottom: $spacing-lg;
 
   h3 {
-    margin: 0;
     font-size: $font-size-md;
     font-weight: $font-weight-semibold;
+    margin: 0;
   }
 }
 
 .panel-content {
   flex: 1;
-  overflow-y: auto;
-  padding: $spacing-lg;
 }
 
 .capability-card {
   display: flex;
   gap: $spacing-md;
   padding: $spacing-md;
-  margin-bottom: $spacing-md;
-  background: $bg-page;
-  border-radius: $border-radius-md;
-  transition: all 0.2s ease;
+  border-radius: $radius-md;
+  margin-bottom: $spacing-sm;
+  transition: all 0.15s;
+  cursor: pointer;
 
   &:hover {
-    transform: translateX(4px);
+    background: $bg-page;
   }
 
   .cap-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: $border-radius-md;
+    width: 36px;
+    height: 36px;
+    border-radius: $radius-md;
     display: flex;
     align-items: center;
     justify-content: center;
     color: #fff;
-    font-size: 18px;
     flex-shrink: 0;
   }
 
@@ -1519,10 +1182,8 @@ onMounted(() => {
     .cap-title {
       font-size: $font-size-sm;
       font-weight: $font-weight-medium;
-      color: $text-primary;
       margin-bottom: 2px;
     }
-
     .cap-desc {
       font-size: $font-size-xs;
       color: $text-secondary;
@@ -1530,9 +1191,9 @@ onMounted(() => {
   }
 }
 
-.context-section, .stats-section {
-  padding: $spacing-lg;
-  border-top: 1px solid $border-light;
+.context-section,
+.stats-section {
+  margin-top: $spacing-xl;
 
   .section-title {
     display: flex;
@@ -1540,35 +1201,28 @@ onMounted(() => {
     gap: $spacing-xs;
     font-size: $font-size-sm;
     font-weight: $font-weight-medium;
-    color: $text-primary;
+    color: $text-regular;
     margin-bottom: $spacing-md;
   }
+}
 
-  .context-tags {
+.context-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-xs;
+}
+
+.stats-list {
+  .stat-item {
     display: flex;
-    flex-wrap: wrap;
-    gap: $spacing-xs;
-  }
+    justify-content: space-between;
+    padding: $spacing-sm 0;
+    border-bottom: 1px solid $border-light;
 
-  .stats-list {
-    display: flex;
-    flex-direction: column;
-    gap: $spacing-sm;
+    &:last-child { border-bottom: none; }
 
-    .stat-item {
-      display: flex;
-      justify-content: space-between;
-      font-size: $font-size-sm;
-
-      .stat-label {
-        color: $text-secondary;
-      }
-
-      .stat-value {
-        font-weight: $font-weight-medium;
-        color: $text-primary;
-      }
-    }
+    .stat-label { color: $text-secondary; font-size: $font-size-sm; }
+    .stat-value { font-weight: $font-weight-medium; }
   }
 }
 
@@ -1580,13 +1234,13 @@ onMounted(() => {
   width: 40px;
   height: 40px;
   background: $bg-container;
-  border: 1px solid $border-light;
-  border-radius: 50%;
+  border: 1px solid $border;
+  border-radius: $radius-round;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
   z-index: 10;
 
   &:hover {
@@ -1596,126 +1250,62 @@ onMounted(() => {
   }
 }
 
-// ========== 模型选择器 ==========
-.model-selector {
-  .model-list {
-    display: flex;
-    flex-direction: column;
-    gap: $spacing-md;
-  }
-
+// 模型选择器
+.model-list {
   .model-item {
     display: flex;
     align-items: center;
     gap: $spacing-md;
-    padding: $spacing-md;
-    border: 2px solid $border-light;
-    border-radius: $border-radius-md;
+    padding: $spacing-lg;
+    border-radius: $radius-md;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.15s;
+    border: 2px solid transparent;
 
     &:hover {
-      border-color: $primary;
+      background: $bg-page;
     }
 
     &.active {
       border-color: $primary;
-      background: rgba($primary, 0.05);
+      background: $primary-lighter;
     }
 
     .model-icon {
       width: 48px;
       height: 48px;
-      background: linear-gradient(135deg, $primary, #4080ff);
-      border-radius: $border-radius-md;
+      background: $primary-lighter;
+      border-radius: $radius-md;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #fff;
-      font-size: 24px;
+      color: $primary;
+      font-size: 20px;
     }
 
     .model-details {
       flex: 1;
-
-      .model-name {
-        font-size: $font-size-md;
-        font-weight: $font-weight-medium;
-        color: $text-primary;
-      }
-
-      .model-desc {
-        font-size: $font-size-sm;
-        color: $text-secondary;
-      }
+      .model-name { font-weight: $font-weight-medium; margin-bottom: 2px; }
+      .model-desc { font-size: $font-size-sm; color: $text-secondary; }
     }
   }
 }
 
-// ========== 动画 ==========
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes orb-pulse {
-  0%, 100% { transform: translate(-50%, -50%) scale(1); }
-  50% { transform: translate(-50%, -50%) scale(1.05); }
-}
-
-@keyframes ring-expand {
-  0% { transform: translate(-50%, -50%) scale(0.8); opacity: 1; }
-  100% { transform: translate(-50%, -50%) scale(1.2); opacity: 0; }
-}
-
-@keyframes typing-bounce {
-  0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
-  40% { transform: scale(1); opacity: 1; }
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-
-// ========== 响应式 ==========
-@include respond-to('xl') {
-  .features-panel {
-    width: 260px;
+// 设置抽屉
+.settings-content {
+  :deep(.el-form-item) {
+    margin-bottom: $spacing-xl;
   }
 }
 
-@include respond-to('lg') {
-  .sidebar {
-    position: fixed;
-    left: 0;
-    top: 0;
-    height: 100%;
-    z-index: 100;
-    transform: translateX(-100%);
-
-    &:not(.collapsed) {
-      transform: translateX(0);
-      box-shadow: $shadow-lg;
-    }
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
   }
-
-  .features-panel {
-    position: fixed;
-    right: 0;
-    top: 0;
-    height: 100%;
-    z-index: 100;
-    transform: translateX(100%);
-
-    &:not(.collapsed) {
-      transform: translateX(0);
-      box-shadow: $shadow-lg;
-    }
-  }
-
-  .features-toggle {
-    display: flex;
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 </style>

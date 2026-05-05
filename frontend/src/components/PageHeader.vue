@@ -1,105 +1,129 @@
 <template>
-  <div class="page-header" :class="{ 'has-tabs': tabs.length > 0 }">
-    <!-- 标题区 -->
+  <div class="page-header" :class="[`size-${size}`, { 'no-border': noBorder }]">
+    <!-- 左侧 -->
     <div class="header-left">
-      <div class="header-title">
-        <h1 class="title">{{ title }}</h1>
-        <p v-if="subtitle" class="subtitle">{{ subtitle }}</p>
-      </div>
-      <div class="header-tags" v-if="$slots.tags">
-        <slot name="tags"></slot>
-      </div>
-    </div>
+      <!-- 返回按钮 -->
+      <el-button 
+        v-if="showBack" 
+        text 
+        class="back-btn"
+        @click="handleBack"
+      >
+        <el-icon :size="18"><ArrowLeft /></el-icon>
+      </el-button>
 
-    <!-- 操作区 -->
-    <div class="header-right" v-if="$slots.actions || actions.length > 0">
-      <slot name="actions">
-        <el-button
-          v-for="action in actions"
-          :key="action.label"
-          :type="action.type || 'default'"
-          :icon="action.icon"
-          :loading="action.loading"
-          @click="action.handler"
-        >
-          {{ action.label }}
-        </el-button>
-      </slot>
-    </div>
+      <!-- 标题区 -->
+      <div class="header-title-area">
+        <div class="title-row">
+          <!-- 图标 -->
+          <div class="title-icon" v-if="icon" :style="{ background: iconBg }">
+            <el-icon :size="iconSize" :color="iconColor"><component :is="icon"/></el-icon>
+          </div>
+          
+          <!-- 标题 -->
+          <h1 class="page-title">{{ title }}</h1>
+          
+          <!-- 状态标签 -->
+          <el-tag v-if="status" :type="statusType" size="small" effect="light">
+            {{ status }}
+          </el-tag>
 
-    <!-- 标签页 -->
-    <div class="header-tabs" v-if="tabs.length > 0">
-      <div class="tabs-nav">
-        <div
-          v-for="tab in tabs"
-          :key="tab.key"
-          class="tab-item"
-          :class="{ active: activeTab === tab.key }"
-          @click="handleTabClick(tab)"
-        >
-          <el-icon v-if="tab.icon" :size="16"><component :is="tab.icon" /></el-icon>
-          <span>{{ tab.label }}</span>
-          <el-badge
-            v-if="tab.badge"
-            :value="tab.badge"
-            :type="tab.badgeType || 'primary'"
-            :hidden="tab.badge === 0"
+          <!-- 徽章 -->
+          <el-badge 
+            v-if="badge" 
+            :value="badge" 
+            :max="99"
+            :type="badgeType"
           />
         </div>
+
+        <!-- 副标题 -->
+        <p class="page-subtitle" v-if="subtitle">{{ subtitle }}</p>
       </div>
     </div>
 
-    <!-- 快捷搜索 -->
-    <div class="header-quick-search" v-if="showSearch">
-      <el-input
-        v-model="quickSearch"
-        placeholder="快捷搜索... (⌘K)"
-        size="small"
-        clearable
-        @keyup="handleQuickSearch"
-        @focus="showSearchPanel = true"
-        @blur="handleSearchBlur"
-      >
-        <template #prefix>
-          <el-icon><Search /></el-icon>
+    <!-- 右侧操作区 -->
+    <div class="header-right" v-if="$slots.actions || actions.length">
+      <slot name="actions">
+        <template v-for="(action, i) in actions" :key="i">
+          <el-button 
+            v-if="!action.hidden"
+            :type="action.type || 'default'"
+            :size="action.size || 'default'"
+            :icon="action.icon"
+            :loading="action.loading"
+            :disabled="action.disabled"
+            @click="action.handler?.()"
+          >
+            {{ action.text }}
+          </el-button>
         </template>
-      </el-input>
+      </slot>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { Search } from '@element-plus/icons-vue'
+import { computed } from 'vue'
+import { ArrowLeft } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
 
 const props = defineProps({
+  // 标题
   title: { type: String, required: true },
   subtitle: { type: String, default: '' },
-  tabs: { type: Array, default: () => [] },
-  activeTab: { type: String, default: '' },
-  actions: { type: Array, default: () => [] },
-  showSearch: { type: Boolean, default: true }
+  // 图标
+  icon: { type: String, default: '' },
+  iconSize: { type: Number, default: 20 },
+  iconBg: { type: String, default: '' },
+  iconColor: { type: String, default: '' },
+  // 状态
+  status: { type: String, default: '' },
+  statusType: { type: String, default: 'primary' },
+  // 徽章
+  badge: { type: [String, Number], default: null },
+  badgeType: { type: String, default: 'primary' },
+  // 返回按钮
+  showBack: { type: Boolean, default: false },
+  backPath: { type: String, default: '' },
+  // 尺寸
+  size: { 
+    type: String, 
+    default: 'md',
+    validator: (v) => ['sm', 'md', 'lg'].includes(v)
+  },
+  // 操作按钮
+  actions: {
+    type: Array,
+    default: () => []
+  },
+  // 无边框
+  noBorder: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['tab-change', 'search', 'action'])
+const emit = defineEmits(['back'])
 
-const quickSearch = ref('')
-const showSearchPanel = ref(false)
-
-const handleTabClick = (tab) => {
-  emit('tab-change', tab.key)
-}
-
-const handleQuickSearch = () => {
-  if (quickSearch.value.length > 0) {
-    emit('search', quickSearch.value)
+// 默认图标背景色
+const defaultIconBg = computed(() => {
+  const colorMap = {
+    primary: 'var(--el-color-primary-light-8)',
+    success: 'var(--el-color-success-light-8)',
+    warning: 'var(--el-color-warning-light-8)',
+    danger: 'var(--el-color-danger-light-8)',
+    info: 'var(--el-color-info-light-8)'
   }
-}
+  return props.iconBg || colorMap.primary
+})
 
-const handleSearchBlur = () => {
-  setTimeout(() => {
-    showSearchPanel.value = false
-  }, 200)
+const handleBack = () => {
+  if (props.backPath) {
+    router.push(props.backPath)
+  } else {
+    router.back()
+  }
+  emit('back')
 }
 </script>
 
@@ -107,101 +131,100 @@ const handleSearchBlur = () => {
 @use '@/styles/variables.scss' as *;
 
 .page-header {
-  @include flex-between;
-  padding: $space-6 $space-8;
-  background: $bg-container;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: $spacing-xl 0;
+  margin-bottom: $spacing-lg;
   border-bottom: 1px solid $border-light;
-  position: relative;
+  transition: all 0.2s;
 
-  &.has-tabs {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: $space-4;
+  &.no-border {
+    border-bottom: none;
+    margin-bottom: 0;
+  }
+
+  // 尺寸
+  &.size-sm {
+    padding: $spacing-md 0;
+
+    .page-title {
+      font-size: $font-size-lg;
+    }
+  }
+
+  &.size-lg {
+    padding: $spacing-xl * 1.5 0;
+
+    .page-title {
+      font-size: $font-size-xxl;
+    }
   }
 }
 
 .header-left {
-  @include flex-start;
-  gap: $space-4;
-  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
 }
 
-.header-title {
-  .title {
-    font-size: $font-size-xxl;
+.back-btn {
+  padding: $space-2;
+  border-radius: $radius-md;
+  transition: all 0.15s;
+
+  &:hover {
+    background: $bg-page;
+  }
+
+  .el-icon {
+    color: $text-secondary;
+    transition: transform 0.2s;
+  }
+
+  &:hover .el-icon {
+    transform: translateX(-2px);
+    color: $text-primary;
+  }
+}
+
+.header-title-area {
+  .title-row {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+  }
+
+  .title-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: $radius-md;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .page-title {
+    font-size: $font-size-xl;
     font-weight: $font-weight-bold;
     color: $text-primary;
     margin: 0;
-    line-height: 1.3;
+    line-height: 1.4;
   }
 
-  .subtitle {
+  .page-subtitle {
     font-size: $font-size-sm;
     color: $text-secondary;
-    margin: $space-1 0 0 0;
+    margin: $space-2 0 0 0;
+    line-height: 1.5;
   }
-}
-
-.header-tags {
-  @include flex-start;
-  gap: $space-2;
 }
 
 .header-right {
-  @include flex-start;
-  gap: $space-3;
-
-  .el-button {
-    font-weight: $font-weight-medium;
-  }
-}
-
-.header-tabs {
-  width: 100%;
-  margin-top: $space-4;
-  border-top: 1px solid $border-lighter;
-  padding-top: $space-4;
-}
-
-.tabs-nav {
   display: flex;
-  gap: $space-2;
-  flex-wrap: wrap;
-}
-
-.tab-item {
-  @include flex-center;
-  gap: $space-2;
-  padding: $space-2 $space-4;
-  border-radius: $radius-md;
-  font-size: $font-size-sm;
-  font-weight: $font-weight-medium;
-  color: $text-secondary;
-  cursor: pointer;
-  transition: $transition-fast;
-  background: $bg-page;
-  border: 1px solid transparent;
-
-  &:hover {
-    color: $primary;
-    background: $primary-lighter;
-  }
-
-  &.active {
-    color: $primary;
-    background: $primary-lighter;
-    border-color: rgba($primary, 0.2);
-  }
-}
-
-.header-quick-search {
-  position: absolute;
-  right: $space-8;
-  top: 50%;
-  transform: translateY(-50%);
-
-  .el-input {
-    width: 240px;
-  }
+  align-items: center;
+  gap: $spacing-sm;
+  flex-shrink: 0;
 }
 </style>

@@ -62,6 +62,15 @@ $radius-xxl: 20px;
 $radius-round: 50%;
 $radius-pill: 100px;
 
+// 兼容性别名 (与现有代码一致)
+$border-radius-xs: $radius-xs;
+$border-radius-sm: $radius-sm;
+$border-radius-base: $radius-base;
+$border-radius-md: $radius-md;
+$border-radius-lg: $radius-lg;
+$border-radius-xl: $radius-xl;
+$border-radius-xxl: $radius-xxl;
+
 // ========== 字体系统 ==========
 $font-size-xs: 12px;
 $font-size-sm: 12px;
@@ -178,9 +187,26 @@ $z-toast: 1080;
   border-radius: $radius-lg;
   box-shadow: $shadow-sm;
   transition: $transition-base;
-  
+
   &:hover {
     box-shadow: $shadow-base;
+  }
+}
+
+// ========== 响应式断点 ==========
+$breakpoints: (
+  'sm': 640px,
+  'md': 768px,
+  'lg': 1024px,
+  'xl': 1280px,
+  '2xl': 1536px
+);
+
+@mixin respond-to($breakpoint) {
+  @if map-has-key($breakpoints, $breakpoint) {
+    @media (min-width: map-get($breakpoints, $breakpoint)) {
+      @content;
+    }
   }
 }
 
@@ -188,21 +214,20 @@ $z-toast: 1080;
   background: $bg-container;
   border-radius: $radius-lg;
   box-shadow: $shadow-md;
-  border: 1px solid $border-light;
 }
 
 @mixin gradient($color1, $color2) {
-  background: linear-gradient(135deg, $color1 0%, $color2 100%);
+  background: linear-gradient(135deg, $color1, $color2);
 }
 
 @mixin glass-effect {
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba($bg-container, 0.8);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
 
 @mixin truncate($width: 100%) {
-  max-width: $width;
+  width: $width;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

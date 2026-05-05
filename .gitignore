@@ -55,3 +55,9 @@ Thumbs.db
 # Local config
 config/local/
 config/*.local.yaml
+node_modules/
+package-lock.json
+dist/
+.env
+*.log
+.DS_Store

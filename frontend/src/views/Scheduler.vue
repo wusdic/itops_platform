@@ -201,12 +201,12 @@
               </el-tooltip>
               <el-tooltip content="暂停任务" placement="top" v-if="row.status === 'running'">
                 <el-button text type="warning" size="small" @click="handlePause(row)">
-                  <el-icon><Pause /></el-icon>
+                  <el-icon><VideoPause /></el-icon>
                 </el-button>
               </el-tooltip>
               <el-tooltip content="恢复任务" placement="top" v-if="row.status === 'paused'">
                 <el-button text type="success" size="small" @click="handleResume(row)">
-                  <el-icon><Play /></el-icon>
+                  <el-icon><VideoPlay /></el-icon>
                 </el-button>
               </el-tooltip>
               <el-tooltip content="执行日志" placement="top">
@@ -462,7 +462,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Search, Refresh, Plus, Setting, Edit, List, MoreFilled, QuestionFilled,
-  VideoPlay, Pause, Play, DataLine, Document, Warning, CircleCheck, Clock, Timer
+  VideoPlay, VideoPause, DataLine, Document, Warning, CircleCheck, Clock, Timer
 } from '@element-plus/icons-vue'
 
 // 状态

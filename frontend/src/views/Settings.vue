@@ -799,7 +799,7 @@
             <template #prefix>
               <el-icon><Message /></el-icon>
             </template>
-          </el-form-item>
+          </el-input>
         </el-form-item>
         <div class="form-grid">
           <el-form-item label="角色">
@@ -1536,7 +1536,7 @@ onUnmounted(() => {
   width: 80px;
   height: 80px;
   background: $bg-page;
-  border: 2px dashed $border-base;
+  border: 2px dashed $border;
   border-radius: $border-radius-lg;
   display: flex;
   align-items: center;
