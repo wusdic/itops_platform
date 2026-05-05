@@ -1,68 +1,56 @@
 """
-Windows远程管理客户端 (WinRM)
-用于Windows系统的远程管理和数据采集
+WinRM客户端
+支持Windows远程管理协议，用于采集Windows服务器监控数据
 """
 
 import logging
-import subprocess
+from typing import Any, Dict, List, Optional
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
-# WinRM导入
 try:
     import winrm
-    from winrm import Session as WinRMSession
-    from winrm.exceptions import WinRMError
+    from winrm.protocol import Protocol
     _winrm_available = True
 except ImportError:
     _winrm_available = False
-    WinRMSession = object
+    logger.warning("winrm模块未安装，WinRM功能将不可用")
 
 
 @dataclass
 class WinRMConfig:
     """WinRM配置"""
     host: str
-    username: str
-    password: str
-    port: int = 5985  # HTTP
-    https_port: int = 5986  # HTTPS
-    transport: str = 'ntlm'  # ntlm, kerberos, basic
-    use_https: bool = False
-    ca_trust_path: Optional[str] = None
-    server_cert_validation: str = 'ignore'  # ignore, flexible, strict
-    read_timeout: int = 30
-    operation_timeout: int = 30
-    connection_timeout: int = 10
-    encoding: str = 'utf-8'
+    port: int = 5985  # HTTP: 5985, HTTPS: 5986
+    username: str = 'administrator'
+    password: str = ''
+    transport: str = 'ntlm'  # ntlm, kerberos, plaintext
+    ssl: bool = False
+    cacert: Optional[str] = None  # CA证书路径
+    timeout: int = 30
+    read_timeout: int = 60
 
 
 class WinRMClient:
     """
     WinRM客户端
     
-    功能特性：
-    1. PowerShell命令执行
-    2. Windows WMI查询
-    3. 批量脚本执行
+    用于通过WinRM协议远程管理Windows服务器。
+    
+    支持:
+    - 执行PowerShell命令
+    - 执行CMD命令
+    - 获取WMI数据
+    - 文件传输
     """
     
-    def __init__(self, config: WinRMConfig = None, **kwargs):
-        """
-        初始化WinRM客户端
-        
-        Args:
-            config: WinRM配置
-            **kwargs: 配置参数
-        """
+    def __init__(self, config: WinRMConfig):
         if not _winrm_available:
-            # 提供备选方案：使用subprocess调用winrs
-            logger.warning("winrm库未安装，将使用subprocess方式")
+            raise ImportError("winrm模块未安装，请执行: pip install pywinrm")
         
-        self._config = config or WinRMConfig(**kwargs)
-        self._session: Optional[WinRMSession] = None
+        self._config = config
+        self._session = None
         self._connected = False
     
     def connect(self) -> bool:
@@ -72,96 +60,61 @@ class WinRMClient:
         Returns:
             连接是否成功
         """
-        if _winrm_available:
-            return self._connect_winrm()
-        else:
-            return self._connect_subprocess()
-    
-    def _connect_winrm(self) -> bool:
-        """使用winrm库连接"""
         try:
-            endpoint = self._get_endpoint()
+            protocol = 'https' if self._config.ssl else 'http'
+            endpoint = f'{protocol}://{self._config.host}:{self._config.port}/wsman'
             
-            self._session = WinRMSession(
+            self._session = winrm.Session(
                 endpoint,
-                auth=(self._config.username, self._config.password),
+                auth=(
+                    self._config.username,
+                    self._config.password
+                ),
                 transport=self._config.transport,
-                ca_trust_path=self._config.ca_trust_path,
-                server_cert_validation=self._config.server_cert_validation,
-                read_timeout=self._config.read_timeout,
-                operation_timeout=self._config.operation_timeout,
-                connection_timeout=self._config.connection_timeout
+                ca_trust_path=self._config.cacert,
+                timeout=self._config.timeout,
+                read_timeout=self._config.read_timeout
             )
             
-            # 测试连接
-            result = self._session.run_cmd('echo test')
-            if result.status_code == 0:
-                self._connected = True
-                logger.info(f"WinRM连接成功: {self._config.host}")
-                return True
-            
-            return False
+            # 测试连接 - 执行简单命令
+            _, stdout, _ = self._session.run_cmd('echo test')
+            self._connected = 'test' in stdout
+            logger.info(f"WinRM连接成功: {self._config.username}@{self._config.host}:{self._config.port}")
+            return self._connected
             
         except Exception as e:
             logger.error(f"WinRM连接失败: {self._config.host} - {e}")
             self._connected = False
             return False
     
-    def _connect_subprocess(self) -> bool:
-        """使用subprocess调用winrs"""
+    def run_cmd(self, command: str) -> tuple:
+        """
+        执行CMD命令
+        
+        Args:
+            command: 命令
+            
+        Returns:
+            (返回码, stdout, stderr)
+        """
+        if not self._connected:
+            if not self.connect():
+                return -1, '', 'Not connected'
+        
         try:
-            # 测试连接
-            cmd = self._build_winrs_command('echo test')
-            result = subprocess.run(
-                cmd, 
-                capture_output=True, 
-                text=True, 
-                timeout=10
-            )
-            
-            if result.returncode == 0:
-                self._connected = True
-                logger.info(f"WinRM连接成功: {self._config.host}")
-                return True
-            
-            return False
-            
+            rc, stdout, stderr = self._session.run_cmd(command)
+            return rc, stdout, stderr
         except Exception as e:
-            logger.error(f"WinRM连接失败: {self._config.host} - {e}")
-            self._connected = False
-            return False
+            logger.error(f"CMD执行失败: {command[:50]} - {e}")
+            return -1, '', str(e)
     
-    def _get_endpoint(self) -> str:
-        """获取WinRM端点URL"""
-        if self._config.use_https:
-            return f"https://{self._config.host}:{self._config.https_port}/wsman"
-        else:
-            return f"http://{self._config.host}:{self._config.port}/wsman"
-    
-    def _build_winrs_command(self, command: str) -> List[str]:
-        """构建winrs命令"""
-        port = self._config.https_port if self._config.use_https else self._config.port
-        protocol = 'https' if self._config.use_https else 'http'
-        
-        cmd = [
-            'winrs',
-            f'-r:{protocol}://{self._config.host}:{port}',
-            '-u', self._config.username,
-            '-p', self._config.password,
-            '-d', 'wsman',
-            command
-        ]
-        
-        return cmd
-    
-    def execute(self, command: str, timeout: int = None) -> Tuple[int, str, str]:
+    def run_ps(self, script: str) -> tuple:
         """
         执行PowerShell命令
         
         Args:
-            command: 命令或脚本
-            timeout: 超时时间(秒)
-        
+            script: PowerShell脚本
+            
         Returns:
             (返回码, stdout, stderr)
         """
@@ -169,458 +122,308 @@ class WinRMClient:
             if not self.connect():
                 return -1, '', 'Not connected'
         
-        timeout = timeout or self._config.read_timeout
-        
         try:
-            if _winrm_available and self._session:
-                result = self._session.run_cmd(command, timeout=timeout)
-                return result.status_code, result.std_out, result.std_err
-            else:
-                # 使用subprocess
-                cmd = self._build_winrs_command(command)
-                result = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    timeout=timeout
-                )
-                return result.returncode, result.stdout, result.stderr
-                
-        except subprocess.TimeoutExpired:
-            return -1, '', 'Command timeout'
+            rc, stdout, stderr = self._session.run_ps(script)
+            return rc, stdout, stderr
         except Exception as e:
-            logger.error(f"命令执行失败: {command[:50]} - {e}")
+            logger.error(f"PowerShell执行失败: {script[:50]} - {e}")
             return -1, '', str(e)
     
-    def execute_ps(self, script: str, timeout: int = None) -> Tuple[int, str, str]:
+    def get_wmi_class(self, class_name: str) -> List[Dict[str, Any]]:
         """
-        执行PowerShell脚本
+        获取WMI类数据
         
         Args:
-            script: PowerShell脚本内容
-            timeout: 超时时间(秒)
-        
+            class_name: WMI类名 (如 Win32_OperatingSystem, Win32_Processor)
+            
         Returns:
-            (返回码, stdout, stderr)
+            WMI实例列表
         """
-        if not self._connected:
-            if not self.connect():
-                return -1, '', 'Not connected'
+        ps_script = f'''
+        $items = Get-WmiObject -Class {class_name} -ErrorAction SilentlyContinue
+        $items | ForEach-Object {{
+            $obj = @{{}}
+            $_.PSObject.Properties | ForEach-Object {{
+                if ($_.Value -ne $null) {{
+                    $obj[$_.Name] = $_.Value
+                }}
+            }}
+            $obj
+        }} | ConvertTo-Json -Compress
+        '''
         
-        # 将脚本包装为PowerShell调用
-        timeout = timeout or self._config.read_timeout
+        rc, stdout, stderr = self.run_ps(ps_script)
+        
+        if rc != 0 or not stdout.strip():
+            logger.warning(f"WMI查询失败: {class_name}")
+            return []
         
         try:
-            if _winrm_available and self._session:
-                ps_script = f'''
-                $ErrorActionPreference = 'Stop'
-                try {{
-                    {script}
-                }} catch {{
-                    Write-Error $_.Exception.Message
-                    exit 1
-                }}
-                '''
-                result = self._session.run_ps(ps_script, timeout=timeout)
-                return result.status_code, result.std_out, result.std_err
-            else:
-                cmd = self._build_winrs_command(f'powershell -Command "{script}"')
-                result = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    timeout=timeout
-                )
-                return result.returncode, result.stdout, result.stderr
-                
-        except subprocess.TimeoutExpired:
-            return -1, '', 'Script timeout'
-        except Exception as e:
-            logger.error(f"PowerShell脚本执行失败: {e}")
-            return -1, '', str(e)
+            import json
+            data = json.loads(stdout.strip())
+            # 确保返回列表
+            if isinstance(data, dict):
+                return [data]
+            return data
+        except json.JSONDecodeError:
+            logger.warning(f"WMI解析失败: {class_name}")
+            return []
     
-    def collect_system_info(self) -> Dict[str, Any]:
+    def get_system_info(self) -> Dict[str, Any]:
         """
-        采集系统信息
+        获取Windows系统信息
         
         Returns:
             系统信息字典
         """
-        script = '''
-        $info = @{}
-        
-        # 计算机信息
-        $cs = Get-CimInstance Win32_ComputerSystem
-        $info.ComputerName = $cs.Name
-        $info.Domain = $cs.Domain
-        $info.Manufacturer = $cs.Manufacturer
-        $info.Model = $cs.Model
+        info = {}
         
         # 操作系统信息
-        $os = Get-CimInstance Win32_OperatingSystem
-        $info.OSName = $os.Caption
-        $info.OSVersion = $os.Version
-        $info.OSBuild = $os.BuildNumber
-        $info.InstallDate = $os.InstallDate
-        $info.LastBootTime = $os.LastBootUpTime
+        os_info = self.get_wmi_class('Win32_OperatingSystem')
+        if os_info:
+            os = os_info[0]
+            info['os'] = {
+                'caption': os.get('Caption', ''),
+                'version': os.get('Version', ''),
+                'build_number': os.get('BuildNumber', ''),
+                'architecture': os.get('OSArchitecture', ''),
+                'total_memory': os.get('TotalVisibleMemorySize', 0),
+                'free_memory': os.get('FreePhysicalMemory', 0),
+                'cs_name': os.get('CSName', ''),
+            }
         
-        # CPU信息
-        $cpu = Get-CimInstance Win32_Processor
-        $info.CPUName = $cpu.Name
-        $info.CPUCores = $cpu.NumberOfCores
-        $info.CPULogicalProcessors = $cpu.NumberOfLogicalProcessors
-        $info.CPUMaxSpeed = $cpu.MaxClockSpeed
+        # 计算机系统信息
+        cs_info = self.get_wmi_class('Win32_ComputerSystem')
+        if cs_info:
+            cs = cs_info[0]
+            info['computer'] = {
+                'name': cs.get('Name', ''),
+                'domain': cs.get('Domain', ''),
+                'manufacturer': cs.get('Manufacturer', ''),
+                'model': cs.get('Model', ''),
+                'total_memory': cs.get('TotalPhysicalMemory', 0),
+            }
         
-        # 内存信息
-        $info.TotalMemoryGB = [math]::Round($cs.TotalPhysicalMemory / 1GB, 2)
-        $info.FreeMemoryGB = [math]::Round($os.FreePhysicalMemory / 1MB, 2)
+        # 处理器信息
+        cpu_info = self.get_wmi_class('Win32_Processor')
+        if cpu_info:
+            info['cpu'] = {
+                'name': cpu_info[0].get('Name', ''),
+                'cores': cpu_info[0].get('NumberOfCores', 0),
+                'logical_processors': cpu_info[0].get('NumberOfLogicalProcessors', 0),
+                'max_clock_speed': cpu_info[0].get('MaxClockSpeed', 0),
+            }
         
-        $info | ConvertTo-Json -Compress
-        '''
+        # BIOS信息
+        bios_info = self.get_wmi_class('Win32_BIOS')
+        if bios_info:
+            info['bios'] = {
+                'manufacturer': bios_info[0].get('Manufacturer', ''),
+                'version': bios_info[0].get('SMBIOSBIOSVersion', ''),
+                'serial': bios_info[0].get('SerialNumber', ''),
+            }
         
-        exit_code, stdout, stderr = self.execute_ps(script)
-        
-        if exit_code == 0:
-            import json
-            try:
-                return json.loads(stdout)
-            except json.JSONDecodeError:
-                logger.warning("系统信息JSON解析失败")
-                return {'raw_output': stdout}
-        
-        return {'error': stderr or '采集失败'}
+        return info
     
-    def collect_disk_info(self) -> List[Dict[str, Any]]:
+    def get_services(self) -> List[Dict[str, Any]]:
         """
-        采集磁盘信息
+        获取Windows服务列表
+        
+        Returns:
+            服务列表
+        """
+        return self.get_wmi_class('Win32_Service')
+    
+    def get_processes(self) -> List[Dict[str, Any]]:
+        """
+        获取进程列表
+        
+        Returns:
+            进程列表
+        """
+        return self.get_wmi_class('Win32_Process')
+    
+    def get_disk_info(self) -> List[Dict[str, Any]]:
+        """
+        获取磁盘信息
         
         Returns:
             磁盘信息列表
         """
-        script = '''
-        Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" | ForEach-Object {
-            @{
-                Drive = $_.DeviceID
-                VolumeName = $_.VolumeName
-                FileSystem = $_.FileSystem
-                TotalGB = [math]::Round($_.Size / 1GB, 2)
-                FreeGB = [math]::Round($_.FreeSpace / 1GB, 2)
-                UsedPercent = [math]::Round(($_.Size - $_.FreeSpace) / $_.Size * 100, 1)
-            }
-        } | ConvertTo-Json -Compress
-        '''
-        
-        exit_code, stdout, stderr = self.execute_ps(script)
-        
-        if exit_code == 0:
-            import json
-            try:
-                data = json.loads(stdout)
-                return data if isinstance(data, list) else [data]
-            except json.JSONDecodeError:
-                logger.warning("磁盘信息JSON解析失败")
-                return []
-        
-        return []
+        return self.get_wmi_class('Win32_LogicalDisk')
     
-    def collect_network_info(self) -> List[Dict[str, Any]]:
+    def get_network_info(self) -> List[Dict[str, Any]]:
         """
-        采集网络信息
+        获取网络配置信息
         
         Returns:
-            网络接口信息列表
+            网络配置列表
         """
-        script = '''
-        Get-CimInstance Win32_NetworkAdapterConfiguration -Filter IPEnabled=True | ForEach-Object {
-            @{
-                Description = $_.Description
-                MACAddress = $_.MACAddress
-                IPAddress = $_.IPAddress
-                SubnetMask = $_.IPSubnet
-                Gateway = $_.DefaultIPGateway
-                DNS = $_.DNSServerSearchOrder
-                DHCPEnabled = $_.DHCPEnabled
-                DHCPServer = $_.DHCPServer
-            }
-        } | ConvertTo-Json -Compress
-        '''
-        
-        exit_code, stdout, stderr = self.execute_ps(script)
-        
-        if exit_code == 0:
-            import json
-            try:
-                data = json.loads(stdout)
-                return data if isinstance(data, list) else [data]
-            except json.JSONDecodeError:
-                logger.warning("网络信息JSON解析失败")
-                return []
-        
-        return []
+        return self.get_wmi_class('Win32_NetworkAdapterConfiguration')
     
-    def collect_service_info(self, service_name: str = None) -> List[Dict[str, Any]]:
+    def get_perf_counters(self, counter_path: str) -> List[Dict[str, Any]]:
         """
-        采集服务信息
+        获取性能计数器数据
         
         Args:
-            service_name: 服务名称，为空则获取所有服务
-        
+            counter_path: 性能计数器路径 (如 \\Processor(_Total)\\% Processor Time)
+            
         Returns:
-            服务信息列表
+            性能数据列表
         """
-        if service_name:
-            script = f'''
-            Get-Service -Name "{service_name}" | ForEach-Object {{
-                @{{
-                    Name = $_.Name
-                    DisplayName = $_.DisplayName
-                    Status = $_.Status.ToString()
-                    StartType = $_.StartType.ToString()
-                }}
-            }} | ConvertTo-Json -Compress
-            '''
-        else:
-            script = '''
-            Get-Service | ForEach-Object {
-                @{
-                    Name = $_.Name
-                    DisplayName = $_.DisplayName
-                    Status = $_.Status.ToString()
-                    StartType = $_.StartType.ToString()
-                }
-            } | ConvertTo-Json -Compress
-            '''
-        
-        exit_code, stdout, stderr = self.execute_ps(script)
-        
-        if exit_code == 0:
-            import json
-            try:
-                data = json.loads(stdout)
-                return data if isinstance(data, list) else [data]
-            except json.JSONDecodeError:
-                logger.warning("服务信息JSON解析失败")
-                return []
-        
-        return []
-    
-    def collect_process_info(self) -> List[Dict[str, Any]]:
-        """
-        采集进程信息
-        
-        Returns:
-            进程信息列表
-        """
-        script = '''
-        Get-Process | Select-Object -First 100 | ForEach-Object {
-            @{
-                Name = $_.Name
-                PID = $_.Id
-                CPU = [math]::Round($_.CPU, 2)
-                MemoryMB = [math]::Round($_.WorkingSet64 / 1MB, 2)
-                StartTime = $_.StartTime
+        ps_script = f'''
+        $counters = Get-Counter -Counter "{counter_path}" -ErrorAction SilentlyContinue
+        $counters.CounterSamples | ForEach-Object {{
+            @{{
                 Path = $_.Path
-            }
-        } | ConvertTo-Json -Compress
+                Value = $_.CookedValue
+                Timestamp = $_.Timestamp
+            }}
+        }} | ConvertTo-Json -Compress
         '''
         
-        exit_code, stdout, stderr = self.execute_ps(script)
+        rc, stdout, stderr = self.run_ps(ps_script)
         
-        if exit_code == 0:
+        if rc != 0 or not stdout.strip():
+            return []
+        
+        try:
             import json
-            try:
-                data = json.loads(stdout)
-                return data if isinstance(data, list) else [data]
-            except json.JSONDecodeError:
-                logger.warning("进程信息JSON解析失败")
-                return []
-        
-        return []
+            data = json.loads(stdout.strip())
+            if isinstance(data, dict):
+                return [data]
+            return data
+        except json.JSONDecodeError:
+            return []
     
-    def collect_event_log(self, log_name: str = 'System', 
-                          level: str = 'Error',
-                          hours: int = 24) -> List[Dict[str, Any]]:
+    def collect_all_metrics(self) -> Dict[str, Any]:
         """
-        采集事件日志
-        
-        Args:
-            log_name: 日志名称 (System, Application, Security)
-            level: 级别 (Error, Warning, Information)
-            hours: 过去几小时
+        采集所有监控指标
         
         Returns:
-            事件日志列表
+            监控指标数据
         """
-        script = f'''
-        $startTime = (Get-Date).AddHours(-{hours})
-        Get-WinEvent -LogName "{log_name}" -MaxEvents 100 |
-            Where-Object {{ $_.TimeCreated -gt $startTime -and $_.LevelDisplayName -eq "{level}" }} |
-            ForEach-Object {{
-                @{{
-                    TimeCreated = $_.TimeCreated.ToString('yyyy-MM-dd HH:mm:ss')
-                    ProviderName = $_.ProviderName
-                    Id = $_.Id
-                    Level = $_.LevelDisplayName
-                    Message = $_.Message.Substring(0, [Math]::Min(200, $_.Message.Length))
-                }}
-            }} | ConvertTo-Json -Compress
-        '''
+        metrics = {
+            'host': self._config.host,
+            'timestamp': None,
+        }
         
-        exit_code, stdout, stderr = self.execute_ps(script)
+        # 系统信息
+        metrics['system'] = self.get_system_info()
         
-        if exit_code == 0:
-            import json
-            try:
-                data = json.loads(stdout)
-                return data if isinstance(data, list) else [data]
-            except json.JSONDecodeError:
-                logger.warning("事件日志JSON解析失败")
-                return []
+        # 性能计数器 - CPU
+        cpu_counters = self.get_perf_counters(r'\Processor(_Total)\% Processor Time')
+        if cpu_counters:
+            metrics['cpu_usage'] = cpu_counters[0].get('Value', 0)
         
-        return []
+        # 性能计数器 - 内存
+        mem_counters = self.get_perf_counters(r'\Memory\% Committed Bytes In Use')
+        if mem_counters:
+            metrics['memory_usage'] = mem_counters[0].get('Value', 0)
+        
+        # 磁盘信息
+        metrics['disks'] = self.get_disk_info()
+        
+        # 网络信息
+        metrics['network'] = self.get_network_info()
+        
+        return metrics
     
-    def query_wmi(self, class_name: str, 
-                  properties: List[str] = None,
-                  filter_expr: str = None) -> List[Dict[str, Any]]:
+    def close(self) -> None:
+        """关闭连接"""
+        self._session = None
+        self._connected = False
+        logger.debug(f"WinRM连接已关闭: {self._config.host}")
+
+
+class WMIClient:
+    """
+    WMI客户端（通过WinRM执行WMI查询）
+    
+    提供WMI查询能力，用于Windows监控。
+    """
+    
+    def __init__(self, winrm_config: WinRMConfig):
+        self._winrm = WinRMClient(winrm_config)
+    
+    def connect(self) -> bool:
+        """建立连接"""
+        return self._winrm.connect()
+    
+    def query(self, wql: str) -> List[Dict[str, Any]]:
         """
-        执行WMI查询
+        执行WQL查询
         
         Args:
-            class_name: WMI类名
-            properties: 属性列表，为空则获取所有
-            filter_expr: 过滤表达式
-        
+            wql: WQL查询语句
+            
         Returns:
             查询结果列表
         """
-        props_str = '*' if not properties else ', '.join(properties)
+        ps_script = f'''
+        $result = Get-WmiObject -Query "{wql}" -ErrorAction SilentlyContinue
+        $result | Select-Object -First 100 | ForEach-Object {{
+            $obj = @{{}}
+            $_.PSObject.Properties | ForEach-Object {{
+                if ($_.Value -ne $null) {{
+                    $obj[$_.Name] = $_.Value
+                }}
+            }}
+            $obj
+        }} | ConvertTo-Json -Complement
+        '''
         
-        if filter_expr:
-            script = f'''
-            Get-CimInstance {class_name} -Filter "{filter_expr}" |
-                Select-Object {props_str} |
-                ConvertTo-Json -Compress
-            '''
-        else:
-            script = f'''
-            Get-CimInstance {class_name} |
-                Select-Object {props_str} |
-                ConvertTo-Json -Compress
-            '''
+        rc, stdout, stderr = self._winrm.run_ps(ps_script)
         
-        exit_code, stdout, stderr = self.execute_ps(script)
+        if rc != 0 or not stdout.strip():
+            return []
         
-        if exit_code == 0:
+        try:
             import json
-            try:
-                data = json.loads(stdout)
-                return data if isinstance(data, list) else [data]
-            except json.JSONDecodeError:
-                logger.warning("WMI查询结果JSON解析失败")
-                return []
-        
-        return []
+            data = json.loads(stdout.strip())
+            if isinstance(data, dict):
+                return [data]
+            return data
+        except json.JSONDecodeError:
+            return []
     
-    def collect_all(self) -> Dict[str, Any]:
-        """
-        采集所有系统信息
-        
-        Returns:
-            完整的系统信息
-        """
-        data = {
-            'host': self._config.host,
-            'timestamp': None,
-            'system': self.collect_system_info(),
-            'disks': self.collect_disk_info(),
-            'network': self.collect_network_info(),
-            'services': self.collect_service_info(),
-            'processes': self.collect_process_info()[:20],  # 限制数量
-            'event_errors': self.collect_event_log('System', 'Error', 24),
-            'event_warnings': self.collect_event_log('System', 'Warning', 24)
-        }
-        
-        return data
-    
-    def start_service(self, service_name: str) -> Tuple[bool, str]:
-        """
-        启动服务
-        
-        Args:
-            service_name: 服务名称
-        
-        Returns:
-            (是否成功, 消息)
-        """
-        script = f'Start-Service -Name "{service_name}"; $true'
-        exit_code, stdout, stderr = self.execute_ps(script)
-        
-        if exit_code == 0:
-            return True, f"服务 {service_name} 已启动"
-        else:
-            return False, stderr or "启动失败"
-    
-    def stop_service(self, service_name: str) -> Tuple[bool, str]:
-        """
-        停止服务
-        
-        Args:
-            service_name: 服务名称
-        
-        Returns:
-            (是否成功, 消息)
-        """
-        script = f'Stop-Service -Name "{service_name}" -Force; $true'
-        exit_code, stdout, stderr = self.execute_ps(script)
-        
-        if exit_code == 0:
-            return True, f"服务 {service_name} 已停止"
-        else:
-            return False, stderr or "停止失败"
-    
-    def restart_service(self, service_name: str) -> Tuple[bool, str]:
-        """
-        重启服务
-        
-        Args:
-            service_name: 服务名称
-        
-        Returns:
-            (是否成功, 消息)
-        """
-        script = f'Restart-Service -Name "{service_name}" -Force; $true'
-        exit_code, stdout, stderr = self.execute_ps(script)
-        
-        if exit_code == 0:
-            return True, f"服务 {service_name} 已重启"
-        else:
-            return False, stderr or "重启失败"
-    
-    def copy_file(self, source: str, destination: str) -> bool:
-        """
-        复制文件
-        
-        Args:
-            source: 源路径
-            destination: 目标路径
-        
-        Returns:
-            是否成功
-        """
-        script = f'Copy-Item -Path "{source}" -Destination "{destination}" -Force'
-        exit_code, stdout, stderr = self.execute_ps(script)
-        
-        return exit_code == 0
-    
-    def close(self):
+    def close(self) -> None:
         """关闭连接"""
-        self._connected = False
-        self._session = None
-        logger.debug(f"WinRM连接已关闭: {self._config.host}")
+        self._winrm.close()
+
+
+# 常用WMI类
+WMI_CLASSES = {
+    # 操作系统
+    'Win32_OperatingSystem': '操作系统信息',
+    'Win32_ComputerSystem': '计算机系统信息',
+    'Win32_BIOS': 'BIOS信息',
+    'Win32_TimeZone': '时区设置',
+    'Win32_WindowsProductActivation': 'Windows激活状态',
     
-    def __enter__(self):
-        self.connect()
-        return self
+    # 硬件
+    'Win32_Processor': '处理器信息',
+    'Win32_PhysicalMemory': '物理内存',
+    'Win32_DiskDrive': '磁盘驱动器',
+    'Win32_LogicalDisk': '逻辑磁盘',
+    'Win32_NetworkAdapter': '网络适配器',
+    'Win32_NetworkAdapterConfiguration': '网络配置',
     
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
+    # 软件
+    'Win32_InstalledWin32Program': '已安装程序',
+    'Win32_SoftwareFeature': '软件特性',
+    
+    # 服务和进程
+    'Win32_Service': '服务信息',
+    'Win32_Process': '进程信息',
+    'Win32_Thread': '线程信息',
+    
+    # 事件
+    'Win32_NtLogEvent': 'NT日志事件',
+    'Win32_OperatingSystem': '操作系统',
+    
+    # 性能
+    'Win32_PerfFormattedData_PerfOS_Processor': '处理器性能',
+    'Win32_PerfFormattedData_PerfOS_Memory': '内存性能',
+    'Win32_PerfFormattedData_PerfDisk_PhysicalDisk': '磁盘性能',
+}

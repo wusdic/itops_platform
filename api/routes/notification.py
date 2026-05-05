@@ -12,7 +12,6 @@ from pydantic import BaseModel, Field
 from modules.business.notification import (
     NotificationType, NotificationConfig, NotificationMessage,
     get_notification_manager, NotificationManager,
-    send_dingtalk_message, send_feishu_message, send_wechat_work_message,
 )
 
 logger = logging.getLogger(__name__)
