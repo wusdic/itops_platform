@@ -61,7 +61,8 @@ class CategoryCreate(BaseModel):
 
 @router.get("/search", summary="知识库搜索")
 async def search_knowledge(
-    query: str = Query(..., description="搜索关键词"),
+    query: Optional[str] = Query(None, description="搜索关键词(query的别名)"),
+    keyword: Optional[str] = Query(None, description="搜索关键词(keyword)"),
     search_type: str = Query("hybrid", description="搜索类型: fulltext, semantic, hybrid"),
     doc_type: Optional[str] = Query(None, description="文档类型过滤"),
     category_id: Optional[int] = Query(None, description="分类ID过滤"),
@@ -78,7 +79,7 @@ async def search_knowledge(
     # results = await search(query, search_type=search_type, ...)
     
     return {
-        "query": query,
+        "query": keyword or query or "",
         "search_type": search_type,
         "items": [
             {

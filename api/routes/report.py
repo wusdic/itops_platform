@@ -267,6 +267,33 @@ async def get_reports(
     }
 
 
+# ============== 报表统计接口 ==============
+
+@router.get("/stats", summary="获取报表统计")
+async def get_report_stats(
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """获取报表统计信息"""
+    # TODO: 从数据库统计
+
+    return {
+        "total_reports": 100,
+        "total_size": 1024 * 1024 * 100,  # 100MB
+        "by_type": {
+            "daily": 50,
+            "weekly": 30,
+            "monthly": 15,
+            "custom": 5,
+        },
+        "by_format": {
+            "pdf": 80,
+            "excel": 15,
+            "html": 5,
+        },
+    }
+
+
 @router.get("/{report_id}", summary="获取报表详情")
 async def get_report(
     report_id: int,
@@ -298,7 +325,7 @@ async def delete_report(
 ):
     """删除报表"""
     # TODO: 删除报表文件并更新数据库
-    
+
     return {
         "status": "success",
         "message": "Report deleted successfully",
@@ -390,28 +417,4 @@ async def create_scheduled_report(
     }
 
 
-# ============== 统计接口 ==============
-
-@router.get("/stats", summary="获取报表统计")
-async def get_report_stats(
-    current_user: CurrentUser = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """获取报表统计信息"""
-    # TODO: 从数据库统计
-    
-    return {
-        "total_reports": 100,
-        "total_size": 1024 * 1024 * 100,  # 100MB
-        "by_type": {
-            "daily": 50,
-            "weekly": 30,
-            "monthly": 15,
-            "custom": 5,
-        },
-        "by_format": {
-            "pdf": 80,
-            "excel": 15,
-            "html": 5,
-        },
-    }
+# ============== 定时报表接口 ==============

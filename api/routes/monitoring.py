@@ -64,7 +64,7 @@ class AlertResponse(BaseModel):
 
 @router.get("/metrics", summary="查询监控指标")
 async def query_metrics(
-    metric_name: str = Query(..., description="指标名称"),
+    metric_name: Optional[str] = Query(None, description="指标名称，不传则返回指标列表"),
     host: Optional[str] = Query(None, description="主机过滤"),
     start: Optional[datetime] = Query(None, description="开始时间"),
     end: Optional[datetime] = Query(None, description="结束时间"),

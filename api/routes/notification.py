@@ -6,13 +6,14 @@ import logging
 from typing import Optional, List
 from datetime import datetime
 import json
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from pydantic import BaseModel, Field
 
 from modules.business.notification import (
     NotificationType, NotificationConfig, NotificationMessage,
     get_notification_manager, NotificationManager,
 )
+from api.dependencies import get_current_user, CurrentUser
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["通知渠道"])
@@ -307,4 +308,47 @@ async def test_channel(channel_id: str):
     return {
         "success": success,
         "message": "测试消息发送成功" if success else "测试消息发送失败，请检查配置"
+    }
+
+
+# ============== 通知历史接口 ==============
+
+@router.get("/history", summary="获取通知历史")
+async def get_notification_history(
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(20, ge=1, le=100, description="每页数量"),
+    channel: Optional[str] = Query(None, description="通知渠道过滤"),
+    notification_type: Optional[str] = Query(None, description="通知类型过滤"),
+    start_date: Optional[datetime] = Query(None, description="开始日期"),
+    end_date: Optional[datetime] = Query(None, description="结束日期"),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """获取通知发送历史记录"""
+    # TODO: 从数据库查询通知历史
+    return {
+        "items": [
+            {
+                "id": 1,
+                "type": "email",
+                "channel": "email",
+                "title": "服务器告警通知",
+                "content": "CPU使用率超过80%",
+                "recipients": "admin@example.com",
+                "status": "sent",
+                "sent_at": datetime.now().isoformat(),
+            },
+            {
+                "id": 2,
+                "type": "dingtalk",
+                "channel": "dingtalk",
+                "title": "工单处理通知",
+                "content": "工单WO-202401010001已处理",
+                "recipients": "运维群",
+                "status": "sent",
+                "sent_at": datetime.now().isoformat(),
+            },
+        ],
+        "total": 50,
+        "page": page,
+        "page_size": page_size,
     }

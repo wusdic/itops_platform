@@ -132,7 +132,7 @@ async def create_workorder(
     """
     # 生成工单编号
     order_no = f"WO-{datetime.now().strftime('%Y%m%d')}-{datetime.now().strftime('%H%M%S')}"
-    
+
     # TODO: 保存到数据库
     # from modules.foundation.db_models.workorder import WorkOrder
     # db_workorder = WorkOrder(
@@ -142,7 +142,7 @@ async def create_workorder(
     # )
     # db.add(db_workorder)
     # db.commit()
-    
+
     return {
         "id": 1,
         "order_no": order_no,
@@ -154,6 +154,87 @@ async def create_workorder(
         "created_at": datetime.now().isoformat(),
     }
 
+
+# ============== 工单辅助接口（必须在 /{workorder_id} 之前定义）==============
+
+@router.get("/categories", summary="获取工单分类列表")
+async def get_workorder_categories(
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """获取工单分类列表"""
+    return {
+        "items": [
+            {"id": 1, "name": "故障处理", "code": "fault", "count": 45},
+            {"id": 2, "name": "变更申请", "code": "change", "count": 30},
+            {"id": 3, "name": "数据处理", "code": "data", "count": 20},
+            {"id": 4, "name": "权限申请", "code": "permission", "count": 15},
+            {"id": 5, "name": "其他", "code": "other", "count": 10},
+        ]
+    }
+
+
+@router.get("/priorities", summary="获取工单优先级列表")
+async def get_workorder_priorities(
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """获取工单优先级列表"""
+    return {
+        "items": [
+            {"id": 1, "name": "P1 - 紧急", "code": "P1", "level": 1, "color": "red"},
+            {"id": 2, "name": "P2 - 高", "code": "P2", "level": 2, "color": "orange"},
+            {"id": 3, "name": "P3 - 中", "code": "P3", "level": 3, "color": "blue"},
+            {"id": 4, "name": "P4 - 低", "code": "P4", "level": 4, "color": "green"},
+        ]
+    }
+
+
+@router.get("/stats/summary", summary="获取工单统计摘要")
+async def get_workorder_stats(
+    start_date: Optional[datetime] = Query(None, description="统计开始日期"),
+    end_date: Optional[datetime] = Query(None, description="统计结束日期"),
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """获取工单统计摘要"""
+    # TODO: 从数据库统计工单数据
+
+    return {
+        "total": 100,
+        "pending": 10,
+        "processing": 20,
+        "resolved": 60,
+        "closed": 10,
+        "by_priority": {
+            "P1": 5,
+            "P2": 15,
+            "P3": 60,
+            "P4": 20,
+        },
+        "by_type": {
+            "fault": 40,
+            "change": 30,
+            "data": 20,
+            "permission": 10,
+        },
+    }
+
+
+@router.get("/stats/trend", summary="获取工单趋势")
+async def get_workorder_trend(
+    days: int = Query(30, ge=1, le=365, description="统计天数"),
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """获取工单趋势数据"""
+    # TODO: 从数据库统计工单趋势
+    return {
+        "dates": ["2024-01-01", "2024-01-02", "2024-01-03"],
+        "created": [10, 15, 8],
+        "resolved": [8, 12, 10],
+    }
+
+
+# ============== 工单详情接口 ==============
 
 @router.get("/{workorder_id}", summary="获取工单详情")
 async def get_workorder(
@@ -360,51 +441,19 @@ async def cancel_workorder(
     }
 
 
-# ============== 工单统计接口 ==============
-
-@router.get("/stats/summary", summary="获取工单统计摘要")
-async def get_workorder_stats(
-    start_date: Optional[datetime] = Query(None, description="统计开始日期"),
-    end_date: Optional[datetime] = Query(None, description="统计结束日期"),
+# 原有工单流程接口保持不变
+@router.post("/{workorder_id}/flows", summary="添加工单流程记录")
+async def add_workorder_flow(
+    workorder_id: int,
+    flow: WorkOrderFlowCreate,
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """获取工单统计摘要"""
-    # TODO: 从数据库统计工单数据
-    
+    """添加工单流程记录"""
     return {
-        "total": 100,
-        "pending": 10,
-        "processing": 20,
-        "resolved": 60,
-        "closed": 10,
-        "by_priority": {
-            "P1": 5,
-            "P2": 15,
-            "P3": 60,
-            "P4": 20,
-        },
-        "by_type": {
-            "fault": 40,
-            "change": 30,
-            "inspection": 20,
-            "other": 10,
-        },
-    }
-
-
-@router.get("/stats/trend", summary="获取工单趋势")
-async def get_workorder_trend(
-    days: int = Query(7, ge=1, le=90, description="统计天数"),
-    current_user: CurrentUser = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """获取每日工单创建/解决趋势"""
-    # TODO: 从数据库统计工单趋势
-    
-    return {
-        "trend": [
-            {"date": "2024-01-01", "created": 10, "resolved": 8},
-            {"date": "2024-01-02", "created": 12, "resolved": 10},
-        ]
+        "id": 1,
+        "workorder_id": workorder_id,
+        "action": flow.action,
+        "operator": current_user.username,
+        "created_at": datetime.now().isoformat(),
     }
