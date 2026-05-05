@@ -1,0 +1,160 @@
+# BM-03 知识库模块配置
+# Knowledge Base Configuration
+
+knowledge_base:
+  # 数据库配置
+  database:
+    # 使用SQLite作为默认存储
+    type: sqlite
+    path: ./data/knowledge_base.db
+    # 连接池配置
+    pool_size: 10
+    max_overflow: 20
+    
+  # 向量存储配置(可选)
+  vector_store:
+    enabled: false
+    # 向量数据库类型: qdrant/milvus/pgvector
+    type: qdrant
+    host: localhost
+    port: 6333
+    # 认证
+    username: ""
+    password: ""
+    # 集合配置
+    collections:
+      sop: "kb_sop"
+      fault_case: "kb_fault_case"
+      document: "kb_document"
+    # 向量维度(基于embedding模型)
+    vector_dimension: 768
+    
+  # 嵌入模型配置
+  embedding:
+    # 嵌入模型类型: openai/sentence_transformers/local
+    type: sentence_transformers
+    model: "text2vec-base-chinese"
+    # 向量维度
+    dimension: 768
+    # 本地模型路径
+    model_path: ./models/embedding
+
+  # LLM配置(AI辅助功能)
+  llm:
+    enabled: false
+    # LLM类型: openai/azure/claude
+    type: openai
+    # API配置
+    api_key: ""
+    api_base: "https://api.openai.com/v1"
+    model: "gpt-4"
+    # 模型参数
+    temperature: 0.7
+    max_tokens: 2000
+    timeout: 60
+
+  # 文档处理配置
+  document:
+    # 默认分块大小
+    chunk_size: 500
+    # 默认分块重叠
+    chunk_overlap: 50
+    # 支持的文件格式
+    allowed_formats:
+      - markdown
+      - richtext
+      - html
+    # 附件大小限制(MB)
+    max_attachment_size: 50
+    # 附件存储路径
+    attachment_path: ./data/attachments
+
+  # 搜索配置
+  search:
+    # 全文搜索配置
+    fulltext:
+      enabled: true
+      # 分词器配置
+      analyzer: standard
+      # 最大返回结果数
+      max_results: 100
+    # 语义搜索配置
+    semantic:
+      enabled: false
+      # 相似度阈值
+      similarity_threshold: 0.7
+      # 最大返回结果数
+      max_results: 50
+    # 混合搜索权重
+    hybrid:
+      semantic_weight: 0.5
+    # 搜索历史保留天数
+    history_retention_days: 90
+
+  # 权限配置
+  permission:
+    # 默认权限级别
+    default_level: read
+    # 权限级别: read/write/admin
+    levels:
+      - read
+      - write
+      - delete
+      - admin
+
+  # 审核流程配置
+  review:
+    # 是否启用审核流程
+    enabled: true
+    # 审核节点
+    stages:
+      - review      # 审核
+      - approve     # 审批
+    # 自动通知
+    notify:
+      enabled: true
+      # 通知方式: email/webhook
+      methods:
+        - email
+        - webhook
+
+  # 缓存配置
+  cache:
+    enabled: true
+    # 缓存类型: redis/memory
+    type: memory
+    # 缓存TTL(秒)
+    ttl: 3600
+
+  # 审计日志
+  audit:
+    enabled: true
+    # 日志保留天数
+    retention_days: 180
+
+  # 性能配置
+  performance:
+    # 连接池
+    pool_size: 10
+    pool_recycle: 3600
+    # 查询超时(秒)
+    query_timeout: 30
+    # 批量操作大小
+    batch_size: 100
+
+  # 特性开关
+  features:
+    # 启用AI辅助功能
+    ai_assist: false
+    # 启用RAG功能
+    rag: false
+    # 启用全文搜索
+    fulltext_search: true
+    # 启用语义搜索
+    semantic_search: false
+    # 启用版本管理
+    version_control: true
+    # 启用评论功能
+    comments: false
+    # 启用收藏功能
+    bookmarks: true

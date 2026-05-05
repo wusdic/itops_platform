@@ -1,0 +1,159 @@
+# BM-05 AI Copilot Configuration
+# AI助手模块配置
+
+# Ollama配置
+ollama:
+  base_url: "http://localhost:11434"
+  timeout: 300
+  retry_count: 3
+  retry_delay: 5
+  
+# 模型配置
+models:
+  default: "qwen3.5:8b"
+  available:
+    - name: "qwen3.5:8b"
+      display_name: "通义千问3.5 8B"
+      max_tokens: 8192
+      context_window: 32768
+      enabled: true
+    - name: "qwen3.5:14b"
+      display_name: "通义千问3.5 14B"
+      max_tokens: 8192
+      context_window: 32768
+      enabled: true
+    - name: "qwen2.5:7b"
+      display_name: "通义千问2.5 7B"
+      max_tokens: 8192
+      context_window: 32768
+      enabled: true
+    - name: "llama3.1:8b"
+      display_name: "Llama 3.1 8B"
+      max_tokens: 8192
+      context_window: 32768
+      enabled: true
+
+# 对话配置
+conversation:
+  max_history_messages: 50
+  max_context_tokens: 30000
+  session_timeout: 3600
+  enable_streaming: true
+
+# Prompt模板配置
+prompts:
+  # 系统提示词
+  system_prompt: |
+    你是一个专业的IT运维AI助手，专门帮助运维工程师处理以下任务：
+    - 故障诊断和分析
+    - 日报/周报生成
+    - 标准操作流程(SOP)生成
+    - 变更评审支持
+    - 智能问答
+    
+    请始终保持专业、准确、简洁的回答风格。
+    
+  # 模板目录
+  template_dir: "templates"
+  
+  # 内置模板
+  templates:
+    fault_diagnosis:
+      name: "故障诊断"
+      description: "用于分析和诊断系统故障"
+      template_file: "fault_diagnosis.j2"
+    daily_report:
+      name: "日报生成"
+      description: "生成每日运维报告"
+      template_file: "daily_report.j2"
+    weekly_report:
+      name: "周报生成"
+      description: "生成每周运维报告"
+      template_file: "weekly_report.j2"
+    sop_generation:
+      name: "SOP生成"
+      description: "生成标准操作流程"
+      template_file: "sop_generation.j2"
+    change_review:
+      name: "变更评审"
+      description: "辅助变更评审"
+      template_file: "change_review.j2"
+    qa:
+      name: "智能问答"
+      description: "IT运维知识问答"
+      template_file: "qa.j2"
+
+# RAG配置
+rag:
+  enabled: true
+  vector_db:
+    type: "qdrant"
+    host: "localhost"
+    port: 6333
+    collection_name: "itops_knowledge"
+    
+  # 检索配置
+  retrieval:
+    top_k: 10
+    min_similarity: 0.5
+    max_context_length: 4000
+    rerank_enabled: true
+    rerank_top_k: 5
+    
+  # 知识库配置
+  knowledge_base:
+    sources:
+      - name: "故障案例库"
+        collection: "fault_cases"
+        enabled: true
+      - name: "运维文档库"
+        collection: "ops_documents"
+        enabled: true
+      - name: "SOP库"
+        collection: "sop_library"
+        enabled: true
+      - name: "告警知识库"
+        collection: "alert_knowledge"
+        enabled: true
+
+# Chain of Thought配置
+chain_of_thought:
+  enabled: true
+  max_steps: 5
+  timeout: 60
+
+# 场景配置
+scenarios:
+  fault_diagnosis:
+    model: "qwen3.5:8b"
+    temperature: 0.3
+    enable_rag: true
+    rag_top_k: 5
+    
+  daily_report:
+    model: "qwen3.5:8b"
+    temperature: 0.5
+    enable_rag: false
+    
+  weekly_report:
+    model: "qwen3.5:8b"
+    temperature: 0.5
+    enable_rag: false
+    
+  sop_generation:
+    model: "qwen3.5:8b"
+    temperature: 0.4
+    enable_rag: true
+    rag_top_k: 3
+    
+  change_review:
+    model: "qwen3.5:8b"
+    temperature: 0.3
+    enable_rag: true
+    rag_top_k: 5
+    
+  qa:
+    model: "qwen3.5:8b"
+    temperature: 0.7
+    enable_rag: true
+    rag_top_k: 10

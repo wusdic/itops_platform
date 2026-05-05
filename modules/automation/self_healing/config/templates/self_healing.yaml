@@ -1,0 +1,411 @@
+# AM-02 告警自愈模块配置
+# Self-Healing Module Configuration
+
+module:
+  name: "AM-02 告警自愈"
+  version: "1.0.0"
+  description: "提供故障检测、自动恢复、剧本管理等功能"
+
+# 故障检测配置
+detector:
+  # 检测模式
+  detection_mode: "real_time"  # real_time, batch
+  
+  # 检测间隔（秒）
+  detection_interval: 60
+  
+  # 故障模式库
+  patterns:
+    enabled: true
+    auto_update: true
+    update_interval_hours: 24
+  
+  # 根因分析配置
+  root_cause_analysis:
+    enabled: true
+    analysis_timeout_seconds: 300
+    methods:
+      - pattern_matching
+      - correlation
+      - timeline
+    max_contributing_factors: 5
+  
+  # 影响评估配置
+  impact_assessment:
+    enabled: true
+    propagation_depth_limit: 5
+    estimate_sla_impact: true
+    estimate_revenue_impact: true
+  
+  # 告警聚合
+  alert_aggregation:
+    enabled: true
+    aggregation_window_minutes: 5
+    deduplication_enabled: true
+
+# 自动恢复配置
+healer:
+  # 恢复引擎
+  recovery:
+    enabled: true
+    auto_execute: true
+    max_concurrent_recoveries: 3
+    
+    # 执行配置
+    default_timeout_seconds: 600
+    default_retry_count: 3
+    retry_interval_seconds: 30
+    
+    # 安全配置
+    require_approval_for_critical: true
+    approval_timeout_minutes: 15
+    allow_rollback: true
+  
+  # 恢复策略
+  strategies:
+    # 服务重启
+    - strategy_id: "STR-001"
+      name: "服务重启"
+      applicable_faults: ["PAT-005", "PAT-002"]
+      auto_execute: true
+      priority: 10
+    
+    # 缓存清理
+    - strategy_id: "STR-002"
+      name: "缓存清理"
+      applicable_faults: ["PAT-001", "PAT-003"]
+      auto_execute: true
+      priority: 20
+    
+    # 进程重启
+    - strategy_id: "STR-003"
+      name: "进程重启"
+      applicable_faults: ["PAT-002", "PAT-005"]
+      auto_execute: true
+      priority: 15
+    
+    # 节点重启
+    - strategy_id: "STR-004"
+      name: "节点重启"
+      applicable_faults: ["PAT-006"]
+      auto_execute: false
+      priority: 50
+    
+    # 故障切换
+    - strategy_id: "STR-005"
+      name: "故障切换"
+      applicable_faults: ["PAT-006", "PAT-007"]
+      auto_execute: false
+      priority: 60
+  
+  # 恢复验证
+  verification:
+    enabled: true
+    verification_timeout_seconds: 120
+    retry_verification_count: 2
+    metrics_to_verify:
+      - service_health
+      - cpu_usage
+      - memory_usage
+      - response_time
+  
+  # 回滚配置
+  rollback:
+    enabled: true
+    create_snapshot_before_recovery: true
+    max_snapshots_per_asset: 5
+    snapshot_retention_days: 7
+
+# 剧本管理配置
+playbook:
+  # 剧本状态流程
+  status_flow:
+    - draft
+    - pending_review
+    - under_review
+    - approved
+    - active
+    - deprecated
+  
+  # 审核配置
+  review:
+    require_approval: true
+    min_reviewers: 2
+    auto_review_enabled: false
+    
+    # 审核规则
+    rules:
+      - name: "高风险操作审核"
+        applies_to:
+          - restart_node
+          - switchover
+          - rollback
+        requires_approval: true
+        approvers:
+          - role: "senior_engineer"
+          - role: "manager"
+      
+      - name: "标准操作审核"
+        applies_to:
+          - restart_service
+          - clear_cache
+        requires_approval: false
+        auto_approve: true
+  
+  # 版本管理
+  versioning:
+    enabled: true
+    auto_increment_patch: true
+    preserve_history: true
+    max_versions_per_playbook: 50
+  
+  # 触发配置
+  triggers:
+    # 自动触发
+    auto_trigger:
+      enabled: true
+      evaluation_interval_seconds: 30
+      
+      # 触发条件示例
+      conditions:
+        - fault_pattern: "PAT-005"
+          severity_min: "error"
+          cooldown_minutes: 10
+        
+        - fault_pattern: "PAT-001"
+          severity_min: "critical"
+          cooldown_minutes: 30
+    
+    # 手动触发
+    manual_trigger:
+      enabled: true
+      require_confirmation: true
+      confirmation_timeout_seconds: 60
+    
+    # API触发
+    api_trigger:
+      enabled: true
+      require_api_key: true
+      rate_limit_per_minute: 100
+
+# 故障类别配置
+fault_categories:
+  hardware:
+    name: "硬件故障"
+    icon: "warning"
+    color: "#ff4d4f"
+    default_severity: "error"
+    auto_healing_enabled: false
+    common_patterns:
+      - PAT-006
+      - PAT-008
+  
+  software:
+    name: "软件故障"
+    icon: "bug"
+    color: "#fa8c16"
+    default_severity: "error"
+    auto_healing_enabled: true
+    common_patterns:
+      - PAT-005
+      - PAT-009
+  
+  network:
+    name: "网络故障"
+    icon: "global"
+    color: "#722ed1"
+    default_severity: "critical"
+    auto_healing_enabled: false
+    common_patterns:
+      - PAT-004
+      - PAT-010
+  
+  performance:
+    name: "性能问题"
+    icon: "dashboard"
+    color: "#faad14"
+    default_severity: "warning"
+    auto_healing_enabled: true
+    common_patterns:
+      - PAT-001
+      - PAT-002
+      - PAT-003
+
+# 故障严重程度配置
+fault_severity:
+  critical:
+    name: "严重"
+    color: "#ff4d4f"
+    auto_healing: false
+    escalate_immediately: true
+    notification_required: true
+    sla_response_minutes: 15
+  
+  error:
+    name: "错误"
+    color: "#fa8c16"
+    auto_healing: true
+    escalate_after_minutes: 30
+    notification_required: true
+    sla_response_minutes: 60
+  
+  warning:
+    name: "警告"
+    color: "#faad14"
+    auto_healing: true
+    escalate_after_minutes: 120
+    notification_required: false
+    sla_response_minutes: 240
+  
+  info:
+    name: "信息"
+    color: "#1890ff"
+    auto_healing: false
+    escalate_after_minutes: 480
+    notification_required: false
+    sla_response_minutes: 1440
+
+# 通知配置
+notifications:
+  enabled: true
+  
+  # 通知触发条件
+  triggers:
+    - event: "fault_detected"
+      channels: ["email", "webhook"]
+      severity_filter: ["critical", "error"]
+    
+    - event: "recovery_started"
+      channels: ["webhook"]
+      severity_filter: ["critical"]
+    
+    - event: "recovery_completed"
+      channels: ["webhook"]
+      severity_filter: ["critical", "error"]
+    
+    - event: "recovery_failed"
+      channels: ["email", "webhook", "sms"]
+      severity_filter: ["critical", "error"]
+    
+    - event: "approval_required"
+      channels: ["email"]
+      severity_filter: ["critical"]
+  
+  # 通知渠道
+  channels:
+    email:
+      enabled: true
+      smtp_server: "smtp.example.com"
+      smtp_port: 587
+      from_address: "itops-alerts@example.com"
+      to_addresses:
+        - "oncall@example.com"
+        - "manager@example.com"
+    
+    webhook:
+      enabled: true
+      endpoints:
+        - name: "Slack"
+          url: "https://hooks.slack.com/services/xxx"
+          method: "POST"
+        - name: "PagerDuty"
+          url: "https://events.pagerduty.com/v2/enqueue"
+          method: "POST"
+    
+    sms:
+      enabled: false
+      provider: "twilio"
+      to_numbers:
+        - "+1234567890"
+
+# 报告配置
+reports:
+  enabled: true
+  
+  # 自动生成报告
+  auto_generate:
+    - report_type: "fault_analysis"
+      frequency: "weekly"
+      recipients: ["oncall@example.com"]
+    
+    - report_type: "recovery_summary"
+      frequency: "daily"
+      recipients: ["operations@example.com"]
+    
+    - report_type: "playbook_performance"
+      frequency: "monthly"
+      recipients: ["manager@example.com"]
+
+# 集成配置
+integrations:
+  # 监控系统集成
+  monitoring:
+    enabled: true
+    alert_source: "BM-01"
+    receive_alerts: true
+    sync_metrics: true
+  
+  # 资产管理集成
+  asset_management:
+    enabled: true
+    module: "BM-06"
+    fetch_asset_relations: true
+    update_asset_status: true
+  
+  # ITSM集成
+  itsm:
+    enabled: false
+    system: "service_now"
+    create_incident_on_failure: true
+    link_recovery_history: true
+  
+  # CMDB集成
+  cmdb:
+    enabled: false
+    sync_playbooks: true
+    sync_strategies: true
+
+# 安全配置
+security:
+  # 执行权限控制
+  execution:
+    require_role: true
+    allowed_roles:
+      - "automation_admin"
+      - "senior_engineer"
+      - "on_call_engineer"
+    
+    # 高风险操作额外验证
+    high_risk_actions:
+      - restart_node
+      - switchover
+      - rollback
+      - execute_script
+    
+    require_approval_for_high_risk: true
+  
+  # 审计日志
+  audit:
+    enabled: true
+    log_all_executions: true
+    log_retention_days: 90
+    log_level: "info"
+
+# 性能配置
+performance:
+  # 并发控制
+  max_concurrent_executions: 10
+  max_concurrent_recoveries: 3
+  execution_queue_size: 100
+  
+  # 缓存配置
+  cache:
+    enabled: true
+    ttl_seconds: 300
+    max_entries: 1000
+  
+  # 批处理配置
+  batch:
+    enabled: true
+    batch_size: 100
+    batch_interval_seconds: 60

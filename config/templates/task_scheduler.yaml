@@ -1,0 +1,176 @@
+# AM-01 任务调度模块配置
+
+# 调度器公共配置
+scheduler:
+  name: "task_scheduler"
+  enabled: true
+  
+  # 时区
+  timezone: "Asia/Shanghai"
+  
+  # 作业默认配置
+  job_defaults:
+    coalesce: true           # 合并错过的执行
+    max_instances: 1         # 最大实例数
+    misfire_grace_time: 60   # 错过执行的宽限时间（秒）
+
+# 执行器配置
+executor:
+  max_workers: 10           # 最大工作线程
+  default_timeout: 3600     # 默认超时时间（秒）
+  default_retry_count: 3    # 默认重试次数
+  default_retry_delay: 60   # 默认重试延迟（秒）
+
+# 监控配置
+monitoring:
+  enabled: true
+  metrics_port: 9091
+  
+  # 告警阈值
+  alert_threshold:
+    failure_rate: 0.1        # 失败率超过10%告警
+    consecutive_failures: 3 # 连续失败3次告警
+    task_timeout: 300        # 任务超时5分钟告警
+    queue_size: 1000        # 队列大小告警
+  
+  # 指标保留时间
+  metrics_retention: 3600   # 秒
+
+# 分布式调度配置
+distributed:
+  enabled: false            # 是否启用分布式
+  
+  node_id: ""               # 节点ID（留空自动生成）
+  host: "localhost"
+  port: 8765
+  
+  # 集群节点
+  cluster_nodes: []
+    # - node_id: "node-1"
+    #   host: "192.168.1.10"
+    #   port: 8765
+    #   priority: 1
+    # - node_id: "node-2"
+    #   host: "192.168.1.11"
+    #   port: 8765
+    #   priority: 1
+  
+  # 选举配置
+  election_timeout: 10      # 选举超时（秒）
+  heartbeat_interval: 5     # 心跳间隔（秒）
+  replication_factor: 2     # 复制因子
+
+# 任务定义
+tasks:
+  # 采集任务示例
+  - task_id: "collection_001"
+    name: "SNMP设备采集"
+    type: "collection"
+    description: "定时采集网络设备SNMP数据"
+    priority: 2
+    timeout: 300
+    retry_count: 2
+    
+    collector_type: "snmp"
+    target: "192.168.1.1"
+    interval: 300
+    
+    trigger:
+      type: "cron"
+      cron: "0 */5 * * * *"  # 每5分钟
+    
+    enabled: true
+
+  # 报告任务示例
+  - task_id: "report_001"
+    name: "日报生成"
+    type: "report"
+    description: "生成每日运维报告"
+    priority: 2
+    timeout: 600
+    retry_count: 1
+    
+    report_type: "daily"
+    template: "daily_report.html"
+    recipients:
+      - "ops@example.com"
+    output_format: "pdf"
+    
+    trigger:
+      type: "cron"
+      cron: "0 0 8 * * *"  # 每天8点
+    
+    enabled: true
+
+  # 脚本任务示例
+  - task_id: "script_001"
+    name: "系统健康检查"
+    type: "script"
+    description: "执行系统健康检查脚本"
+    priority: 3
+    timeout: 120
+    retry_count: 3
+    
+    script_type: "shell"
+    script_content: |
+      #!/bin/bash
+      df -h
+      free -m
+      uptime
+    
+    trigger:
+      type: "interval"
+      seconds: 60  # 每分钟
+    
+    enabled: false
+
+# 任务链示例
+workflows:
+  - workflow_id: "workflow_001"
+    name: "设备巡检流程"
+    description: "完整的设备巡检工作流"
+    
+    steps:
+      - name: "采集设备信息"
+        type: "task"
+        task_id: "collection_001"
+      
+      - name: "等待采集完成"
+        type: "delay"
+        seconds: 10
+      
+      - name: "条件判断"
+        type: "condition"
+        condition: "step_0_result.success"
+      
+      - name: "生成报告"
+        type: "task"
+        task_id: "report_001"
+      
+      - name: "发送告警"
+        type: "script"
+        script_type: "shell"
+        content: "echo 'Alert sent'"
+
+# API配置
+api:
+  enabled: true
+  host: "0.0.0.0"
+  port: 8081
+  
+  # 认证
+  auth:
+    enabled: false
+    type: "jwt"
+    secret: ""
+  
+  # 限流
+  rate_limit:
+    enabled: true
+    requests_per_minute: 100
+
+# 日志输出配置
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "/var/log/itops/task_scheduler.log"

@@ -1,0 +1,254 @@
+# ============================================
+# ITOps Platform Docker Compose
+# ============================================
+# Full stack deployment for ITOps Platform
+
+version: '3.8'
+
+services:
+  # ==========================================
+  # ITOps Platform API Service
+  # ==========================================
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: itops-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - CONFIG_FILE=/app/config/prod.yaml
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./config:/app/config:ro
+      - ./logs:/app/logs
+      - ./data:/app/data
+      - ./reports:/app/reports
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      tdengine:
+        condition: service_started
+      qdrant:
+        condition: service_started
+    networks:
+      - itops-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ==========================================
+  # MySQL Database (替代PostgreSQL)
+  # ==========================================
+  mysql:
+    image: mysql:8.0
+    container_name: itops-mysql
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: itops_root_password
+      MYSQL_DATABASE: itops_platform
+      MYSQL_USER: itops
+      MYSQL_PASSWORD: itops_secure_password
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+      - --sql-mode=STRICT_TRANS_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init-scripts:/docker-entrypoint-initdb.d:ro
+    networks:
+      - itops-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pitops_root_password"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ==========================================
+  # Redis Cache
+  # ==========================================
+  redis:
+    image: redis:7-alpine
+    container_name: itops-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - itops-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # TDengine Time Series Database
+  # ==========================================
+  tdengine:
+    image: tdengine/tdengine:3.2.1.0
+    container_name: itops-tdengine
+    restart: unless-stopped
+    ports:
+      - "6030:6030"
+      - "6041:6041"
+    environment:
+      - TZ=Asia/Shanghai
+    volumes:
+      - tdengine_data:/var/lib/taos
+      - tdengine_logs:/var/log/taos
+    networks:
+      - itops-network
+    healthcheck:
+      test: ["CMD-SHELL", "taos -s 'show databases;'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ==========================================
+  # InfluxDB (Alternative Time Series DB)
+  # ==========================================
+  # influxdb:
+  #   image: influxdb:2.7
+  #   container_name: itops-influxdb
+  #   restart: unless-stopped
+  #   ports:
+  #     - "8086:8086"
+  #   environment:
+  #     - DOCKER_INFLUXDB_INIT_MODE=setup
+  #     - DOCKER_INFLUXDB_INIT_USERNAME=admin
+  #     - DOCKER_INFLUXDB_INIT_PASSWORD=adminpassword
+  #     - DOCKER_INFLUXDB_INIT_ORG=itops
+  #     - DOCKER_INFLUXDB_INIT_BUCKET=metrics
+  #     - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=my-super-secret-admin-token
+  #   volumes:
+  #     - influxdb_data:/var/lib/influxdb2
+  #     - influxdb_config:/etc/influxdb2
+  #   networks:
+  #     - itops-network
+
+  # ==========================================
+  # Qdrant Vector Database
+  # ==========================================
+  qdrant:
+    image: qdrant/qdrant:v1.7.0
+    container_name: itops-qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - itops-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # MinIO Object Storage
+  # ==========================================
+  minio:
+    image: minio/minio:latest
+    container_name: itops-minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - itops-network
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # ==========================================
+  # Ollama (Optional - AI/LLM Service)
+  # ==========================================
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: itops-ollama
+  #   restart: unless-stopped
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   networks:
+  #     - itops-network
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: all
+  #             capabilities: [gpu]
+
+  # ==========================================
+  # ITOps Platform Frontend (Dev Mode)
+  # ==========================================
+  frontend:
+    image: node:18-alpine
+    container_name: itops-frontend
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+    depends_on:
+      - api
+    networks:
+      - itops-network
+
+# ==========================================
+# Volumes
+# ==========================================
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+  tdengine_data:
+    driver: local
+  tdengine_logs:
+    driver: local
+  qdrant_data:
+    driver: local
+  minio_data:
+    driver: local
+  # influxdb_data:
+  # influxdb_config:
+  # ollama_data:
+
+# ==========================================
+# Networks
+# ==========================================
+networks:
+  itops-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

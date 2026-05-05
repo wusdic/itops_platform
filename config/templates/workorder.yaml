@@ -1,0 +1,347 @@
+# BM-02 工单管理模块配置
+
+# 工单配置
+workorder:
+  # 工单编号前缀配置
+  order_no_prefix:
+    fault: 'FAU'        # 故障工单
+    change: 'CHG'       # 变更工单
+    inspection: 'INS'   # 巡检工单
+    security: 'SEC'     # 安全工单
+    demand: 'DEM'       # 需求工单
+    question: 'QUE'     # 咨询工单
+    other: 'OTH'        # 其他工单
+
+  # 优先级配置
+  priority:
+    P1:
+      name: '紧急'
+      sla_response_minutes: 15
+      sla_resolve_minutes: 60
+    P2:
+      name: '高'
+      sla_response_minutes: 30
+      sla_resolve_minutes: 240
+    P3:
+      name: '中'
+      sla_response_minutes: 60
+      sla_resolve_minutes: 480
+    P4:
+      name: '低'
+      sla_response_minutes: 120
+      sla_resolve_minutes: 1440
+
+  # 状态流转配置
+  status_transitions:
+    pending:
+      - processing
+      - cancelled
+    processing:
+      - pending_approval
+      - resolved
+      - closed
+      - cancelled
+    pending_approval:
+      - approved
+      - rejected
+      - processing
+    approved:
+      - processing
+      - resolved
+    rejected:
+      - processing
+      - closed
+    resolved:
+      - closed
+      - processing
+    closed: []
+    cancelled: []
+
+  # 工单类型配置
+  order_types:
+    fault:
+      name: '故障工单'
+      default_priority: 'P1'
+      requires_approval: true
+      sla_enabled: true
+    change:
+      name: '变更工单'
+      default_priority: 'P2'
+      requires_approval: true
+      sla_enabled: true
+    inspection:
+      name: '巡检工单'
+      default_priority: 'P3'
+      requires_approval: false
+      sla_enabled: false
+    security:
+      name: '安全工单'
+      default_priority: 'P1'
+      requires_approval: true
+      sla_enabled: true
+    demand:
+      name: '需求工单'
+      default_priority: 'P3'
+      requires_approval: false
+      sla_enabled: false
+    question:
+      name: '咨询工单'
+      default_priority: 'P4'
+      requires_approval: false
+      sla_enabled: false
+    other:
+      name: '其他工单'
+      default_priority: 'P3'
+      requires_approval: false
+      sla_enabled: false
+
+# 流程配置
+flow:
+  # 内置流程定义
+  builtin_flows:
+    - id: 'standard_workorder'
+      name: '标准工单流程'
+      version: '1.0'
+      description: '适用于一般工单的处理流程'
+      nodes:
+        - node_id: 'start'
+          name: '开始'
+          type: 'start'
+        - node_id: 'process'
+          name: '处理'
+          type: 'task'
+          timeout: 480
+        - node_id: 'approval'
+          name: '审批'
+          type: 'approval'
+          timeout: 1440
+        - node_id: 'end'
+          name: '结束'
+          type: 'end'
+      transitions:
+        - from: 'start'
+          to: 'process'
+        - from: 'process'
+          to: 'approval'
+        - from: 'approval'
+          to: 'end'
+          conditions:
+            - variable: 'approval_result'
+              operator: 'eq'
+              value: 'approve'
+        - from: 'approval'
+          to: 'process'
+          conditions:
+            - variable: 'approval_result'
+              operator: 'eq'
+              value: 'reject'
+
+    - id: 'emergency_fault'
+      name: '紧急故障处理流程'
+      version: '1.0'
+      description: '适用于紧急故障的快速处理流程'
+      nodes:
+        - node_id: 'start'
+          name: '开始'
+          type: 'start'
+        - node_id: 'handle'
+          name: '紧急处理'
+          type: 'task'
+          timeout: 60
+        - node_id: 'review'
+          name: '评审'
+          type: 'approval'
+          timeout: 240
+        - node_id: 'end'
+          name: '结束'
+          type: 'end'
+      transitions:
+        - from: 'start'
+          to: 'handle'
+        - from: 'handle'
+          to: 'review'
+        - from: 'review'
+          to: 'end'
+
+    - id: 'change_management'
+      name: '变更管理流程'
+      version: '1.0'
+      description: '适用于变更工单的完整流程'
+      nodes:
+        - node_id: 'start'
+          name: '开始'
+          type: 'start'
+        - node_id: 'impact'
+          name: '影响评估'
+          type: 'task'
+          timeout: 1440
+        - node_id: 'cab'
+          name: 'CAB评审'
+          type: 'approval'
+          timeout: 2880
+        - node_id: 'implement'
+          name: '实施'
+          type: 'task'
+        - node_id: 'verify'
+          name: '验证'
+          type: 'task'
+        - node_id: 'end'
+          name: '结束'
+          type: 'end'
+      transitions:
+        - from: 'start'
+          to: 'impact'
+        - from: 'impact'
+          to: 'cab'
+        - from: 'cab'
+          to: 'implement'
+          conditions:
+            - variable: 'approval_result'
+              operator: 'eq'
+              value: 'approve'
+        - from: 'implement'
+          to: 'verify'
+        - from: 'verify'
+          to: 'end'
+
+# 审批配置
+approval:
+  # 超时配置(分钟)
+  timeout:
+    warning_hours: [24, 4, 1]  # 超时前提醒时间(小时)
+    auto_escalation: true     # 是否自动升级
+    escalation_target: 'supervisor'
+
+  # 审批模式
+  modes:
+    one:
+      name: '或签'
+      description: '任一审批人通过即可'
+    all:
+      name: '会签'
+      description: '所有审批人必须全部通过'
+
+  # 审批角色配置
+  roles:
+    - role: 'supervisor'
+      name: '主管'
+      level: 1
+    - role: 'manager'
+      name: '经理'
+      level: 2
+    - role: 'director'
+      name: '总监'
+      level: 3
+    - role: 'cab_member'
+      name: 'CAB成员'
+      level: 4
+
+  # 代理配置
+  delegation:
+    allow_delegation: true
+    max_duration_days: 30
+    require_approval: false
+
+# 变更管理配置
+change:
+  # 变更编号前缀
+  change_no_prefix:
+    emergency: 'EMG'
+    normal: 'N'
+    standard: 'STD'
+
+  # 变更类型配置
+  types:
+    emergency:
+      name: '紧急变更'
+      requires_cab: true
+      requires_test: true
+      requires_rollback: true
+      approval_level: 3
+    normal:
+      name: '普通变更'
+      requires_cab: true
+      requires_test: true
+      requires_rollback: true
+      approval_level: 2
+    standard:
+      name: '标准变更'
+      requires_cab: false
+      requires_test: false
+      requires_rollback: false
+      approval_level: 1
+
+  # 风险等级配置
+  risk_levels:
+    critical:
+      name: '重大'
+      color: '#FF0000'
+      requires_executive_approval: true
+    high:
+      name: '高'
+      color: '#FFA500'
+      requires_manager_approval: true
+    medium:
+      name: '中'
+      color: '#FFFF00'
+      requires_supervisor_approval: true
+    low:
+      name: '低'
+      color: '#00FF00'
+      auto_approve: true
+
+  # 评审配置
+  review:
+    cab_schedule: 'weekly'  # CAB评审周期
+    minimum_reviewers: 2    # 最少评审人数
+
+# 统计分析配置
+stats:
+  # 统计周期配置
+  period:
+    default: 'month'
+    options: ['day', 'week', 'month', 'quarter', 'year']
+
+  # KPI配置
+  kpi:
+    sla_response_target: 95    # 响应SLA达标率目标(%)
+    sla_resolve_target: 90     # 解决SLA达标率目标(%)
+    avg_resolve_time_target: 240  # 平均解决时间目标(分钟)
+    satisfaction_target: 4.0   # 满意度目标
+
+  # 报表配置
+  report:
+    auto_generate: true
+    schedule: 'daily'
+    recipients: []
+
+# 通知配置
+notification:
+  # 通知触发条件
+  triggers:
+    - event: 'created'
+      channels: ['email', 'sms']
+      recipients: ['assignee']
+    - event: 'assigned'
+      channels: ['email', 'sms']
+      recipients: ['assignee']
+    - event: 'status_changed'
+      channels: ['email']
+      recipients: ['creator', 'assignee']
+    - event: 'comment_added'
+      channels: ['email']
+      recipients: ['all_participants']
+    - event: 'sla_warning'
+      channels: ['email', 'sms']
+      recipients: ['assignee', 'supervisor']
+    - event: 'sla_breached'
+      channels: ['email', 'sms']
+      recipients: ['assignee', 'supervisor', 'manager']
+    - event: 'timeout'
+      channels: ['email', 'sms']
+      recipients: ['approver', 'supervisor']
+
+  # 通知模板
+  templates:
+    subject_prefix: '[ITOps工单]'
+    template_dir: 'templates/workorder/'

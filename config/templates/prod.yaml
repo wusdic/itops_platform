@@ -1,0 +1,164 @@
+# ============================================
+# ITOps Platform Production Configuration
+# ============================================
+
+# Application Settings
+app:
+  name: ITOps Platform
+  version: 1.0.0
+  debug: false
+  host: 0.0.0.0
+  port: 8000
+  workers: 4
+  cors:
+    enabled: true
+    origins:
+      - "http://localhost:3000"
+      - "http://your-domain.com"
+    allow_credentials: true
+
+# Database Configuration
+database:
+  type: postgresql
+  host: postgres
+  port: 5432
+  name: itops
+  user: itops
+  password: CHANGE_ME_IN_PRODUCTION
+  pool_size: 20
+  max_overflow: 40
+  echo: false
+  ssl_mode: require
+
+# Redis Configuration
+redis:
+  host: redis
+  port: 6379
+  db: 0
+  password: ""
+  max_connections: 100
+  socket_timeout: 5
+
+# Time Series Database (TDengine)
+tdengine:
+  host: tdengine
+  port: 6030
+  username: root
+  password: taosdata
+  database: itops_metrics
+  pool_size: 20
+
+# Alternative: InfluxDB
+# influxdb:
+#   url: http://localhost:8086
+#   token: my-production-token
+#   org: itops
+#   bucket: metrics
+
+# Vector Database (Qdrant)
+qdrant:
+  host: qdrant
+  port: 6333
+  collection: itops_knowledge
+  vector_size: 384
+
+# Object Storage (MinIO)
+minio:
+  endpoint: minio:9000
+  access_key: CHANGE_ME
+  secret_key: CHANGE_ME
+  bucket: itops-reports
+  secure: false
+
+# AI/LLM Configuration
+ai:
+  provider: ollama
+  base_url: http://ollama:11434
+  model: qwen2.5:7b
+  temperature: 0.7
+  max_tokens: 2048
+  timeout: 120
+
+# Logging Configuration
+logging:
+  level: INFO
+  format: json
+  output:
+    - type: file
+      path: /app/logs/app.log
+      max_size: 100MB
+      backup_count: 30
+    - type: syslog
+      host: localhost
+      port: 514
+
+# Security
+security:
+  secret_key: CHANGE_ME_WITH_STRONG_RANDOM_KEY
+  algorithm: HS256
+  access_token_expire_minutes: 30
+  refresh_token_expire_days: 7
+  
+  # LDAP Configuration
+  ldap:
+    enabled: false
+    server: ldap://ldap.example.com:389
+    base_dn: dc=example,dc=com
+    user_dn_template: uid={username},ou=users,dc=example,dc=com
+    bind_dn: cn=admin,dc=example,dc=com
+    bind_password: ""
+
+# Monitoring
+monitoring:
+  enabled: true
+  interval: 60
+  retention_days: 365
+
+# Alert Configuration
+alert:
+  enabled: true
+  check_interval: 30
+  max_per_device: 500
+
+# Automation
+automation:
+  task_scheduler:
+    enabled: true
+    max_workers: 20
+  script_executor:
+    timeout: 600
+    max_concurrent: 50
+
+# Notification
+notification:
+  email:
+    enabled: true
+    smtp_host: smtp.example.com
+    smtp_port: 587
+    smtp_user: itops@example.com
+    smtp_password: ""
+    from_addr: itops@example.com
+  webhook:
+    enabled: true
+    endpoints:
+      - url: "http://localhost:8000/api/v1/webhook/alert"
+        headers: {}
+
+# Browser Automation
+browser:
+  headless: true
+  timeout: 120
+  screenshot_dir: /app/data/screenshots
+
+# Device Defaults
+devices:
+  snmp:
+    timeout: 10
+    retries: 3
+    community: public
+  ssh:
+    timeout: 60
+    port: 22
+  winrm:
+    timeout: 120
+    port: 5985

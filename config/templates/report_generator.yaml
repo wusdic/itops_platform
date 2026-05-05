@@ -1,0 +1,230 @@
+# BM-04 报告生成模块配置
+
+# 模块配置
+module:
+  name: "report_generator"
+  enabled: true
+  version: "1.0.0"
+
+# 报告生成器配置
+report_generator:
+  # 输出目录
+  output_dir: "/var/reports"
+  
+  # 默认导出格式
+  default_format: "html"
+  
+  # 报告保留天数
+  retention_days: 90
+  
+  # 最大报告大小（MB）
+  max_report_size: 50
+  
+  # 并发生成数
+  max_concurrent: 5
+
+# 报告类型配置
+report_types:
+  daily:
+    enabled: true
+    default_template: "daily_report_default"
+    schedule: "0 0 8 * * *"  # 每天8点
+    recipients:
+      - "ops-team@example.com"
+    format: "html"
+    
+  weekly:
+    enabled: true
+    default_template: "weekly_report_default"
+    schedule: "0 0 9 * * 1"  # 每周一9点
+    day_of_week: 1  # 周一
+    recipients:
+      - "ops-team@example.com"
+      - "manager@example.com"
+    format: "html,pdf"
+    
+  monthly:
+    enabled: true
+    default_template: "monthly_report_default"
+    schedule: "0 0 9 1 * *"  # 每月1号9点
+    day_of_month: 1
+    recipients:
+      - "ops-team@example.com"
+      - "manager@example.com"
+      - "cto@example.com"
+    format: "html,pdf"
+    
+  yearly:
+    enabled: true
+    default_template: "yearly_report_default"
+    schedule: "0 0 9 1 1 *"  # 每年1月1号9点
+    recipients:
+      - "ops-team@example.com"
+      - "manager@example.com"
+      - "cto@example.com"
+    format: "pdf"
+    
+  rca:
+    enabled: true
+    default_template: "rca_report_default"
+    auto_generate: true
+    min_severity: "P2"  # P2及以上自动生成
+    recipients:
+      - "ops-team@example.com"
+      - "manager@example.com"
+    format: "html,pdf"
+    
+  change:
+    enabled: true
+    default_template: "change_report_default"
+    auto_generate: true
+    recipients:
+      - "ops-team@example.com"
+    format: "html"
+
+# 模板配置
+templates:
+  # 模板目录
+  template_dirs:
+    - "/etc/itops/templates"
+    - "./templates"
+  
+  # 缓存配置
+  cache:
+    enabled: true
+    ttl: 3600  # 秒
+  
+  # 模板变量默认值
+  default_variables:
+    company_name: "IT运维部"
+    logo_url: "/static/logo.png"
+    primary_color: "#007bff"
+    accent_color: "#28a745"
+
+# 导出配置
+export:
+  # 导出目录
+  output_dir: "/var/reports/exports"
+  
+  # 支持的格式
+  formats:
+    html:
+      enabled: true
+      template: "default"
+    pdf:
+      enabled: true
+      page_size: "A4"
+      orientation: "portrait"
+      margin: 20
+    word:
+      enabled: true
+      template: "default"
+    excel:
+      enabled: true
+      sheet_name: "Report"
+    markdown:
+      enabled: true
+    json:
+      enabled: true
+      pretty_print: true
+
+# 调度配置
+scheduler:
+  enabled: true
+  timezone: "Asia/Shanghai"
+  
+  # 调度器配置
+  scheduler_config:
+    coalesce: true
+    max_instances: 1
+    misfire_grace_time: 300
+  
+  # 报告任务
+  jobs:
+    daily_report:
+      enabled: true
+      name: "日报生成任务"
+      schedule: "0 0 8 * * *"
+      timeout: 600
+      
+    weekly_report:
+      enabled: true
+      name: "周报生成任务"
+      schedule: "0 0 9 * * 1"
+      timeout: 1200
+      
+    monthly_report:
+      enabled: true
+      name: "月报生成任务"
+      schedule: "0 0 9 1 * *"
+      timeout: 1800
+
+# 通知配置
+notification:
+  enabled: true
+  
+  # 邮件通知
+  email:
+    enabled: true
+    smtp_host: "smtp.example.com"
+    smtp_port: 587
+    smtp_user: "reports@example.com"
+    smtp_password: ""
+    from_address: "reports@example.com"
+    use_tls: true
+    
+  # 钉钉通知
+  dingtalk:
+    enabled: false
+    webhook_url: ""
+    
+  # 企业微信通知
+  wecom:
+    enabled: false
+    webhook_url: ""
+
+# 存储配置
+storage:
+  # 数据库存储
+  database:
+    enabled: true
+    table_name: "reports"
+    
+  # 文件系统存储
+  filesystem:
+    enabled: true
+    base_path: "/var/reports"
+    
+  # S3兼容存储
+  s3:
+    enabled: false
+    endpoint: ""
+    bucket: "reports"
+    access_key: ""
+    secret_key: ""
+
+# 权限配置
+permissions:
+  # 可创建报告的角色
+  can_create:
+    - "admin"
+    - "ops_manager"
+    - "ops_engineer"
+    
+  # 可查看所有报告的角色
+  can_view_all:
+    - "admin"
+    - "ops_manager"
+    
+  # 可删除报告的角色
+  can_delete:
+    - "admin"
+    - "ops_manager"
+
+# 日志配置
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "/var/log/itops/report_generator.log"
+  max_bytes: 10485760  # 10MB
+  backup_count: 5

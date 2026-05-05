@@ -1,0 +1,346 @@
+# BM-06 资产管理配置
+# Asset Management Configuration
+
+module:
+  name: "BM-06 资产管理"
+  version: "1.0.0"
+  description: "提供资产台账、生命周期管理、寿命评估、风险评估等功能"
+
+# 资产分类配置
+asset_categories:
+  server:
+    name: "服务器"
+    icon: "server"
+    color: "#1890ff"
+    default_lifespan_months: 60
+  network:
+    name: "网络设备"
+    icon: "network"
+    color: "#52c41a"
+    default_lifespan_months: 84
+  security:
+    name: "安全设备"
+    icon: "shield"
+    color: "#faad14"
+    default_lifespan_months: 60
+  storage:
+    name: "存储设备"
+    icon: "database"
+    color: "#722ed1"
+    default_lifespan_months: 60
+  software:
+    name: "软件资产"
+    icon: "appstore"
+    color: "#eb2f96"
+    default_lifespan_months: 36
+  database:
+    name: "数据库"
+    icon: "hdd"
+    color: "#13c2c2"
+    default_lifespan_months: 60
+  cloud:
+    name: "云资源"
+    icon: "cloud"
+    color: "#2f54d2"
+    default_lifespan_months: 12
+  virtual:
+    name: "虚拟资源"
+    icon: "gateway"
+    color: "#fa8c16"
+    default_lifespan_months: 36
+
+# 资产状态配置
+asset_statuses:
+  planned:
+    name: "规划中"
+    color: "#d9d9d9"
+    is_active: false
+  procured:
+    name: "已采购"
+    color: "#b37feb"
+    is_active: false
+  in_storage:
+    name: "入库"
+    color: "#73d13d"
+    is_active: false
+  installed:
+    name: "已安装"
+    color: "#40a9ff"
+    is_active: false
+  running:
+    name: "运行中"
+    color: "#52c41a"
+    is_active: true
+  maintenance:
+    name: "维护中"
+    color: "#faad14"
+    is_active: false
+  fault:
+    name: "故障"
+    color: "#ff4d4f"
+    is_active: false
+  decommissioned:
+    name: "已退役"
+    color: "#8c8c8c"
+    is_active: false
+  scrapped:
+    name: "已报废"
+    color: "#595959"
+    is_active: false
+
+# 生命周期事件配置
+lifecycle_events:
+  procurement:
+    - type: "procurement_planned"
+      name: "采购计划"
+      color: "#b37feb"
+    - type: "procurement_approved"
+      name: "采购审批通过"
+      color: "#d3b8f5"
+    - type: "procurement_ordered"
+      name: "已下单"
+      color: "#adc6ff"
+    - type: "procurement_received"
+      name: "已到货"
+      color: "#69c0ff"
+  installation:
+    - type: "storage_in"
+      name: "入库"
+      color: "#5cdbd3"
+    - type: "storage_out"
+      name: "出库"
+      color: "#95de64"
+    - type: "installation_start"
+      name: "安装开始"
+      color: "#d9f7be"
+    - type: "installation_complete"
+      name: "安装完成"
+      color: "#b7eb8f"
+    - type: "commissioning"
+      name: "试运行"
+      color: "#ffe58f"
+  operation:
+    - type: "online"
+      name: "正式上线"
+      color: "#52c41a"
+    - type: "maintenance_scheduled"
+      name: "维保计划"
+      color: "#ffd666"
+    - type: "maintenance_start"
+      name: "维保开始"
+      color: "#ffc53d"
+    - type: "maintenance_complete"
+      name: "维保完成"
+      color: "#ffec3d"
+    - type: "hardware_upgrade"
+      name: "硬件升级"
+      color: "#ff85c0"
+    - type: "software_update"
+      name: "软件更新"
+      color: "#ff9c6e"
+    - type: "config_change"
+      name: "配置变更"
+      color: "#ffd8bf"
+  decommission:
+    - type: "decommission_planned"
+      name: "退役计划"
+      color: "#ff7875"
+    - type: "service_stop"
+      name: "服务停止"
+      color: "#ff4d4f"
+    - type: "data_migration"
+      name: "数据迁移"
+      color: "#ffbb96"
+    - type: "offline"
+      name: "下线"
+      color: "#ffccc7"
+    - type: "decommissioned"
+      name: "已退役"
+      color: "#d9d9d9"
+    - type: "scrapped"
+      name: "已报废"
+      color: "#8c8c8c"
+
+# 健康度评分权重配置
+health_score_weights:
+  age: 0.30
+  reliability: 0.30
+  maintenance: 0.20
+  performance: 0.20
+
+# 健康度等级阈值
+health_levels:
+  healthy:
+    min_score: 80
+    color: "#52c41a"
+    description: "设备运行良好"
+  normal:
+    min_score: 60
+    color: "#1890ff"
+    description: "设备运行正常"
+  warning:
+    min_score: 40
+    color: "#faad14"
+    description: "需要关注"
+  critical:
+    min_score: 0
+    color: "#ff4d4f"
+    description: "需要立即处理"
+
+# 风险等级配置
+risk_levels:
+  critical:
+    score_range: [80, 100]
+    color: "#ff4d4f"
+    response_time_hours: 1
+    escalation_required: true
+  high:
+    score_range: [60, 80)
+    color: "#fa8c16"
+    response_time_hours: 4
+    escalation_required: true
+  medium:
+    score_range: [40, 60)
+    color: "#faad14"
+    response_time_hours: 24
+    escalation_required: false
+  low:
+    score_range: [20, 40)
+    color: "#1890ff"
+    response_time_hours: 72
+    escalation_required: false
+  info:
+    score_range: [0, 20)
+    color: "#d9d9d9"
+    response_time_hours: 168
+    escalation_required: false
+
+# 风险类别配置
+risk_categories:
+  hardware_failure:
+    name: "硬件故障"
+    icon: "warning"
+    common_causes: ["部件老化", "温度过高", "电源问题", "硬盘故障"]
+  software_failure:
+    name: "软件故障"
+    icon: "bug"
+    common_causes: ["系统崩溃", "软件bug", "配置错误"]
+  capacity:
+    name: "容量不足"
+    icon: "dashboard"
+    common_causes: ["磁盘空间不足", "内存不足", "CPU过载"]
+  security:
+    name: "安全风险"
+    icon: "lock"
+    common_causes: ["漏洞", "未授权访问", "恶意软件"]
+  lifecycle:
+    name: "生命周期风险"
+    icon: "clock-circle"
+    common_causes: ["设备老化", "到达使用寿命", "技术支持终止"]
+  maintenance:
+    name: "维保风险"
+    icon: "tool"
+    common_causes: ["保修期过期", "维保合同到期", "备件不足"]
+  dependency:
+    name: "依赖风险"
+    icon: "link"
+    common_causes: ["单点故障", "关键依赖"]
+
+# 维保类型配置
+maintenance_types:
+  preventive:
+    name: "预防性维护"
+    color: "#52c41a"
+    frequency_default_days: 90
+  corrective:
+    name: "纠正性维护"
+    color: "#1890ff"
+  predictive:
+    name: "预测性维护"
+    color: "#722ed1"
+  emergency:
+    name: "紧急维护"
+    color: "#ff4d4f"
+
+# 评估引擎配置
+assessment:
+  # 数据保留周期（天）
+  data_retention_days: 730
+  
+  # 性能指标采集间隔（分钟）
+  metrics_collection_interval: 5
+  
+  # 评估计算周期（天）
+  evaluation_period_days: 365
+  
+  # 故障预测置信度阈值
+  prediction_confidence_threshold: 70
+  
+  # 关键MTBF阈值（天）
+  critical_mtbf_threshold: 30
+  
+  # MTTR评估阈值（小时）
+  mttr_warning_threshold: 8
+  mttr_critical_threshold: 24
+
+# 通知配置
+notifications:
+  enabled: true
+  
+  # 健康度告警阈值
+  health_score_warning: 60
+  health_score_critical: 40
+  
+  # 维保到期提醒（天数）
+  warranty_expiry_warning_days: 30
+  warranty_expiry_critical_days: 7
+  
+  # 生命周期提醒
+  lifecycle_warning_months: 6
+  lifecycle_critical_months: 3
+  
+  # 通知渠道
+  channels:
+    - email
+    - webhook
+    - sms
+
+# 报告配置
+reports:
+  # 自动生成报告
+  auto_generate: true
+  
+  # 报告周期（天）
+  generation_interval_days: 30
+  
+  # 报告类型
+  types:
+    - health_report
+    - risk_report
+    - lifecycle_report
+    - maintenance_report
+  
+  # 报告格式
+  formats:
+    - pdf
+    - excel
+    - html
+
+# 集成配置
+integrations:
+  # 监控模块集成
+  monitoring:
+    enabled: true
+    metrics_sync: true
+    alert_integration: true
+  
+  # CMDB集成
+  cmdb:
+    enabled: false
+    sync_interval_minutes: 60
+  
+  # ITSM集成
+  itsm:
+    enabled: false
+    create_incident_on_fault: true
+    auto_create_change: true

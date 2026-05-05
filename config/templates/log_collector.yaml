@@ -1,0 +1,229 @@
+# CM-05 日志采集模块配置
+
+# 日志采集器公共配置
+collector:
+  name: "log_collector"
+  enabled: true
+  worker_threads: 4
+  
+  # 全局日志级别过滤
+  level_filter:
+    - "INFO"
+    - "WARNING"
+    - "ERROR"
+    - "CRITICAL"
+  
+  # 全局编码
+  encodings:
+    - "utf-8"
+    - "gbk"
+    - "gb2312"
+
+# 文件日志读取器配置
+file_reader:
+  # 默认位置记录文件目录
+  position_dir: "/var/lib/itops/log_positions"
+  
+  # 文件发现配置
+  discovery:
+    enabled: true
+    patterns:
+      - "/var/log/**/*.log"
+      - "/opt/**/logs/*.log"
+      - "/home/**/app.log"
+    interval: 300  # 发现间隔（秒）
+  
+  # 默认读取配置
+  read:
+    batch_size: 1000
+    encoding: "utf-8"
+    skip_empty_lines: true
+
+# Syslog接收器配置
+syslog:
+  enabled: true
+  
+  # UDP接收
+  udp:
+    host: "0.0.0.0"
+    port: 514
+    buffer_size: 65535
+  
+  # TCP接收
+  tcp:
+    enabled: true
+    host: "0.0.0.0"
+    port: 5140
+    max_connections: 100
+    timeout: 60
+  
+  # 默认过滤器
+  filters:
+    # 级别过滤
+    levels:
+      - "WARNING"
+      - "ERROR"
+      - "CRITICAL"
+    
+    # 关键词过滤
+    keywords:
+      - "error"
+      - "fail"
+      - "critical"
+    
+    # 排除关键词
+    exclude_keywords:
+      - "debug"
+      - "trace"
+
+# Windows事件采集配置
+windows_events:
+  enabled: false  # 仅Windows平台生效
+  
+  # 采集的日志通道
+  channels:
+    - "Application"
+    - "System"
+    - "Security"
+  
+  # 级别过滤
+  level_filter: 3  # 1=Critical, 2=Error, 3=Warning, 4=Info, 5=Verbose
+  
+  # 轮询间隔
+  poll_interval: 5
+
+# 麒麟系统日志采集配置
+kylin_logs:
+  enabled: true
+  
+  # 日志文件路径
+  paths:
+    system:
+      - "/var/log/messages"
+      - "/var/log/syslog"
+      - "/var/log/kylin.log"
+    secure:
+      - "/var/log/secure"
+      - "/var/log/auth.log"
+    kernel:
+      - "/var/log/kmsg"
+    boot:
+      - "/var/log/boot.log"
+  
+  # 是否使用journalctl
+  use_journal: true
+  
+  # 采集间隔
+  collection_interval: 5
+
+# 日志解析器配置
+parsers:
+  # 通用解析器
+  generic:
+    enabled: true
+    
+    # 时间戳格式
+    timestamp_formats:
+      - "%Y-%m-%d %H:%M:%S"
+      - "%Y-%m-%dT%H:%M:%S"
+      - "%Y/%m/%d %H:%M:%S"
+    
+    # 自定义正则模式
+    custom_patterns: []
+
+  # 华为设备解析器
+  huawei:
+    enabled: true
+    device_types:
+      - "CE"
+      - "S5700"
+      - "S3700"
+      - "AR"
+      - "NE"
+      - "USG"
+  
+  # 安全设备解析器
+  security:
+    enabled: true
+    device_types:
+      - "FortiGate"
+      - "CheckPoint"
+      - "HuaweiFW"
+      - "TopSec"
+      - "Hillstone"
+
+# 日志转发器配置
+forwarder:
+  enabled: true
+  
+  # 批处理配置
+  batch:
+    size: 100
+    flush_interval: 5
+  
+  # 后端配置
+  backends:
+    # Elasticsearch (可选)
+    elasticsearch:
+      enabled: false
+      hosts:
+        - "http://localhost:9200"
+      index_prefix: "logs-"
+      username: ""
+      password: ""
+      timeout: 30
+    
+    # TDengine (时序数据库)
+    tdengine:
+      enabled: false
+      host: "localhost"
+      port: 6030
+      username: "root"
+      password: "taosdata"
+      database: "logs"
+      table_name: "logs"
+    
+    # Kafka (可选)
+    kafka:
+      enabled: false
+      bootstrap_servers:
+        - "localhost:9092"
+      topic: "itops-logs"
+    
+    # Redis (可选)
+    redis:
+      enabled: false
+      host: "localhost"
+      port: 6379
+      password: ""
+      db: 0
+      key_prefix: "logs:"
+    
+    # 本地文件 (默认)
+    file:
+      enabled: true
+      path: "/var/log/itops/collected_logs.log"
+      format: "json"  # json, text, syslog
+      rotation:
+        enabled: true
+        max_size: 104857600  # 100MB
+        max_files: 10
+
+# 监控配置
+monitoring:
+  enabled: true
+  metrics_port: 9090
+  
+  # 指标
+  metrics:
+    - "logs_collected_total"
+    - "logs_forwarded_total"
+    - "logs_failed_total"
+    - "parse_errors_total"
+    - "collection_latency_seconds"
+
+# 日志输出配置
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "/var/log/itops/log_collector.log"

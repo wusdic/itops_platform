@@ -1,0 +1,125 @@
+# SSH采集配置
+
+# SSH连接配置
+ssh:
+  timeout: 10
+  banner_timeout: 15
+  auth_timeout: 15
+  encoding: utf-8
+  # 连接池配置
+  pool_size: 10
+  keepalive_interval: 60
+
+# 默认认证配置
+auth:
+  username: root
+  # 密码认证（加密存储）
+  # password: encrypted_password
+  # 密钥认证
+  key_file: /root/.ssh/id_rsa
+  key_password: null
+
+# 设备列表
+devices:
+  - name: Linux服务器1
+    host: 192.168.1.10
+    port: 22
+    device_type: linux
+    tags:
+      - production
+      - web
+    collect:
+      - system
+      - cpu
+      - memory
+      - disk
+      - network
+      - process
+  
+  - name: Linux服务器2
+    host: 192.168.1.11
+    port: 22
+    device_type: linux
+    tags:
+      - production
+      - db
+    collect:
+      - system
+      - cpu
+      - memory
+      - disk
+  
+  - name: Windows服务器1
+    host: 192.168.1.20
+    port: 5985
+    device_type: windows
+    use_https: false
+    tags:
+      - production
+      - app
+    collect:
+      - system
+      - disk
+      - services
+  
+  - name: 麒麟服务器
+    host: 192.168.1.30
+    port: 22
+    device_type: kylin
+    tags:
+      - production
+      - secure
+    collect:
+      - system
+      - security
+      - compliance
+
+# 采集任务配置
+collector_tasks:
+  - name: Linux系统信息采集
+    device_type: linux
+    interval: 300  # 秒
+    enabled: true
+  
+  - name: Windows系统信息采集
+    device_type: windows
+    interval: 300
+    enabled: true
+  
+  - name: 麒麟系统信息采集
+    device_type: kylin
+    interval: 300
+    enabled: true
+
+# 配置下发配置
+deploy:
+  backup_dir: /tmp/config_backups
+  max_workers: 10
+  timeout: 120
+  retry_count: 3
+  # 验证命令
+  verify_cmd: "show running-config | include"
+
+# 采集命令模板（按设备类型）
+commands:
+  linux:
+    system_info: "hostname && uname -r && cat /etc/os-release | grep PRETTY_NAME"
+    cpu_info: "top -bn1 | grep Cpu"
+    memory_info: "free -h"
+    disk_info: "df -h | grep -v tmpfs"
+    network_info: "ip -br addr show"
+    process_info: "ps aux --sort=-%cpu | head -20"
+  
+  windows:
+    system_info: "Get-CimInstance Win32_ComputerSystem | ConvertTo-Json"
+    disk_info: "Get-CimInstance Win32_LogicalDisk | ConvertTo-Json"
+    service_info: "Get-Service | ConvertTo-Json"
+
+# WinRM配置
+winrm:
+  port: 5985
+  https_port: 5986
+  transport: ntlm
+  read_timeout: 30
+  operation_timeout: 30
+  connection_timeout: 10

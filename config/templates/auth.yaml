@@ -1,0 +1,118 @@
+# FM-04 权限管理模块配置文件
+# 包含JWT配置、LDAP配置、密码策略配置
+
+# JWT Token配置
+jwt:
+  secret_key: "your-super-secret-key-change-in-production"  # 生产环境必须修改
+  algorithm: "HS256"
+  access_token_expire: 3600      # 访问令牌过期时间(秒)，默认1小时
+  refresh_token_expire: 604800   # 刷新令牌过期时间(秒)，默认7天
+  issuer: "itops-platform"        # Token发行者
+  audience: "itops-api"          # Token受众
+
+# 密码策略配置
+password_policy:
+  min_length: 8                  # 最小长度
+  max_length: 128               # 最大长度
+  require_uppercase: true       # 必须包含大写字母
+  require_lowercase: true       # 必须包含小写字母
+  require_digit: true          # 必须包含数字
+  require_special: false        # 必须包含特殊字符
+  prevent_reuse: true           # 防止重复使用最近N次密码
+  reuse_count: 5               # 禁止重复最近5次密码
+  lockout_threshold: 5         # 锁定账户前的失败尝试次数
+  lockout_duration: 1800        # 账户锁定时长(秒)，默认30分钟
+
+# 会话配置
+session:
+  max_concurrent: 5            # 最大并发会话数
+  idle_timeout: 1800           # 空闲超时(秒)
+  absolute_timeout: 86400      # 绝对超时(秒)，24小时
+
+# LDAP配置
+ldap:
+  enabled: false               # 是否启用LDAP
+  server: "ldap.example.com"   # LDAP服务器地址
+  port: 389                    # LDAP端口
+  use_ssl: false               # 是否使用SSL
+  start_tls: true              # 是否使用STARTTLS
+  bind_dn: "cn=admin,dc=example,dc=com"  # 绑定DN
+  bind_password: ""            # 绑定密码(加密存储)
+  base_dn: "dc=example,dc=com"  # 基础DN
+  user_filter: "(objectClass=user)"     # 用户过滤规则
+  group_filter: "(objectClass=group)"   # 组过滤规则
+  user_search_base: ""         # 用户搜索路径，为空则使用base_dn
+  group_search_base: ""        # 组搜索路径，为空则使用base_dn
+  username_attr: "sAMAccountName"       # 用户名属性(AD用sAMAccountName, OpenLDAP用uid)
+  email_attr: "mail"           # 邮箱属性
+  display_name_attr: "displayName"      # 显示名称属性
+  group_member_attr: "member"  # 组成员属性
+  sync_interval: 3600          # 同步间隔(秒)
+  timeout: 30                  # 连接超时(秒)
+  page_size: 1000              # 分页大小
+  
+  # LDAP组到系统角色的映射
+  group_role_mapping:
+    "Domain Admins": "admin"
+    "IT Operators": "operator"
+    "ReadOnly Users": "viewer"
+
+# 审计配置
+audit:
+  enabled: true                # 是否启用审计
+  retention_days: 90           # 日志保留天数
+  log_level: "info"            # 日志级别: debug, info, warning, error, critical
+  log_failed_login: true       # 记录失败登录
+  log_sensitive_actions: true  # 记录敏感操作
+  exclude_paths:               # 排除路径(不记录审计)
+    - "/health"
+    - "/metrics"
+    - "/static/*"
+  sensitive_fields:            # 敏感字段(记录时脱敏)
+    - "password"
+    - "token"
+    - "secret"
+
+# RBAC默认角色权限
+rbac:
+  default_role: "viewer"       # 新用户的默认角色
+  
+  # 角色定义
+  roles:
+    admin:
+      description: "系统管理员"
+      permissions:
+        - resource: "user"
+          actions: ["create", "read", "update", "delete", "manage"]
+        - resource: "role"
+          actions: ["create", "read", "update", "delete", "manage"]
+        - resource: "permission"
+          actions: ["read", "manage"]
+        - resource: "audit"
+          actions: ["read"]
+        - resource: "system"
+          actions: ["read", "update", "execute", "manage"]
+        - resource: "config"
+          actions: ["create", "read", "update", "delete", "manage"]
+    
+    operator:
+      description: "运维操作员"
+      permissions:
+        - resource: "user"
+          actions: ["read"]
+        - resource: "system"
+          actions: ["read", "execute", "update"]
+        - resource: "config"
+          actions: ["read", "update"]
+    
+    viewer:
+      description: "只读用户"
+      permissions:
+        - resource: "user"
+          actions: ["read"]
+        - resource: "system"
+          actions: ["read"]
+        - resource: "config"
+          actions: ["read"]
+        - resource: "audit"
+          actions: ["read"]

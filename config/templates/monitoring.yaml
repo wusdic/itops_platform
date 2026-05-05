@@ -1,0 +1,416 @@
+# BM-01 监控告警配置模板
+# Monitoring and Alerting Configuration
+
+# ==================== 监控核心配置 ====================
+[monitor]
+# 指标采集间隔（秒）
+collect_interval = 60
+
+# 阈值检查间隔（秒）
+check_interval = 30
+
+# 趋势分析时间窗口（秒）
+trend_window = 300
+
+# 设备离线判定时间（秒）
+offline_threshold = 300
+
+# 指标缓冲区大小
+metric_buffer_size = 1000
+
+# ==================== 告警规则配置 ====================
+[rules]
+# 去重TTL（秒）
+deduplication_ttl = 3600
+
+# 默认抑制间隔（秒）
+default_suppress_interval = 300
+
+# 默认评估间隔（秒）
+default_evaluation_interval = 60
+
+# ==================== 告警触发器配置 ====================
+[alerter]
+# 自动关闭间隔（秒）
+auto_close_interval = 86400
+
+# 自动解决阈值（秒）
+auto_resolve_threshold = 3600
+
+# 升级检查间隔（秒）
+escalation_check_interval = 60
+
+# 自动解决检查间隔（秒）
+auto_resolve_interval = 300
+
+# SLA配置（分钟）
+[sla.critical]
+acknowledge = 15
+resolve = 60
+
+[sla.error]
+acknowledge = 30
+resolve = 240
+
+[sla.warning]
+acknowledge = 60
+resolve = 480
+
+[sla.info]
+acknowledge = 120
+resolve = 1440
+
+# ==================== 通知服务配置 ====================
+[notification]
+# 最大并发通知数
+max_concurrent_notifications = 10
+
+# 默认静默时间（分钟）
+default_silence_minutes = 30
+
+# 清理间隔（秒）
+cleanup_interval = 3600
+
+# 重试间隔（秒）
+retry_interval = 300
+
+# 最大重试次数
+max_retries = 3
+
+# ==================== 通知渠道配置 ====================
+[notification.channels]
+# 启用哪些渠道
+in_app = true
+email = true
+wechat_work = false
+dingtalk = false
+sms = false
+
+# ==================== 邮件配置 ====================
+[email]
+enabled = true
+smtp_host = localhost
+smtp_port = 587
+smtp_user = alert@example.com
+smtp_password =
+use_tls = true
+from_address = alert@example.com
+from_name = ITOps Alert
+max_retries = 3
+
+# ==================== 企业微信配置 ====================
+[wechat_work]
+enabled = false
+# 企业微信Webhook地址
+webhook_url =
+# 企业ID
+corp_id =
+# 应用AgentID
+agent_id =
+# 应用Secret
+agent_secret =
+
+# 企业微信限流配置
+[wechat_work.rate_limit]
+max_count = 100
+window_seconds = 3600
+
+# ==================== 钉钉配置 ====================
+[dingtalk]
+enabled = false
+# 钉钉Webhook地址
+webhook_url =
+# 加签密钥
+secret =
+
+# 钉钉限流配置
+[dingtalk.rate_limit]
+max_count = 100
+window_seconds = 3600
+
+# ==================== 短信配置 ====================
+[sms]
+enabled = false
+provider = aliyun
+access_key =
+access_secret =
+sign_name = ITOps
+template_code = SMS_123456789
+
+# ==================== 告警规则模板 ====================
+# 预定义的告警规则模板
+[rules.templates]
+
+# CPU使用率告警
+[rules.templates.cpu_high]
+name = "CPU使用率过高"
+metric_name = "cpu.usage"
+severity = "warning"
+devices = ["*"]
+[[rules.templates.cpu_high.thresholds]]
+operator = ">"
+value = 80
+severity = "warning"
+description = "CPU使用率超过80%"
+
+[[rules.templates.cpu_high.thresholds]]
+operator = ">"
+value = 95
+severity = "critical"
+description = "CPU使用率超过95%"
+
+[rules.templates.cpu_high.notify_channels]
+- "in_app"
+- "email"
+
+[rules.templates.cpu_high.duration] = 60  # 持续60秒触发
+
+# 内存使用率告警
+[rules.templates.memory_high]
+name = "内存使用率过高"
+metric_name = "memory.usage_percent"
+severity = "warning"
+devices = ["*"]
+[[rules.templates.memory_high.thresholds]]
+operator = ">"
+value = 85
+severity = "warning"
+description = "内存使用率超过85%"
+
+[[rules.templates.memory_high.thresholds]]
+operator = ">"
+value = 95
+severity = "critical"
+description = "内存使用率超过95%"
+
+[rules.templates.memory_high.notify_channels]
+- "in_app"
+- "email"
+
+# 磁盘使用率告警
+[rules.templates.disk_high]
+name = "磁盘使用率过高"
+metric_name = "disk.usage_percent"
+severity = "warning"
+devices = ["*"]
+[[rules.templates.disk_high.thresholds]]
+operator = ">"
+value = 80
+severity = "warning"
+description = "磁盘使用率超过80%"
+
+[[rules.templates.disk_high.thresholds]]
+operator = ">"
+value = 90
+severity = "error"
+description = "磁盘使用率超过90%"
+
+[[rules.templates.disk_high.thresholds]]
+operator = ">"
+value = 95
+severity = "critical"
+description = "磁盘使用率超过95%"
+
+[rules.templates.disk_high.notify_channels]
+- "in_app"
+- "email"
+
+# 网络流量告警
+[rules.templates.network_high]
+name = "网络流量过高"
+metric_name = "network.bytes_sent"
+severity = "warning"
+devices = ["*"]
+[[rules.templates.network_high.thresholds]]
+operator = ">"
+value = 1000000000  # 1GB/s
+severity = "warning"
+
+[rules.templates.network_high.notify_channels]
+- "in_app"
+
+# 设备离线告警
+[rules.templates.device_offline]
+name = "设备离线"
+metric_name = "heartbeat"
+severity = "critical"
+devices = ["*"]
+[rules.templates.device_offline.thresholds]
+operator = "="
+value = 0
+severity = "critical"
+duration = 60
+
+[rules.templates.device_offline.notify_channels]
+- "in_app"
+- "email"
+- "sms"
+
+# 响应时间告警
+[rules.templates.response_time_high]
+name = "响应时间过高"
+metric_name = "http.response_time"
+severity = "warning"
+devices = ["*"]
+[[rules.templates.response_time_high.thresholds]]
+operator = ">"
+value = 5000  # 毫秒
+severity = "warning"
+description = "响应时间超过5秒"
+
+[[rules.templates.response_time_high.thresholds]]
+operator = ">"
+value = 30000
+severity = "critical"
+description = "响应时间超过30秒"
+
+[rules.templates.response_time_high.notify_channels]
+- "in_app"
+- "email"
+
+# 错误率告警
+[rules.templates.error_rate_high]
+name = "错误率过高"
+metric_name = "http.error_rate"
+severity = "error"
+devices = ["*"]
+[[rules.templates.error_rate_high.thresholds]]
+operator = ">"
+value = 1  # 1%
+severity = "warning"
+description = "错误率超过1%"
+
+[[rules.templates.error_rate_high.thresholds]]
+operator = ">"
+value = 5
+severity = "error"
+description = "错误率超过5%"
+
+[[rules.templates.error_rate_high.thresholds]]
+operator = ">"
+value = 10
+severity = "critical"
+description = "错误率超过10%"
+
+[rules.templates.error_rate_high.notify_channels]
+- "in_app"
+- "email"
+
+# 进程告警
+[rules.templates.process_down]
+name = "进程停止"
+metric_name = "process.running"
+severity = "critical"
+devices = ["*"]
+[[ruls.templates.process_down.thresholds]]
+operator = "="
+value = 0
+severity = "critical"
+
+[rules.templates.process_down.notify_channels]
+- "in_app"
+- "email"
+- "sms"
+
+# ==================== 告警升级策略 ====================
+[escalation]
+# Level 1: 5分钟后通知值班人员
+[[escalation.levels]]
+level = 1
+wait_minutes = 5
+notify_channels = ["email"]
+assignees = ["on_call"]
+
+# Level 2: 10分钟后升级到运维经理
+[[escalation.levels]]
+level = 2
+wait_minutes = 10
+notify_channels = ["email", "sms"]
+assignees = ["ops_manager"]
+
+# Level 3: 15分钟后升级到团队负责人
+[[escalation.levels]]
+level = 3
+wait_minutes = 15
+notify_channels = ["email", "sms", "phone"]
+assignees = ["team_lead"]
+
+# Level 4: 30分钟后升级到CTO
+[[escalation.levels]]
+level = 4
+wait_minutes = 30
+notify_channels = ["email", "phone"]
+assignees = ["cto"]
+
+# ==================== 通知模板配置 ====================
+[templates]
+
+# 站内通知模板
+[templates.in_app]
+title = "[{severity}] {rule_name}"
+content = """
+设备: {device_id}
+指标: {metric_name}
+当前值: {value}
+阈值: {threshold}
+时间: {timestamp}
+"""
+
+# 邮件通知模板
+[templates.email]
+title = "[ITOps告警] [{severity}] {rule_name}"
+content = """
+<html>
+<body>
+<h2>{rule_name}</h2>
+<table>
+<tr><td><b>严重级别</b></td><td>{severity}</td></tr>
+<tr><td><b>设备</b></td><td>{device_id}</td></tr>
+<tr><td><b>指标</b></td><td>{metric_name}</td></tr>
+<tr><td><b>当前值</b></td><td>{value}</td></tr>
+<tr><td><b>阈值</b></td><td>{threshold}</td></tr>
+<tr><td><b>时间</b></td><td>{timestamp}</td></tr>
+</table>
+<p>请及时处理此告警。</p>
+</body>
+</html>
+"""
+
+# 企业微信模板
+[templates.wechat_work]
+title = "[告警] {rule_name}"
+content = "**[{severity}] {rule_name}**\n> 设备: {device_id}\n> 指标: {metric_name}\n> 当前值: {value}\n> 阈值: {threshold}"
+
+# 钉钉模板
+[templates.dingtalk]
+title = "ITOps告警通知"
+content = """### {severity}告警: {rule_name}
+
+**设备**: {device_id}
+**指标**: {metric_name}
+**当前值**: {value}
+**阈值**: {threshold}
+**时间**: {timestamp}
+
+> 请及时处理"""
+
+# ==================== 仪表盘配置 ====================
+[dashboard]
+# 默认时间范围（小时）
+default_time_range = 24
+
+# 图表数据点数量
+chart_max_points = 100
+
+# TopN显示数量
+topn_default_count = 10
+
+# 数据刷新间隔（秒）
+refresh_interval = 30
+
+# ==================== 日志配置 ====================
+[logging]
+level = INFO
+file = logs/monitoring.log
+max_size = 104857600  # 100MB
+backup_count = 10

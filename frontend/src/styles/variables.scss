@@ -1,0 +1,362 @@
+// IT运维平台 - Sass主题系统 v2.0
+// 采用最新国内大型平台风格（阿里、腾讯、字节跳动级别）
+
+// ========== 颜色系统 ==========
+// 主色系
+$primary: #165dff;
+$primary-light: #4080ff;
+$primary-lighter: #e8f0ff;
+$primary-dark: #0e42d2;
+
+// 语义色系
+$success: #00b42a;
+$success-light: #26d959;
+$success-lighter: #e8ffea;
+$warning: #ff7d00;
+$warning-light: #ff9d00;
+$warning-lighter: #fff7e6;
+$danger: #f53f3f;
+$danger-light: #ff7875;
+$danger-lighter: #fff1f0;
+$info: #6370f5;
+$info-light: #8594ff;
+$info-lighter: #f0f1ff;
+
+// 中性色系
+$text-primary: #1d2129;
+$text-regular: #4b4f59;
+$text-secondary: #86909c;
+$text-placeholder: #c9cdd4;
+$text-disabled: #a6a8ab;
+
+$border: #e5e6eb;
+$border-light: #f2f3f5;
+$border-lighter: #f7f8fa;
+
+// 背景色系
+$bg-page: #f7f8fa;
+$bg-page-hover: #f2f3f5;
+$bg-container: #ffffff;
+$bg-container-hover: #fafafa;
+$bg-overlay: rgba(0, 0, 0, 0.45);
+$bg-mask: rgba(0, 0, 0, 0.5);
+
+// 暗色主题
+$dark-bg-page: #0f0f0f;
+$dark-bg-container: #1a1a1a;
+$dark-bg-elevated: #252525;
+$dark-text-primary: #e8e8e8;
+$dark-text-regular: #b3b3b3;
+$dark-text-secondary: #8c8c8c;
+$dark-border: #2d2d2d;
+$dark-border-light: #383838;
+
+// ========== 圆角系统 ==========
+$radius-xs: 2px;
+$radius-sm: 4px;
+$radius-base: 6px;
+$radius-md: 8px;
+$radius-lg: 12px;
+$radius-xl: 16px;
+$radius-xxl: 20px;
+$radius-round: 50%;
+$radius-pill: 100px;
+
+// ========== 字体系统 ==========
+$font-size-xs: 12px;
+$font-size-sm: 12px;
+$font-size-base: 14px;
+$font-size-md: 16px;
+$font-size-lg: 18px;
+$font-size-xl: 20px;
+$font-size-xxl: 24px;
+$font-size-xxxl: 28px;
+$font-size-max: 32px;
+$font-size-hero: 40px;
+
+$font-weight-regular: 400;
+$font-weight-medium: 500;
+$font-weight-semibold: 600;
+$font-weight-bold: 700;
+
+$font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+$font-mono: 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace;
+
+// ========== 间距系统 ==========
+$space-1: 4px;
+$space-2: 8px;
+$space-3: 12px;
+$space-4: 16px;
+$space-5: 20px;
+$space-6: 24px;
+$space-8: 32px;
+$space-10: 40px;
+$space-12: 48px;
+$space-16: 64px;
+
+// 兼容性别名
+$spacing-xs: $space-1;
+$spacing-sm: $space-2;
+$spacing-base: $space-3;
+$spacing-md: $space-4;
+$spacing-lg: $space-5;
+$spacing-xl: $space-6;
+$spacing-xxl: $space-8;
+$spacing-xxxl: $space-10;
+
+// ========== 阴影系统 ==========
+$shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+$shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.06);
+$shadow-base: 0 4px 12px rgba(0, 0, 0, 0.08);
+$shadow-md: 0 6px 16px rgba(0, 0, 0, 0.1);
+$shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.12);
+$shadow-xl: 0 20px 48px rgba(0, 0, 0, 0.16);
+
+// 浮层阴影
+$shadow-dropdown: 0 6px 24px rgba(0, 0, 0, 0.12);
+$shadow-popover: 0 8px 32px rgba(0, 0, 0, 0.14);
+$shadow-modal: 0 16px 48px rgba(0, 0, 0, 0.2);
+
+// ========== 过渡系统 ==========
+$transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+$transition-base: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+$transition-slow: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+$transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+// ========== 布局系统 ==========
+$sidebar-width: 240px;
+$sidebar-collapsed-width: 64px;
+$header-height: 64px;
+$content-max-width: 1440px;
+$container-padding: 24px;
+
+// ========== Z-Index系统 ==========
+$z-dropdown: 1000;
+$z-sticky: 1020;
+$z-fixed: 1030;
+$z-modal-backdrop: 1040;
+$z-modal: 1050;
+$z-popover: 1060;
+$z-tooltip: 1070;
+$z-toast: 1080;
+
+// ========== Mixins ==========
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@mixin flex-start {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+@mixin text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@mixin multi-ellipsis($lines: 2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: $lines;
+  -webkit-box-orient: vertical;
+}
+
+@mixin card-base {
+  background: $bg-container;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-sm;
+  transition: $transition-base;
+  
+  &:hover {
+    box-shadow: $shadow-base;
+  }
+}
+
+@mixin card-elevated {
+  background: $bg-container;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-md;
+  border: 1px solid $border-light;
+}
+
+@mixin gradient($color1, $color2) {
+  background: linear-gradient(135deg, $color1 0%, $color2 100%);
+}
+
+@mixin glass-effect {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+@mixin truncate($width: 100%) {
+  max-width: $width;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// ========== 动画 ==========
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInLeft {
+  from { transform: translateX(-20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.05); opacity: 0.8; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes ripple {
+  0% { transform: scale(0); opacity: 0.6; }
+  100% { transform: scale(4); opacity: 0; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 5px rgba($primary, 0.3); }
+  50% { box-shadow: 0 0 20px rgba($primary, 0.6); }
+}
+
+// ========== 动画类 ==========
+.animate-fade-in { animation: fadeIn 0.3s ease-out; }
+.animate-fade-in-up { animation: fadeInUp 0.4s ease-out; }
+.animate-fade-in-down { animation: fadeInDown 0.3s ease-out; }
+.animate-slide-left { animation: slideInLeft 0.3s ease-out; }
+.animate-slide-right { animation: slideInRight 0.3s ease-out; }
+.animate-scale-in { animation: scaleIn 0.3s ease-out; }
+.animate-pulse { animation: pulse 2s ease-in-out infinite; }
+.animate-bounce { animation: bounce 1s ease-in-out infinite; }
+.animate-float { animation: float 3s ease-in-out infinite; }
+.animate-glow { animation: glow 2s ease-in-out infinite; }
+
+.animate-shimmer {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+// 涟漪效果
+.ripple-effect {
+  position: relative;
+  overflow: hidden;
+  
+  &::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 10px;
+    height: 10px;
+    background: rgba(255, 255, 255, 0.4);
+    border-radius: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    animation: ripple 0.6s linear;
+    pointer-events: none;
+  }
+}
+
+// ========== 工具类 ==========
+.text-primary { color: $text-primary !important; }
+.text-regular { color: $text-regular !important; }
+.text-secondary { color: $text-secondary !important; }
+.text-placeholder { color: $text-placeholder !important; }
+.text-disabled { color: $text-disabled !important; }
+
+.bg-page { background: $bg-page !important; }
+.bg-container { background: $bg-container !important; }
+
+.cursor-pointer { cursor: pointer; }
+
+.shadow-sm { box-shadow: $shadow-sm !important; }
+.shadow-base { box-shadow: $shadow-base !important; }
+.shadow-lg { box-shadow: $shadow-lg !important; }
+.shadow-xl { box-shadow: $shadow-xl !important; }
+
+// 滚动条美化
+.custom-scrollbar {
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 3px;
+    &:hover { background: rgba(0, 0, 0, 0.25); }
+  }
+}
+
+// ========== 暗色模式 ==========
+.dark-mode {
+  --bg-page: #{$dark-bg-page};
+  --bg-container: #{$dark-bg-container};
+  --bg-elevated: #{$dark-bg-elevated};
+  --text-primary: #{$dark-text-primary};
+  --text-regular: #{$dark-text-regular};
+  --text-secondary: #{$dark-text-secondary};
+  --border: #{$dark-border};
+  --border-light: #{$dark-border-light};
+}

@@ -1,0 +1,194 @@
+# ITOps Platform 生产环境配置
+
+# 应用配置
+app:
+  name: "ITOps Platform"
+  version: "1.0.0"
+  environment: "production"
+  debug: false
+  
+  # 服务配置
+  host: "0.0.0.0"
+  port: 8000
+  workers: 4
+  
+  # API配置
+  api:
+    prefix: "/api/v1"
+    title: "ITOps Platform API"
+    description: "智能化运维平台API"
+    cors_origins:
+      - "https://itops.example.com"
+      - "https://dashboard.example.com"
+  
+  # 日志配置
+  logging:
+    level: "INFO"
+    format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    file: "/var/log/itops/app.log"
+    max_bytes: 104857600  # 100MB
+    backup_count: 10
+
+# 数据库配置
+database:
+  type: "mysql"
+  host: "localhost"
+  port: 3306
+  username: "itops_user"
+  password: "${ITOPS_DB_PASSWORD}"
+  database: "itops_platform"
+  pool_size: 20
+  max_overflow: 40
+  pool_recycle: 3600
+  echo: false
+
+# Redis配置
+redis:
+  host: "localhost"
+  port: 6379
+  db: 0
+  password: "${ITOPS_REDIS_PASSWORD}"
+  max_connections: 50
+  socket_timeout: 5
+
+# 监控配置
+monitoring:
+  enabled: true
+  
+  # Prometheus配置
+  prometheus:
+    url: "http://prometheus:9090"
+    timeout: 10
+  
+  # Zabbix配置
+  zabbix:
+    url: "http://zabbix:8080/api_jsonrpc.php"
+    username: "${ZABBIX_USER}"
+    password: "${ZABBIX_PASSWORD}"
+  
+  # 告警配置
+  alert:
+    dingtalk:
+      webhook: "${DINGTALK_WEBHOOK}"
+      secret: "${DINGTALK_SECRET}"
+    email:
+      smtp_host: "smtp.example.com"
+      smtp_port: 465
+      username: "${SMTP_USER}"
+      password: "${SMTP_PASSWORD}"
+      from_address: "alerts@example.com"
+
+# 知识库配置
+knowledge:
+  enabled: true
+  
+  # 向量数据库配置
+  vector_db:
+    type: "qdrant"
+    url: "http://qdrant:6333"
+    collection: "itops_knowledge"
+  
+  # 嵌入模型配置
+  embedding:
+    model: "text2vec-base-chinese"
+    dimension: 768
+
+# AI配置
+ai:
+  enabled: true
+  
+  # 大语言模型配置
+  llm:
+    provider: "openai"
+    model: "gpt-4"
+    api_key: "${OPENAI_API_KEY}"
+    base_url: "https://api.openai.com/v1"
+    temperature: 0.7
+    max_tokens: 2000
+  
+  # Agent配置
+  agent:
+    max_iterations: 10
+    timeout: 60
+
+# 报表配置
+report:
+  enabled: true
+  
+  # 存储配置
+  storage:
+    type: "minio"
+    endpoint: "minio:9000"
+    access_key: "${MINIO_ACCESS_KEY}"
+    secret_key: "${MINIO_SECRET_KEY}"
+    bucket: "itops-reports"
+    secure: false
+
+# 文件存储配置
+storage:
+  type: "minio"
+  endpoint: "minio:9000"
+  access_key: "${MINIO_ACCESS_KEY}"
+  secret_key: "${MINIO_SECRET_KEY}"
+  bucket: "itops-files"
+  secure: false
+
+# 任务调度配置
+scheduler:
+  enabled: true
+  timezone: "Asia/Shanghai"
+  
+  # 任务配置
+  jobs:
+    - name: "数据采集"
+      cron: "*/5 * * * *"
+      handler: "modules.collection.tasks.collect_metrics"
+    - name: "告警检查"
+      cron: "*/1 * * * *"
+      handler: "modules.monitoring.tasks.check_alerts"
+    - name: "报表生成"
+      cron: "0 8 * * *"
+      handler: "modules.business.report.tasks.generate_daily_report"
+    - name: "知识库同步"
+      cron: "0 2 * * *"
+      handler: "modules.business.knowledge.tasks.sync_knowledge_base"
+
+# 安全配置
+security:
+  # JWT配置
+  jwt:
+    secret_key: "${JWT_SECRET_KEY}"
+    algorithm: "HS256"
+    access_token_expire_minutes: 60
+    refresh_token_expire_days: 7
+  
+  # Session配置
+  session:
+    secret_key: "${SESSION_SECRET_KEY}"
+    max_age: 86400  # 24小时
+  
+  # CORS配置
+  cors:
+    allow_origins:
+      - "https://itops.example.com"
+    allow_methods:
+      - "GET"
+      - "POST"
+      - "PUT"
+      - "DELETE"
+    allow_headers:
+      - "*"
+    allow_credentials: true
+  
+  # 速率限制
+  rate_limit:
+    enabled: true
+    default_limit: "100/minute"
+    by_endpoint:
+      "/api/v1/auth/login": "5/minute"
+      "/api/v1/ai/chat": "20/minute"
+
+# 运维配置
+maintenance:
+  enabled: false
+  message: "系统正在维护中，请稍后再访问"

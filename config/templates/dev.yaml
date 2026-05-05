@@ -1,0 +1,155 @@
+# ============================================
+# ITOps Platform Development Configuration
+# ============================================
+
+# Application Settings
+app:
+  name: ITOps Platform
+  version: 1.0.0
+  debug: true
+  host: 0.0.0.0
+  port: 8000
+  cors:
+    enabled: true
+    origins:
+      - "http://localhost:3000"
+      - "http://localhost:5173"
+    allow_credentials: true
+
+# Database Configuration
+database:
+  type: postgresql
+  host: localhost
+  port: 5432
+  name: itops
+  user: itops
+  password: itops_dev_password
+  pool_size: 10
+  max_overflow: 20
+  echo: false
+
+# Redis Configuration
+redis:
+  host: localhost
+  port: 6379
+  db: 0
+  password: ""
+  max_connections: 50
+
+# Time Series Database (TDengine)
+tdengine:
+  host: localhost
+  port: 6030
+  username: root
+  password: taosdata
+  database: itops_metrics
+  pool_size: 10
+
+# Alternative: InfluxDB
+# influxdb:
+#   url: http://localhost:8086
+#   token: my-token
+#   org: itops
+#   bucket: metrics
+
+# Vector Database (Qdrant)
+qdrant:
+  host: localhost
+  port: 6333
+  collection: itops_knowledge
+  vector_size: 384
+
+# Object Storage (MinIO)
+minio:
+  endpoint: localhost:9000
+  access_key: minioadmin
+  secret_key: minioadmin123
+  bucket: itops-reports
+  secure: false
+
+# AI/LLM Configuration
+ai:
+  provider: ollama
+  base_url: http://localhost:11434
+  model: qwen2.5:7b
+  temperature: 0.7
+  max_tokens: 2048
+  timeout: 120
+
+# Logging Configuration
+logging:
+  level: DEBUG
+  format: json
+  output:
+    - type: console
+    - type: file
+      path: logs/app.log
+      max_size: 100MB
+      backup_count: 10
+
+# Security
+security:
+  secret_key: your-secret-key-change-in-production
+  algorithm: HS256
+  access_token_expire_minutes: 60
+  refresh_token_expire_days: 7
+  
+  # LDAP Configuration (Optional)
+  ldap:
+    enabled: false
+    server: ldap://localhost:389
+    base_dn: dc=example,dc=com
+    user_dn_template: uid={username},ou=users,dc=example,dc=com
+
+# Monitoring
+monitoring:
+  enabled: true
+  interval: 60  # seconds
+  retention_days: 90
+
+# Alert Configuration
+alert:
+  enabled: true
+  check_interval: 30
+  max_per_device: 100
+
+# Automation
+automation:
+  task_scheduler:
+    enabled: true
+    max_workers: 10
+  script_executor:
+    timeout: 300
+    max_concurrent: 20
+
+# Notification
+notification:
+  email:
+    enabled: false
+    smtp_host: smtp.example.com
+    smtp_port: 587
+    smtp_user: user@example.com
+    smtp_password: ""
+    from_addr: itops@example.com
+  webhook:
+    enabled: false
+    endpoints: []
+
+# Browser Automation
+browser:
+  headless: true
+  timeout: 60
+  screenshot_dir: data/screenshots
+
+# Device Defaults
+devices:
+  snmp:
+    timeout: 5
+    retries: 3
+    community: public
+  ssh:
+    timeout: 30
+    port: 22
+  winrm:
+    timeout: 60
+    port: 5985

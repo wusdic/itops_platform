@@ -17,6 +17,7 @@ from .base import Base, db_session, init_db, close_db, get_engine
 from .device import Device, DeviceType, DeviceStatus
 from .alert import Alert, AlertLevel, AlertStatus
 from .workorder import WorkOrder, WorkOrderType, WorkOrderStatus
+from .report_template import ReportTemplate, ReportTemplateType, ReportFormat, Report, ReportSchedule
 
 __all__ = [
     'Base',
@@ -32,7 +33,12 @@ __all__ = [
     'AlertStatus',
     'WorkOrder',
     'WorkOrderType',
-    'WorkOrderStatus'
+    'WorkOrderStatus',
+    'ReportTemplate',
+    'ReportTemplateType',
+    'ReportFormat',
+    'Report',
+    'ReportSchedule'
 ]
 
 __version__ = '1.0.0'

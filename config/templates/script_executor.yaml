@@ -1,0 +1,271 @@
+# AM-03 脚本执行模块配置
+# 配置文件路径: config/templates/script_executor.yaml
+
+# ==================== 执行器配置 ====================
+executor:
+  # 默认超时时间（秒）
+  default_timeout: 300
+  
+  # 最大历史记录数
+  max_history: 1000
+  
+  # 输出缓冲区大小（字节）
+  output_buffer_size: 8192
+  
+  # 最大并发执行数
+  max_parallel: 10
+  
+  # 执行重试次数
+  max_retries: 3
+  
+  # 重试间隔（秒）
+  retry_interval: 5
+  
+  # 是否自动清理临时文件
+  auto_cleanup: true
+
+# ==================== 脚本库配置 ====================
+library:
+  # 存储路径
+  storage_path: /var/lib/itops/scripts
+  
+  # 自动备份
+  auto_backup: true
+  
+  # 备份间隔（小时）
+  backup_interval: 24
+  
+  # 最大备份数
+  max_backups: 10
+  
+  # 脚本大小限制（字节）
+  max_script_size: 10485760  # 10MB
+  
+  # 允许的文件扩展名
+  allowed_extensions:
+    - .sh
+    - .bash
+    - .ps1
+    - .py
+    - .yml
+    - .yaml
+
+# ==================== 远程执行配置 ====================
+remote:
+  # SSH默认端口
+  ssh_port: 22
+  
+  # SSH连接超时（秒）
+  ssh_timeout: 30
+  
+  # WinRM默认端口
+  winrm_port: 5985
+  
+  # WinRM HTTPS端口
+  winrm_https_port: 5986
+  
+  # 默认执行超时（秒）
+  default_timeout: 300
+  
+  # 连接池大小
+  connection_pool_size: 20
+  
+  # 连接保持时间（秒）
+  connection_lifetime: 3600
+  
+  # 批量执行最大并行数
+  batch_max_workers: 10
+  
+  # 是否启用压缩传输
+  compression: false
+
+# ==================== 脚本类型配置 ====================
+script_types:
+  shell:
+    interpreter: /bin/bash
+    extensions:
+      - .sh
+      - .bash
+    options:
+      - "-e"  # 遇到错误立即退出
+      - "-u"  # 使用未定义的变量时报错
+      - "-o"  # pipefail
+  
+  powershell:
+    interpreter: pwsh
+    extensions:
+      - .ps1
+    options:
+      - "-NoProfile"
+      - "-NonInteractive"
+  
+  python:
+    interpreter: python3
+    extensions:
+      - .py
+    options:
+      - "-u"  # 无缓冲输出
+  
+  ansible:
+    interpreter: ansible-playbook
+    extensions:
+      - .yml
+      - .yaml
+    options:
+      - "-v"
+      - "--diff"
+
+# ==================== 安全配置 ====================
+security:
+  # 是否启用脚本签名验证
+  enable_signature: false
+  
+  # 签名验证公钥路径
+  signature_public_key: ""
+  
+  # 是否沙箱执行
+  enable_sandbox: false
+  
+  # 沙箱配置文件路径
+  sandbox_config: ""
+  
+  # 禁止执行的命令
+  forbidden_commands:
+    - rm -rf /
+    - dd if=
+    - mkfs
+    - :(){ :|:& };:
+  
+  # 允许的脚本来源
+  allowed_sources:
+    - local
+    - library
+    - approved
+  
+  # 最大输出大小（字节）
+  max_output_size: 1048576  # 1MB
+
+# ==================== 日志配置 ====================
+logging:
+  # 日志级别
+  level: INFO
+  
+  # 日志格式
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  
+  # 日志文件
+  file: /var/log/itops/script_executor.log
+  
+  # 最大日志文件大小（字节）
+  max_bytes: 10485760  # 10MB
+  
+  # 备份日志文件数
+  backup_count: 5
+  
+  # 是否输出到控制台
+  console: true
+
+# ==================== 监控配置 ====================
+monitoring:
+  # 是否启用执行监控
+  enable: true
+  
+  # 监控间隔（秒）
+  interval: 60
+  
+  # 指标收集器
+  metrics_collector: prometheus
+  
+  # 告警阈值
+  alert_thresholds:
+    # 执行时间超过此值时告警（秒）
+    execution_time: 600
+    
+    # 失败率超过此值时告警
+    failure_rate: 0.2
+
+# ==================== 市场配置 ====================
+marketplace:
+  # 是否启用
+  enable: true
+  
+  # 市场存储路径
+  storage_path: /var/lib/itops/marketplace
+  
+  # 是否需要审核
+  require_approval: true
+  
+  # 评分系统
+  enable_ratings: true
+  
+  # 评论系统
+  enable_reviews: false
+
+# ==================== 模板配置 ====================
+templates:
+  # 预定义模板
+  predefined:
+    - name: "系统信息收集"
+      category: "monitoring"
+      type: "shell"
+      description: "收集系统基本信息"
+      
+    - name: "服务健康检查"
+      category: "monitoring"
+      type: "shell"
+      description: "检查服务运行状态"
+      
+    - name: "日志清理"
+      category: "maintenance"
+      type: "shell"
+      description: "清理过期日志文件"
+      
+    - name: "备份数据库"
+      category: "backup"
+      type: "shell"
+      description: "备份数据库到指定位置"
+      
+    - name: "重启服务"
+      category: "maintenance"
+      type: "shell"
+      description: "重启指定服务"
+
+# ==================== 告警配置 ====================
+alerts:
+  # 执行失败告警
+  on_failure: true
+  
+  # 超时告警
+  on_timeout: true
+  
+  # 高失败率告警
+  on_high_failure_rate: true
+  
+  # 告警接收者
+  recipients:
+    - admin@example.com
+  
+  # 告警webhook
+  webhook_url: ""
+
+# ==================== 性能配置 ====================
+performance:
+  # 缓存启用
+  enable_cache: true
+  
+  # 缓存TTL（秒）
+  cache_ttl: 300
+  
+  # 预热脚本
+  warmup_scripts: []
+  
+  # 资源限制
+  limits:
+    # 最大CPU使用（百分比）
+    cpu_percent: 80
+    
+    # 最大内存使用（MB）
+    memory_mb: 512
+    
+    # 最大临时文件大小（MB）
+    temp_file_mb: 100
