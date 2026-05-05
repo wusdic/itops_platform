@@ -21,7 +21,7 @@ from modules.business.report_generator.generator import (
 )
 
 
-router = APIRouter(prefix="/templates", tags=["报告模板管理"])
+router = APIRouter(tags=["报告模板管理"])
 
 
 # ============== 枚举定义 ==============

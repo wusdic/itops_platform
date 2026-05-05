@@ -11,16 +11,22 @@ from .notification_service import (
     NotificationChannel,
     get_notification_manager,
     init_notification_manager,
+    send_dingtalk_message,
+    send_feishu_message,
+    send_wechat_work_message,
 )
 
 __all__ = [
     "NotificationType",
-    "NotificationConfig", 
+    "NotificationConfig",
     "NotificationMessage",
     "NotificationManager",
     "NotificationChannel",
     "get_notification_manager",
     "init_notification_manager",
+    "send_dingtalk_message",
+    "send_feishu_message",
+    "send_wechat_work_message",
 ]
 
 __version__ = "1.0.0"

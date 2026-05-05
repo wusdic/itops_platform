@@ -22,7 +22,7 @@ from modules.business.report_generator.scheduler import (
 from modules.business.report_generator.generator import ReportGenerator, BUILTIN_TEMPLATES
 
 
-router = APIRouter(prefix="/schedule", tags=["定时报告管理"])
+router = APIRouter(tags=["定时报告管理"])
 
 
 # ============== 枚举定义 ==============

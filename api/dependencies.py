@@ -4,6 +4,7 @@
 """
 
 import os
+import logging
 from functools import lru_cache
 from typing import Optional, Generator, List, Any
 from dataclasses import dataclass
@@ -76,17 +77,25 @@ def get_db() -> Generator[Session, None, None]:
     """
     获取数据库会话
     使用上下文管理器确保会话正确关闭
+    如果数据库未初始化，抛出503错误
     """
-    from modules.foundation.db_models.base import _db_manager
-    session = _db_manager.get_session()
+    from fastapi import HTTPException
+
     try:
-        yield session
-        session.commit()
-    except Exception:
-        session.rollback()
-        raise
-    finally:
-        session.close()
+        from modules.foundation.db_models.base import _db_manager
+        session = _db_manager.get_session()
+        try:
+            yield session
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Database not available: {e}")
+        raise HTTPException(status_code=503, detail="数据库服务不可用，请检查数据库连接")
 
 
 # ============== 认证相关 ==============

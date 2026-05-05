@@ -15,7 +15,7 @@ from modules.business.notification import (
 )
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/notifications", tags=["通知渠道"])
+router = APIRouter(tags=["通知渠道"])
 
 
 # ============ 请求模型 ============

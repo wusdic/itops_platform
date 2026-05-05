@@ -16,7 +16,7 @@ from api.dependencies import get_db, get_current_user, CurrentUser, PaginationPa
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/devices", tags=["设备管理"])
+router = APIRouter(tags=["设备管理"])
 
 
 # ============== 请求/响应模型 ==============
@@ -77,7 +77,7 @@ class ProtocolInfo(BaseModel):
 
 # ============== 设备接口 ==============
 
-@router.get("/", summary="获取设备列表")
+@router.get("", summary="获取设备列表")
 async def list_devices(
     device_type: Optional[str] = Query(None, description="设备类型过滤"),
     vendor: Optional[str] = Query(None, description="厂商过滤"),

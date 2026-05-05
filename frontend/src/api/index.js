@@ -83,24 +83,24 @@ export const monitoring = {
 
 // ========== 告警相关 ==========
 export const alerts = {
-  getAlerts: (params) => api.get('/alerts', { params }),
-  getAlertDetail: (id) => api.get(`/alerts/${id}`),
-  updateAlert: (id, data) => api.put(`/alerts/${id}`, data),
-  acknowledgeAlert: (id) => api.post(`/alerts/${id}/acknowledge`),
-  deleteAlert: (id) => api.delete(`/alerts/${id}`),
-  getAlertStats: () => api.get('/alerts/stats')
+  getAlerts: (params) => api.get('/monitoring/alerts', { params }),
+  getAlertDetail: (id) => api.get(`/monitoring/alerts/${id}`),
+  updateAlert: (id, data) => api.put(`/monitoring/alerts/${id}`, data),
+  acknowledgeAlert: (id) => api.post(`/monitoring/alerts/${id}/acknowledge`),
+  deleteAlert: (id) => api.delete(`/monitoring/alerts/${id}`),
+  getAlertStats: () => api.get('/monitoring/alerts/stats')
 }
 
 // ========== 工单相关 ==========
 export const workorder = {
-  getWorkOrders: (params) => api.get('/workorder', { params }),
-  getWorkOrderDetail: (id) => api.get(`/workorder/${id}`),
-  createWorkOrder: (data) => api.post('/workorder', data),
-  updateWorkOrder: (id, data) => api.put(`/workorder/${id}`, data),
-  deleteWorkOrder: (id) => api.delete(`/workorder/${id}`),
-  approveWorkOrder: (id, data) => api.post(`/workorder/${id}/approve`, data),
-  rejectWorkOrder: (id, data) => api.post(`/workorder/${id}/reject`, data),
-  getWorkOrderStats: () => api.get('/workorder/stats')
+  getWorkOrders: (params) => api.get('/workorders/', { params }),
+  getWorkOrderDetail: (id) => api.get(`/workorders/${id}`),
+  createWorkOrder: (data) => api.post('/workorders/', data),
+  updateWorkOrder: (id, data) => api.put(`/workorders/${id}`, data),
+  deleteWorkOrder: (id) => api.delete(`/workorders/${id}`),
+  approveWorkOrder: (id, data) => api.post(`/workorders/${id}/approve`, data),
+  rejectWorkOrder: (id, data) => api.post(`/workorders/${id}/reject`, data),
+  getWorkOrderStats: () => api.get('/workorders/stats/summary')
 }
 
 // ========== 知识库相关 ==========
@@ -116,15 +116,15 @@ export const knowledge = {
 
 // ========== 报告相关 ==========
 export const reports = {
-  getReports: (params) => api.get('/reports', { params }),
-  getReportDetail: (id) => api.get(`/reports/${id}`),
-  generateReport: (data) => api.post('/reports/generate', data),
-  deleteReport: (id) => api.delete(`/reports/${id}`),
-  downloadReport: (id, format) => api.get(`/reports/${id}/download?format=${format}`, { responseType: 'blob' }),
-  getReportTemplates: () => api.get('/reports/templates'),
-  createReportTemplate: (data) => api.post('/reports/templates', data),
-  updateReportTemplate: (id, data) => api.put(`/reports/templates/${id}`, data),
-  deleteReportTemplate: (id) => api.delete(`/reports/templates/${id}`)
+  getReports: (params) => api.get('/report/', { params }),
+  getReportDetail: (id) => api.get(`/report/${id}`),
+  generateReport: (data) => api.post('/report/generate/generate', data),
+  deleteReport: (id) => api.delete(`/report/${id}`),
+  downloadReport: (id, format) => api.get(`/report/${id}/download?format=${format}`, { responseType: 'blob' }),
+  getReportTemplates: () => api.get('/report/templates/'),
+  createReportTemplate: (data) => api.post('/report/templates/', data),
+  updateReportTemplate: (id, data) => api.put(`/report/templates/${id}`, data),
+  deleteReportTemplate: (id) => api.delete(`/report/templates/${id}`)
 }
 
 // ========== 资产相关 ==========
@@ -177,9 +177,9 @@ export const rag = {
 
 // ========== AI助手相关 ==========
 export const ai = {
-  chat: (data) => api.post('/ai/copilot/chat', data),
-  getHistory: (params) => api.get('/ai/copilot/history', { params }),
-  clearHistory: () => api.delete('/ai/copilot/history')
+  chat: (data) => api.post('/ai/chat', data),
+  getHistory: (params) => api.get('/ai/conversations', { params }),
+  clearHistory: () => api.delete('/ai/conversation/{conversation_id}')
 }
 
 // ========== 系统设置相关 ==========

@@ -27,6 +27,7 @@ from api.routes import (
     admin_router,
     notification_router,
     device_router,
+    auth_router,
 )
 from api.dependencies import get_settings
 from api.middleware.logging import LoggingMiddleware
@@ -126,7 +127,7 @@ def create_app() -> FastAPI:
     
     app.include_router(
         workorder_router,
-        prefix="/api/v1/workorder",
+        prefix="/api/v1/workorders",
         tags=["工单管理"],
     )
     
@@ -144,25 +145,25 @@ def create_app() -> FastAPI:
     
     app.include_router(
         report_templates_router,
-        prefix="/api/v1/reports/templates",
+        prefix="/api/v1/report/templates",
         tags=["报告模板管理"],
     )
     
     app.include_router(
         report_generate_router,
-        prefix="/api/v1/reports",
+        prefix="/api/v1/report/generate",
         tags=["报告生成"],
     )
     
     app.include_router(
         report_schedule_router,
-        prefix="/api/v1/reports/schedule",
+        prefix="/api/v1/report/schedule",
         tags=["定时报告"],
     )
     
     app.include_router(
         asset_router,
-        prefix="/api/v1/asset",
+        prefix="/api/v1/assets",
         tags=["资产管理"],
     )
     
@@ -188,6 +189,12 @@ def create_app() -> FastAPI:
         device_router,
         prefix="/api/v1/devices",
         tags=["设备管理"],
+    )
+
+    app.include_router(
+        auth_router,
+        prefix="/api/v1/auth",
+        tags=["认证"],
     )
 
     # 健康检查端点
