@@ -95,7 +95,7 @@ class ConfigLoader:
             path = Path(pattern.format(env=self.env))
             if path.exists():
                 current_hash = self._calculate_file_hash(path)
-                if path str in self._file_hashes and self._file_hashes[str(path)] != current_hash:
+                if str(path) in self._file_hashes and self._file_hashes[str(path)] != current_hash:
                     return True
         return False
     

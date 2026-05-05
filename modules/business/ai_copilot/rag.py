@@ -99,6 +99,12 @@ class RAGRetriever:
         self.db_port = self.vector_config.get("port", 6333)
         self.collection_name = self.vector_config.get("collection_name", "itops_knowledge")
         
+        # 嵌入模型配置
+        embedding_config = self.rag_config.get("embedding", {})
+        self.embedding_url = embedding_config.get("base_url", "http://localhost:11434")
+        self.embedding_model = embedding_config.get("model", "nomic-embed-text")
+        self.embedding_timeout = embedding_config.get("timeout", 30)
+        
         # 知识库源配置
         self.knowledge_sources = self.rag_config.get("knowledge_base", {}).get("sources", [])
         
@@ -150,8 +156,8 @@ class RAGRetriever:
         try:
             async with self._get_client() as client:
                 response = await client.post(
-                    "http://localhost:11434/api/embeddings",
-                    json={"model": "nomic-embed-text", "prompt": text}
+                    f"{self.embedding_url}/api/embeddings",
+                    json={"model": self.embedding_model, "prompt": text}
                 )
                 
                 if response.status_code == 200:

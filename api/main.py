@@ -94,11 +94,21 @@ def create_app() -> FastAPI:
     )
     
     # 添加CORS中间件
+    # CORS配置从配置文件读取，支持环境变量覆盖
+    cors_origins = os.getenv("CORS_ORIGINS", "").split(",") if os.getenv("CORS_ORIGINS") else None
+    
+    if not cors_origins:
+        # 使用配置文件默认值或安全的开发环境默认值
+        cors_origins = config.get("security", {}).get("cors", {}).get("allow_origins", [
+            "http://localhost:3000",
+            "http://localhost:8080",
+        ])
+    
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # 生产环境应限制具体域名
+        allow_origins=cors_origins,
         allow_credentials=True,
-        allow_methods=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["*"],
     )
     
