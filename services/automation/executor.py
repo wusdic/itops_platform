@@ -5,7 +5,7 @@ ITOps Platform - Script Executor
 """
 import asyncio
 from typing import Any, Dict, List, Optional
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 import tempfile
 import os

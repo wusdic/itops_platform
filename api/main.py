@@ -3,6 +3,7 @@ FastAPI应用入口
 API网关层主入口
 """
 
+import os
 import logging
 import time
 from contextlib import asynccontextmanager
