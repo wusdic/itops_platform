@@ -17,8 +17,8 @@ from enum import Enum
 logger = logging.getLogger(__name__)
 
 
-class DeviceStatus(str, Enum):
-    """设备状态"""
+class CollectionStatus(str, Enum):
+    """采集状态"""
     UNKNOWN = "unknown"
     ONLINE = "online"
     OFFLINE = "offline"
@@ -34,9 +34,13 @@ class DeviceMetrics:
     device_type: str
     vendor: str
     timestamp: datetime
-    status: DeviceStatus
+    status: 'CollectionStatus'
     metrics: Dict[str, Any] = field(default_factory=dict)
     error: Optional[str] = None
+
+
+# 别名，保持向后兼容
+DeviceStatus = CollectionStatus
 
 
 class DeviceManager:
@@ -111,9 +115,9 @@ class DeviceManager:
             except Exception as e:
                 logger.error(f"回调执行失败: {e}")
     
-    def get_device_status(self, device_name: str) -> DeviceStatus:
+    def get_device_status(self, device_name: str) -> CollectionStatus:
         """获取设备状态"""
-        return self._device_status.get(device_name, DeviceStatus.UNKNOWN)
+        return self._device_status.get(device_name, CollectionStatus.UNKNOWN)
     
     def get_last_metrics(self, device_name: str) -> Optional[DeviceMetrics]:
         """获取设备最近一次指标"""
@@ -143,7 +147,7 @@ class DeviceManager:
             return None
         
         # 更新状态
-        self._device_status[device_name] = DeviceStatus.COLLECTING
+        self._device_status[device_name] = CollectionStatus.COLLECTING
         
         # 确定使用的协议
         if force_protocol:
@@ -158,8 +162,8 @@ class DeviceManager:
                 metrics = await self._collect_with_protocol(device_config, protocol)
                 
                 if metrics:
-                    metrics.status = DeviceStatus.ONLINE
-                    self._device_status[device_name] = DeviceStatus.ONLINE
+                    metrics.status = CollectionStatus.ONLINE
+                    self._device_status[device_name] = CollectionStatus.ONLINE
                     self._last_collect_time[device_name] = datetime.now()
                     self._last_metrics[device_name] = metrics
                     self._notify_callbacks(metrics)
@@ -182,11 +186,11 @@ class DeviceManager:
             device_type=device_config.get('type', ''),
             vendor=device_config.get('vendor', ''),
             timestamp=datetime.now(),
-            status=DeviceStatus.OFFLINE,
+            status=CollectionStatus.OFFLINE,
             error=last_error,
         )
         
-        self._device_status[device_name] = DeviceStatus.OFFLINE
+        self._device_status[device_name] = CollectionStatus.OFFLINE
         self._last_metrics[device_name] = metrics
         self._notify_callbacks(metrics)
         
@@ -277,7 +281,7 @@ class DeviceManager:
                 device_type=device_config.get('type'),
                 vendor=device_config.get('vendor'),
                 timestamp=datetime.now(),
-                status=DeviceStatus.ONLINE,
+                status=CollectionStatus.ONLINE,
                 metrics=metrics_data,
             )
         except Exception as e:
@@ -307,7 +311,7 @@ class DeviceManager:
                 device_type=device_config.get('type'),
                 vendor=device_config.get('vendor'),
                 timestamp=datetime.now(),
-                status=DeviceStatus.ONLINE,
+                status=CollectionStatus.ONLINE,
                 metrics=metrics_data,
             )
         except Exception as e:
@@ -327,7 +331,7 @@ class DeviceManager:
                 device_type=device_config.get('type'),
                 vendor=device_config.get('vendor'),
                 timestamp=datetime.now(),
-                status=DeviceStatus.ONLINE,
+                status=CollectionStatus.ONLINE,
                 metrics=metrics_data,
             )
         except Exception as e:
@@ -356,7 +360,7 @@ class DeviceManager:
                 device_type=device_config.get('type'),
                 vendor=device_config.get('vendor'),
                 timestamp=datetime.now(),
-                status=DeviceStatus.ONLINE,
+                status=CollectionStatus.ONLINE,
                 metrics=metrics_data,
             )
         except Exception as e:
@@ -376,7 +380,7 @@ class DeviceManager:
                 device_type=device_config.get('type'),
                 vendor=device_config.get('vendor'),
                 timestamp=datetime.now(),
-                status=DeviceStatus.ONLINE,
+                status=CollectionStatus.ONLINE,
                 metrics=metrics_data,
             )
         except Exception as e:
@@ -394,7 +398,7 @@ class DeviceManager:
                 device_type=device_config.get('type'),
                 vendor=device_config.get('vendor'),
                 timestamp=datetime.now(),
-                status=DeviceStatus.ONLINE,
+                status=CollectionStatus.ONLINE,
                 metrics=metrics_data,
             )
         except Exception as e:

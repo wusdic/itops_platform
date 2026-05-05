@@ -10,12 +10,14 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from sqlalchemy.pool import QueuePool
 
-# 尝试导入配置管理模块
+# 尝试导入配置管理模块 (可选依赖)
 try:
     from modules.foundation.config_manager.config import ConfigManager
     _config_available = True
 except ImportError:
+    # 配置管理器不存在，使用环境变量方式
     _config_available = False
+    ConfigManager = None
 
 
 Base = declarative_base()
