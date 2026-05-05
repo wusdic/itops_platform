@@ -8,24 +8,11 @@
 import logging
 from typing import Any, Callable, Dict, List, Optional, Type
 from dataclasses import dataclass, field
-from enum import Enum
+
+# 从core层导入协议类型定义
+from core.protocols import ProtocolType
 
 logger = logging.getLogger(__name__)
-
-
-class ProtocolType(str, Enum):
-    """支持的采集协议类型"""
-    SNMP = "snmp"
-    SSH = "ssh"
-    HTTP = "http"
-    WINRM = "winrm"
-    IPMI = "ipmi"
-    KUBERNETES = "kubernetes"
-    DOCKER = "docker"
-    ZABBIX = "zabbix"
-    PROMETHEUS = "prometheus"
-    REDFISH = "redfish"
-    WBEM = "wbem"
 
 
 @dataclass

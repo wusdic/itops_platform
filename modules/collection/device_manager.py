@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 设备管理服务
 
@@ -5,14 +6,12 @@
 支持定时采集、批量采集、故障转移等高级功能
 """
 
-import os
-import time
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional, Callable
+from typing import Any, Callable, Dict, List, Optional
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 
 logger = logging.getLogger(__name__)
@@ -54,9 +53,6 @@ class DeviceManager:
     使用示例:
     >>> manager = DeviceManager()
     >>> manager.register_callback(lambda metrics: print(metrics))
-    >>> manager.start()
-    >>> 
-    >>> # 手动采集单个设备
     >>> result = await manager.collect_device('Web服务器-01')
     """
     
@@ -71,7 +67,6 @@ class DeviceManager:
         from .config_loader import get_config_loader
         
         self._config_loader = get_config_loader(config_dir)
-        self._registry = self._load_registry()
         
         # 设备状态缓存
         self._device_status: Dict[str, DeviceStatus] = {}
@@ -93,11 +88,6 @@ class DeviceManager:
             'failed_collects': 0,
             'protocol_fallbacks': 0,
         }
-    
-    def _load_registry(self):
-        """加载适配器注册表"""
-        from .adapter_registry import get_registry
-        return get_registry()
     
     def register_callback(self, callback: Callable[[DeviceMetrics], None]) -> None:
         """
@@ -182,6 +172,7 @@ class DeviceManager:
             except Exception as e:
                 last_error = str(e)
                 logger.warning(f"设备{device_name}使用{protocol}协议采集失败: {e}")
+                self._stats['protocol_fallbacks'] += 1
                 continue
         
         # 所有协议都失败
@@ -205,66 +196,210 @@ class DeviceManager:
         return metrics
     
     async def _collect_with_protocol(self, device_config: Dict, protocol: str) -> Optional[DeviceMetrics]:
-        """使用指定协议采集"""
+        """
+        使用指定协议采集
+        
+        委托给 CollectorFactory 创建采集器执行采集
+        """
         loop = asyncio.get_event_loop()
         
-        if protocol == 'snmp':
-            return await loop.run_in_executor(
-                self._executor, 
-                self._collect_snmp, 
-                device_config
-            )
-        elif protocol == 'ssh':
-            return await loop.run_in_executor(
-                self._executor,
-                self._collect_ssh,
-                device_config
-            )
-        elif protocol == 'winrm':
-            return await loop.run_in_executor(
-                self._executor,
-                self._collect_winrm,
-                device_config
-            )
-        elif protocol == 'ipmi':
-            return await loop.run_in_executor(
-                self._executor,
-                self._collect_ipmi,
-                device_config
-            )
-        elif protocol == 'http':
-            return await loop.run_in_executor(
-                self._executor,
-                self._collect_http,
-                device_config
-            )
-        elif protocol == 'kubernetes':
-            return await loop.run_in_executor(
-                self._executor,
-                self._collect_kubernetes,
-                device_config
-            )
-        elif protocol == 'docker':
-            return await loop.run_in_executor(
-                self._executor,
-                self._collect_docker,
-                device_config
-            )
-        elif protocol == 'zabbix':
-            return await loop.run_in_executor(
-                self._executor,
-                self._collect_zabbix,
-                device_config
-            )
-        elif protocol == 'prometheus':
-            return await loop.run_in_executor(
-                self._executor,
-                self._collect_prometheus,
-                device_config
-            )
-        else:
-            logger.error(f"不支持的协议: {protocol}")
+        # 使用工厂模式创建采集器
+        from .collector_factory import get_factory
+        factory = get_factory()
+        
+        try:
+            collector = factory.create_collector(device_config)
+        except Exception as e:
+            logger.error(f"创建采集器失败: {e}")
             return None
+        
+        # 根据不同采集器类型执行采集
+        collector_type = type(collector).__name__
+        
+        try:
+            if 'SNMP' in collector_type:
+                return await loop.run_in_executor(
+                    self._executor, 
+                    self._collect_snmp, 
+                    collector, 
+                    device_config
+                )
+            elif 'SSH' in collector_type or 'WinRM' in collector_type:
+                return await loop.run_in_executor(
+                    self._executor,
+                    self._collect_ssh_based,
+                    collector,
+                    device_config
+                )
+            elif 'IPMI' in collector_type:
+                return await loop.run_in_executor(
+                    self._executor,
+                    self._collect_ipmi,
+                    collector,
+                    device_config
+                )
+            elif 'HTTP' in collector_type or 'Zabbix' in collector_type or 'Prometheus' in collector_type:
+                return await loop.run_in_executor(
+                    self._executor,
+                    self._collect_http_based,
+                    collector,
+                    device_config
+                )
+            elif 'K8s' in collector_type or 'Docker' in collector_type:
+                return await loop.run_in_executor(
+                    self._executor,
+                    self._collect_api_based,
+                    collector,
+                    device_config
+                )
+            else:
+                # 通用采集
+                return await loop.run_in_executor(
+                    self._executor,
+                    self._collect_generic,
+                    collector,
+                    device_config
+                )
+        except Exception as e:
+            logger.error(f"采集执行失败: {e}")
+            raise
+    
+    def _collect_snmp(self, collector, device_config: Dict) -> DeviceMetrics:
+        """SNMP采集"""
+        try:
+            collector.connect()
+            metrics_data = collector.collect_all_metrics()
+            collector.close()
+            
+            return DeviceMetrics(
+                device_name=device_config.get('name'),
+                device_ip=device_config.get('ip'),
+                device_type=device_config.get('type'),
+                vendor=device_config.get('vendor'),
+                timestamp=datetime.now(),
+                status=DeviceStatus.ONLINE,
+                metrics=metrics_data,
+            )
+        except Exception as e:
+            logger.error(f"SNMP采集失败: {e}")
+            raise
+    
+    def _collect_ssh_based(self, collector, device_config: Dict) -> DeviceMetrics:
+        """SSH/WinRM采集"""
+        try:
+            collector.connect()
+            
+            # 根据类型调用不同方法
+            collector_type = type(collector).__name__
+            if 'WinRM' in collector_type:
+                metrics_data = collector.collect_all_metrics()
+            else:
+                metrics_data = {
+                    'uptime': collector.execute_command('uptime'),
+                    'hostname': collector.execute_command('hostname'),
+                }
+            
+            collector.close()
+            
+            return DeviceMetrics(
+                device_name=device_config.get('name'),
+                device_ip=device_config.get('ip'),
+                device_type=device_config.get('type'),
+                vendor=device_config.get('vendor'),
+                timestamp=datetime.now(),
+                status=DeviceStatus.ONLINE,
+                metrics=metrics_data,
+            )
+        except Exception as e:
+            logger.error(f"SSH采集失败: {e}")
+            raise
+    
+    def _collect_ipmi(self, collector, device_config: Dict) -> DeviceMetrics:
+        """IPMI采集"""
+        try:
+            collector.connect()
+            metrics_data = collector.collect_all_metrics()
+            collector.close()
+            
+            return DeviceMetrics(
+                device_name=device_config.get('name'),
+                device_ip=device_config.get('ip'),
+                device_type=device_config.get('type'),
+                vendor=device_config.get('vendor'),
+                timestamp=datetime.now(),
+                status=DeviceStatus.ONLINE,
+                metrics=metrics_data,
+            )
+        except Exception as e:
+            logger.error(f"IPMI采集失败: {e}")
+            raise
+    
+    def _collect_http_based(self, collector, device_config: Dict) -> DeviceMetrics:
+        """HTTP API采集"""
+        try:
+            collector_type = type(collector).__name__
+            
+            if 'Zabbix' in collector_type:
+                collector.login()
+                metrics_data = collector.get_all_metrics()
+                collector.logout()
+            elif 'Prometheus' in collector_type:
+                metrics_data = collector.get_targets()
+            elif 'Vendor' in collector_type:
+                metrics_data = collector.collect_metrics()
+            else:
+                metrics_data = collector.get('/api/status') if hasattr(collector, 'get') else {}
+            
+            return DeviceMetrics(
+                device_name=device_config.get('name'),
+                device_ip=device_config.get('ip'),
+                device_type=device_config.get('type'),
+                vendor=device_config.get('vendor'),
+                timestamp=datetime.now(),
+                status=DeviceStatus.ONLINE,
+                metrics=metrics_data,
+            )
+        except Exception as e:
+            logger.error(f"HTTP采集失败: {e}")
+            raise
+    
+    def _collect_api_based(self, collector, device_config: Dict) -> DeviceMetrics:
+        """K8s/Docker采集"""
+        try:
+            collector.connect()
+            metrics_data = collector.collect_all_metrics()
+            collector.close()
+            
+            return DeviceMetrics(
+                device_name=device_config.get('name'),
+                device_ip=device_config.get('ip'),
+                device_type=device_config.get('type'),
+                vendor=device_config.get('vendor'),
+                timestamp=datetime.now(),
+                status=DeviceStatus.ONLINE,
+                metrics=metrics_data,
+            )
+        except Exception as e:
+            logger.error(f"API采集失败: {e}")
+            raise
+    
+    def _collect_generic(self, collector, device_config: Dict) -> DeviceMetrics:
+        """通用采集"""
+        try:
+            metrics_data = collector.collect() if hasattr(collector, 'collect') else {}
+            
+            return DeviceMetrics(
+                device_name=device_config.get('name'),
+                device_ip=device_config.get('ip'),
+                device_type=device_config.get('type'),
+                vendor=device_config.get('vendor'),
+                timestamp=datetime.now(),
+                status=DeviceStatus.ONLINE,
+                metrics=metrics_data,
+            )
+        except Exception as e:
+            logger.error(f"通用采集失败: {e}")
+            raise
     
     def _get_device_protocols(self, device_config: Dict) -> List[str]:
         """获取设备的可用协议列表 (按优先级)"""
@@ -284,296 +419,6 @@ class DeviceManager:
             protocols = ['snmp']
         
         return protocols
-    
-    def _collect_snmp(self, device_config: Dict) -> DeviceMetrics:
-        """SNMP采集"""
-        from .snmp_collector.snmp_client import SNMPClient, SNMPConfig, SNMPVersion
-        
-        credentials = device_config.get('credentials', {}).get('snmp', {})
-        
-        config = SNMPConfig(
-            host=device_config.get('ip'),
-            port=device_config.get('port', 161),
-            version=SNMPVersion(credentials.get('version', 'v2c')),
-            community=credentials.get('community', 'public'),
-            timeout=30,
-        )
-        
-        client = SNMPClient(config)
-        client.connect()
-        
-        # 采集系统信息
-        metrics_data = client.collect_all_metrics()
-        
-        client.close()
-        
-        return DeviceMetrics(
-            device_name=device_config.get('name'),
-            device_ip=device_config.get('ip'),
-            device_type=device_config.get('type'),
-            vendor=device_config.get('vendor'),
-            timestamp=datetime.now(),
-            status=DeviceStatus.ONLINE,
-            metrics=metrics_data,
-        )
-    
-    def _collect_ssh(self, device_config: Dict) -> DeviceMetrics:
-        """SSH采集"""
-        from .ssh_collector.ssh_client import SSHClient, SSHConfig
-        
-        credentials = device_config.get('credentials', {}).get('ssh', {})
-        
-        config = SSHConfig(
-            host=device_config.get('ip'),
-            port=credentials.get('port', 22),
-            username=credentials.get('username', 'root'),
-            password=credentials.get('password', ''),
-            key_file=credentials.get('key_file'),
-        )
-        
-        client = SSHClient(config)
-        
-        if not client.connect():
-            raise Exception("SSH连接失败")
-        
-        # 采集系统信息
-        metrics_data = {
-            'uptime': client.execute_command('uptime'),
-            'cpu': client.execute_command('cat /proc/cpuinfo | grep processor | wc -l'),
-            'memory': client.execute_command('free -m'),
-        }
-        
-        client.close()
-        
-        return DeviceMetrics(
-            device_name=device_config.get('name'),
-            device_ip=device_config.get('ip'),
-            device_type=device_config.get('type'),
-            vendor=device_config.get('vendor'),
-            timestamp=datetime.now(),
-            status=DeviceStatus.ONLINE,
-            metrics=metrics_data,
-        )
-    
-    def _collect_winrm(self, device_config: Dict) -> DeviceMetrics:
-        """WinRM采集"""
-        from .ssh_collector.winrm_client import WinRMClient, WinRMConfig
-        
-        credentials = device_config.get('credentials', {}).get('winrm', {})
-        
-        config = WinRMConfig(
-            host=device_config.get('ip'),
-            port=credentials.get('port', 5985),
-            username=credentials.get('username', 'Administrator'),
-            password=credentials.get('password', ''),
-            ssl=credentials.get('ssl', False),
-        )
-        
-        client = WinRMClient(config)
-        
-        if not client.connect():
-            raise Exception("WinRM连接失败")
-        
-        # 采集WMI数据
-        metrics_data = client.collect_all_metrics()
-        
-        client.close()
-        
-        return DeviceMetrics(
-            device_name=device_config.get('name'),
-            device_ip=device_config.get('ip'),
-            device_type=device_config.get('type'),
-            vendor=device_config.get('vendor'),
-            timestamp=datetime.now(),
-            status=DeviceStatus.ONLINE,
-            metrics=metrics_data,
-        )
-    
-    def _collect_ipmi(self, device_config: Dict) -> DeviceMetrics:
-        """IPMI采集"""
-        from .ipmi_collector.ipmi_client import IPMIClient, IPMIConfig, IPMIVersion
-        
-        credentials = device_config.get('credentials', {}).get('ipmi', {})
-        
-        config = IPMIConfig(
-            host=device_config.get('ipmi_ip', device_config.get('ip')),
-            port=credentials.get('port', 623),
-            username=credentials.get('username', 'admin'),
-            password=credentials.get('password', ''),
-            version=IPMIVersion(credentials.get('version', '2.0')),
-        )
-        
-        client = IPMIClient(config)
-        
-        if not client.connect():
-            raise Exception("IPMI连接失败")
-        
-        # 采集传感器数据
-        metrics_data = client.collect_all_metrics()
-        
-        client.close()
-        
-        return DeviceMetrics(
-            device_name=device_config.get('name'),
-            device_ip=device_config.get('ip'),
-            device_type=device_config.get('type'),
-            vendor=device_config.get('vendor'),
-            timestamp=datetime.now(),
-            status=DeviceStatus.ONLINE,
-            metrics=metrics_data,
-        )
-    
-    def _collect_http(self, device_config: Dict) -> DeviceMetrics:
-        """HTTP API采集"""
-        from .api_collector.http_client import HTTPClient, VendorAPIClient
-        
-        api_config = device_config.get('api', {})
-        vendor = device_config.get('vendor', '')
-        
-        if vendor in ['zabbix', 'prometheus', 'topsec', 'nsfocus', 'sangfor', 'venustech']:
-            # 使用厂商特定适配器
-            adapter = VendorAPIClient(vendor=vendor)
-            adapter.configure(
-                base_url=api_config.get('base_url'),
-                auth_type=api_config.get('auth_type'),
-                username=api_config.get('username'),
-                password=api_config.get('password'),
-                api_key=api_config.get('api_key'),
-            )
-            metrics_data = adapter.collect_metrics()
-        else:
-            # 使用通用HTTP客户端
-            client = HTTPClient(base_url=api_config.get('base_url', f"http://{device_config.get('ip')}"))
-            
-            if api_config.get('username'):
-                client.set_basic_auth(api_config['username'], api_config.get('password', ''))
-            
-            metrics_data = client.get('/api/status') if client.health_check() else {}
-        
-        return DeviceMetrics(
-            device_name=device_config.get('name'),
-            device_ip=device_config.get('ip'),
-            device_type=device_config.get('type'),
-            vendor=vendor,
-            timestamp=datetime.now(),
-            status=DeviceStatus.ONLINE,
-            metrics=metrics_data,
-        )
-    
-    def _collect_kubernetes(self, device_config: Dict) -> DeviceMetrics:
-        """Kubernetes采集"""
-        from .api_collector.kubernetes_client import K8sClient
-        
-        k8s_config = device_config.get('kubernetes', {})
-        
-        client = K8sClient(
-            host=k8s_config.get('api_server', device_config.get('ip')),
-            port=6443,
-            token=k8s_config.get('token', ''),
-        )
-        
-        if not client.connect():
-            raise Exception("K8s API连接失败")
-        
-        # 采集集群指标
-        metrics_data = client.collect_all_metrics()
-        
-        client.close()
-        
-        return DeviceMetrics(
-            device_name=device_config.get('name'),
-            device_ip=device_config.get('ip'),
-            device_type='container',
-            vendor='kubernetes',
-            timestamp=datetime.now(),
-            status=DeviceStatus.ONLINE,
-            metrics=metrics_data,
-        )
-    
-    def _collect_docker(self, device_config: Dict) -> DeviceMetrics:
-        """Docker采集"""
-        from .api_collector.docker_client import DockerClient, DockerConfig
-        
-        credentials = device_config.get('credentials', {}).get('docker', {})
-        
-        config = DockerConfig(
-            host=credentials.get('host', f"tcp://{device_config.get('ip')}:2375"),
-        )
-        
-        client = DockerClient(config)
-        
-        if not client.connect():
-            raise Exception("Docker连接失败")
-        
-        # 采集容器指标
-        metrics_data = client.collect_all_metrics()
-        
-        client.close()
-        
-        return DeviceMetrics(
-            device_name=device_config.get('name'),
-            device_ip=device_config.get('ip'),
-            device_type='container',
-            vendor='docker',
-            timestamp=datetime.now(),
-            status=DeviceStatus.ONLINE,
-            metrics=metrics_data,
-        )
-    
-    def _collect_zabbix(self, device_config: Dict) -> DeviceMetrics:
-        """Zabbix采集"""
-        from .api_collector.zabbix_client import ZabbixClient
-        
-        api_config = device_config.get('api', {})
-        
-        client = ZabbixClient(
-            url=api_config.get('base_url'),
-            username=api_config.get('username', 'Admin'),
-            password=api_config.get('password', 'zabbix'),
-        )
-        
-        if not client.login():
-            raise Exception("Zabbix登录失败")
-        
-        # 采集Zabbix数据
-        metrics_data = client.get_all_metrics()
-        
-        client.logout()
-        
-        return DeviceMetrics(
-            device_name=device_config.get('name'),
-            device_ip=device_config.get('ip'),
-            device_type='monitor',
-            vendor='zabbix',
-            timestamp=datetime.now(),
-            status=DeviceStatus.ONLINE,
-            metrics=metrics_data,
-        )
-    
-    def _collect_prometheus(self, device_config: Dict) -> DeviceMetrics:
-        """Prometheus采集"""
-        from .api_collector.prometheus_client import PrometheusClient
-        
-        api_config = device_config.get('api', {})
-        
-        client = PrometheusClient(
-            url=api_config.get('base_url', f"http://{device_config.get('ip')}:9090"),
-        )
-        
-        # 采集Prometheus数据
-        metrics_data = {
-            'targets': client.get_targets(),
-        }
-        
-        return DeviceMetrics(
-            device_name=device_config.get('name'),
-            device_ip=device_config.get('ip'),
-            device_type='monitor',
-            vendor='prometheus',
-            timestamp=datetime.now(),
-            status=DeviceStatus.ONLINE,
-            metrics=metrics_data,
-        )
     
     async def collect_all(self, enabled_only: bool = True) -> List[DeviceMetrics]:
         """
