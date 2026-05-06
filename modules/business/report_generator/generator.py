@@ -105,11 +105,40 @@ class ReportExporter:
         """导出PDF"""
         if not WEASYPRINT_AVAILABLE:
             raise ImportError("weasyprint is not installed")
-        
+
         file_path = os.path.join(self.output_dir, filename)
         HTML(string=html_content).write_pdf(file_path)
         return file_path
-    
+
+    def export_html(self, html_content: str, filename: str) -> str:
+        """导出HTML"""
+        file_path = os.path.join(self.output_dir, filename)
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+        return file_path
+
+    def export_word(self, html_content: str, filename: str) -> str:
+        """导出Word (HTML格式)"""
+        file_path = os.path.join(self.output_dir, filename.replace('.docx', '.html'))
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+        return file_path
+
+    def export_markdown(self, content: str, filename: str) -> str:
+        """导出Markdown"""
+        file_path = os.path.join(self.output_dir, filename)
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        return file_path
+
+    def export_json(self, data: Dict[str, Any], filename: str) -> str:
+        """导出JSON"""
+        import json
+        file_path = os.path.join(self.output_dir, filename)
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return file_path
+
     def export_excel(self, data: Dict[str, Any], filename: str) -> str:
         """导出Excel"""
         if not OPENPYXL_AVAILABLE:
@@ -119,7 +148,7 @@ class ReportExporter:
         wb = Workbook()
         ws = wb.active
         ws.title = "Report"
-        
+
         # 样式定义
         header_font = Font(bold=True, color="FFFFFF")
         header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
@@ -129,7 +158,7 @@ class ReportExporter:
             top=Side(style='thin'),
             bottom=Side(style='thin')
         )
-        
+
         # 写入标题
         row = 1
         ws.cell(row=row, column=1, value=data.get("title", "Report"))

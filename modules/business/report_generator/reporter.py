@@ -660,8 +660,15 @@ class ReportGenerator:
         
         if format not in export_funcs:
             raise ValueError(f"Unsupported export format: {format}")
-        
-        return export_funcs[format](report, filename)
+
+        # 获取报告内容
+        content = report.content or self._generate_default_content(report)
+
+        # 生成默认文件名
+        if filename is None:
+            filename = f"{report.metadata.report_id}.{format.value}"
+
+        return export_funcs[format](content, filename)
     
     def _generate_default_content(self, report: Report) -> str:
         """生成默认报告内容"""
