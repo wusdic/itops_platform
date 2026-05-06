@@ -1,6 +1,12 @@
 <template>
-  <el-button v-bind="$attrs" :loading="loading" :disabled="loading">
-    <el-icon v-if="loading"><Loading /></el-icon>
+  <el-button
+    v-bind="$attrs"
+    :loading="loading"
+    :disabled="loading"
+  >
+    <el-icon v-if="loading">
+      <Loading />
+    </el-icon>
     <slot v-else />
   </el-button>
 </template>

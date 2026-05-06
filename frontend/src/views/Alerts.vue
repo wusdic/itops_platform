@@ -3,15 +3,22 @@
     <!-- 页面头部 -->
     <div class="page-header">
       <div class="page-header-left">
-        <h2 class="page-title">告警中心</h2>
-        <p class="page-subtitle">实时监控告警，支持多级别告警管理和自动化处理</p>
+        <h2 class="page-title">
+          告警中心
+        </h2>
+        <p class="page-subtitle">
+          实时监控告警，支持多级别告警管理和自动化处理
+        </p>
       </div>
       <div class="page-header-actions">
         <el-button @click="handleExport">
           <el-icon><Download /></el-icon>
           导出
         </el-button>
-        <el-button type="primary" @click="showRuleDialog = true">
+        <el-button
+          type="primary"
+          @click="showRuleDialog = true"
+        >
           <el-icon><Setting /></el-icon>
           告警规则
         </el-button>
@@ -27,14 +34,24 @@
         :class="{ active: stat.active }"
         :style="{ animationDelay: `${index * 0.08}s` }"
       >
-        <div class="stat-icon" :class="stat.key">
+        <div
+          class="stat-icon"
+          :class="stat.key"
+        >
           <el-icon><component :is="stat.icon" /></el-icon>
         </div>
         <div class="stat-content">
-          <div class="stat-value">{{ stat.value }}</div>
-          <div class="stat-title">{{ stat.title }}</div>
+          <div class="stat-value">
+            {{ stat.value }}
+          </div>
+          <div class="stat-title">
+            {{ stat.title }}
+          </div>
         </div>
-        <div v-if="stat.key === 'critical'" class="stat-pulse"></div>
+        <div
+          v-if="stat.key === 'critical'"
+          class="stat-pulse"
+        />
       </div>
     </div>
 
@@ -53,42 +70,75 @@
             <el-icon><Search /></el-icon>
           </template>
           <template #append>
-            <el-button @click="handleSearch" :icon="Search" />
+            <el-button
+              :icon="Search"
+              @click="handleSearch"
+            />
           </template>
         </el-input>
 
-        <el-select v-model="levelFilter" placeholder="告警级别" style="width: 130px" clearable @change="handleFilterChange">
-          <el-option label="严重" value="critical">
+        <el-select
+          v-model="levelFilter"
+          placeholder="告警级别"
+          style="width: 130px"
+          clearable
+          @change="handleFilterChange"
+        >
+          <el-option
+            label="严重"
+            value="critical"
+          >
             <div class="level-option">
-              <span class="level-dot critical"></span>
+              <span class="level-dot critical" />
               <span>严重</span>
             </div>
           </el-option>
-          <el-option label="警告" value="warning">
+          <el-option
+            label="警告"
+            value="warning"
+          >
             <div class="level-option">
-              <span class="level-dot warning"></span>
+              <span class="level-dot warning" />
               <span>警告</span>
             </div>
           </el-option>
-          <el-option label="信息" value="info">
+          <el-option
+            label="信息"
+            value="info"
+          >
             <div class="level-option">
-              <span class="level-dot info"></span>
+              <span class="level-dot info" />
               <span>信息</span>
             </div>
           </el-option>
         </el-select>
 
-        <el-select v-model="statusFilter" placeholder="告警状态" style="width: 130px" clearable @change="handleFilterChange">
-          <el-option label="未处理" value="active">
-            <span class="status-dot active"></span>
+        <el-select
+          v-model="statusFilter"
+          placeholder="告警状态"
+          style="width: 130px"
+          clearable
+          @change="handleFilterChange"
+        >
+          <el-option
+            label="未处理"
+            value="active"
+          >
+            <span class="status-dot active" />
             未处理
           </el-option>
-          <el-option label="已确认" value="acknowledged">
-            <span class="status-dot acknowledged"></span>
+          <el-option
+            label="已确认"
+            value="acknowledged"
+          >
+            <span class="status-dot acknowledged" />
             已确认
           </el-option>
-          <el-option label="已解决" value="resolved">
-            <span class="status-dot resolved"></span>
+          <el-option
+            label="已解决"
+            value="resolved"
+          >
+            <span class="status-dot resolved" />
             已解决
           </el-option>
         </el-select>
@@ -105,16 +155,36 @@
       </div>
 
       <div class="filter-right">
-        <el-checkbox v-model="autoRefresh" @change="handleAutoRefresh">
+        <el-checkbox
+          v-model="autoRefresh"
+          @change="handleAutoRefresh"
+        >
           自动刷新
         </el-checkbox>
-        <el-select v-model="refreshInterval" style="width: 100px" :disabled="!autoRefresh">
-          <el-option label="10秒" :value="10" />
-          <el-option label="30秒" :value="30" />
-          <el-option label="1分钟" :value="60" />
+        <el-select
+          v-model="refreshInterval"
+          style="width: 100px"
+          :disabled="!autoRefresh"
+        >
+          <el-option
+            label="10秒"
+            :value="10"
+          />
+          <el-option
+            label="30秒"
+            :value="30"
+          />
+          <el-option
+            label="1分钟"
+            :value="60"
+          />
         </el-select>
         <el-divider direction="vertical" />
-        <el-button text @click="handleRefresh" :loading="loading">
+        <el-button
+          text
+          :loading="loading"
+          @click="handleRefresh"
+        >
           <el-icon><Refresh /></el-icon>
         </el-button>
       </div>
@@ -123,12 +193,22 @@
     <!-- 告警列表 -->
     <div class="alerts-container">
       <!-- 未处理告警高亮区 -->
-      <div class="active-alerts" v-if="activeAlerts.length > 0">
+      <div
+        v-if="activeAlerts.length > 0"
+        class="active-alerts"
+      >
         <div class="active-header">
-          <el-badge :value="activeAlerts.length" type="danger">
+          <el-badge
+            :value="activeAlerts.length"
+            type="danger"
+          >
             <span class="active-title">待处理告警</span>
           </el-badge>
-          <el-button text size="small" @click="handleBatchAck">
+          <el-button
+            text
+            size="small"
+            @click="handleBatchAck"
+          >
             <el-icon><Check /></el-icon>
             批量确认
           </el-button>
@@ -140,16 +220,25 @@
             class="alert-card"
             :class="alert.level"
           >
-            <div class="alert-indicator" :class="alert.level"></div>
+            <div
+              class="alert-indicator"
+              :class="alert.level"
+            />
             <div class="alert-main">
               <div class="alert-header">
-                <el-tag size="small" :type="getLevelTagType(alert.level)" effect="dark">
+                <el-tag
+                  size="small"
+                  :type="getLevelTagType(alert.level)"
+                  effect="dark"
+                >
                   {{ getLevelText(alert.level) }}
                 </el-tag>
                 <span class="alert-host">{{ alert.host }}</span>
                 <span class="alert-time">{{ alert.time }}</span>
               </div>
-              <div class="alert-message">{{ alert.message }}</div>
+              <div class="alert-message">
+                {{ alert.message }}
+              </div>
               <div class="alert-metrics">
                 <span class="metric-tag">指标: {{ alert.metric }}</span>
                 <span class="metric-value">当前值: {{ alert.value }}</span>
@@ -157,14 +246,27 @@
               </div>
             </div>
             <div class="alert-actions">
-              <el-button size="small" type="primary" @click="handleAcknowledge(alert)">
+              <el-button
+                size="small"
+                type="primary"
+                @click="handleAcknowledge(alert)"
+              >
                 确认
               </el-button>
-              <el-button size="small" @click="handleSilence(alert)">
+              <el-button
+                size="small"
+                @click="handleSilence(alert)"
+              >
                 静默
               </el-button>
-              <el-dropdown trigger="click" @command="(cmd) => handleAlertCommand(cmd, alert)">
-                <el-button size="small" text>
+              <el-dropdown
+                trigger="click"
+                @command="(cmd) => handleAlertCommand(cmd, alert)"
+              >
+                <el-button
+                  size="small"
+                  text
+                >
                   <el-icon><MoreFilled /></el-icon>
                 </el-button>
                 <template #dropdown>
@@ -181,7 +283,10 @@
                       <el-icon><Guide /></el-icon>
                       关联知识库
                     </el-dropdown-item>
-                    <el-dropdown-item command="resolve" divided>
+                    <el-dropdown-item
+                      command="resolve"
+                      divided
+                    >
                       <el-icon><CircleCheck /></el-icon>
                       标记已解决
                     </el-dropdown-item>
@@ -203,20 +308,37 @@
           row-key="id"
           @selection-change="handleSelectionChange"
         >
-          <el-table-column type="selection" width="50" />
+          <el-table-column
+            type="selection"
+            width="50"
+          />
 
-          <el-table-column label="级别" width="90">
+          <el-table-column
+            label="级别"
+            width="90"
+          >
             <template #default="{ row }">
               <div class="level-cell">
-                <span class="level-indicator" :class="row.level"></span>
-                <el-tag size="small" :type="getLevelTagType(row.level)" effect="light">
+                <span
+                  class="level-indicator"
+                  :class="row.level"
+                />
+                <el-tag
+                  size="small"
+                  :type="getLevelTagType(row.level)"
+                  effect="light"
+                >
                   {{ getLevelText(row.level) }}
                 </el-tag>
               </div>
             </template>
           </el-table-column>
 
-          <el-table-column label="告警信息" min-width="250" show-overflow-tooltip>
+          <el-table-column
+            label="告警信息"
+            min-width="250"
+            show-overflow-tooltip
+          >
             <template #default="{ row }">
               <div class="alert-info-cell">
                 <span class="alert-message">{{ row.message }}</span>
@@ -225,71 +347,144 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="主机" width="140">
+          <el-table-column
+            label="主机"
+            width="140"
+          >
             <template #default="{ row }">
               <span class="host-text">{{ row.host }}</span>
             </template>
           </el-table-column>
 
-          <el-table-column label="当前值" width="100">
+          <el-table-column
+            label="当前值"
+            width="100"
+          >
             <template #default="{ row }">
-              <span class="value-text" :class="row.level">
+              <span
+                class="value-text"
+                :class="row.level"
+              >
                 {{ row.value }}
               </span>
             </template>
           </el-table-column>
 
-          <el-table-column label="状态" width="100">
+          <el-table-column
+            label="状态"
+            width="100"
+          >
             <template #default="{ row }">
-              <el-tag size="small" :type="getStatusTagType(row.status)" effect="light">
+              <el-tag
+                size="small"
+                :type="getStatusTagType(row.status)"
+                effect="light"
+              >
                 {{ getStatusText(row.status) }}
               </el-tag>
             </template>
           </el-table-column>
 
-          <el-table-column label="发生时间" width="160" sortable>
+          <el-table-column
+            label="发生时间"
+            width="160"
+            sortable
+          >
             <template #default="{ row }">
               <span class="time-text">{{ row.time }}</span>
             </template>
           </el-table-column>
 
-          <el-table-column label="持续时间" width="110">
+          <el-table-column
+            label="持续时间"
+            width="110"
+          >
             <template #default="{ row }">
-              <span class="duration-text" :class="{ active: row.status === 'active' }">
+              <span
+                class="duration-text"
+                :class="{ active: row.status === 'active' }"
+              >
                 {{ row.duration }}
               </span>
             </template>
           </el-table-column>
 
-          <el-table-column label="操作" width="160" fixed="right">
+          <el-table-column
+            label="操作"
+            width="160"
+            fixed="right"
+          >
             <template #default="{ row }">
               <div class="action-buttons">
-                <el-tooltip content="确认告警" placement="top" v-if="row.status === 'active'">
-                  <el-button text type="primary" size="small" @click="handleAcknowledge(row)">
+                <el-tooltip
+                  v-if="row.status === 'active'"
+                  content="确认告警"
+                  placement="top"
+                >
+                  <el-button
+                    text
+                    type="primary"
+                    size="small"
+                    @click="handleAcknowledge(row)"
+                  >
                     <el-icon><Check /></el-icon>
                   </el-button>
                 </el-tooltip>
-                <el-tooltip content="查看详情" placement="top">
-                  <el-button text type="primary" size="small" @click="handleViewDetail(row)">
+                <el-tooltip
+                  content="查看详情"
+                  placement="top"
+                >
+                  <el-button
+                    text
+                    type="primary"
+                    size="small"
+                    @click="handleViewDetail(row)"
+                  >
                     <el-icon><View /></el-icon>
                   </el-button>
                 </el-tooltip>
-                <el-tooltip content="处理记录" placement="top">
-                  <el-button text size="small" @click="handleViewHistory(row)">
+                <el-tooltip
+                  content="处理记录"
+                  placement="top"
+                >
+                  <el-button
+                    text
+                    size="small"
+                    @click="handleViewHistory(row)"
+                  >
                     <el-icon><Clock /></el-icon>
                   </el-button>
                 </el-tooltip>
-                <el-dropdown trigger="click" @command="(cmd) => handleAlertCommand(cmd, row)">
-                  <el-button text size="small">
+                <el-dropdown
+                  trigger="click"
+                  @command="(cmd) => handleAlertCommand(cmd, row)"
+                >
+                  <el-button
+                    text
+                    size="small"
+                  >
                     <el-icon><MoreFilled /></el-icon>
                   </el-button>
                   <template #dropdown>
                     <el-dropdown-menu>
-                      <el-dropdown-item command="view">查看详情</el-dropdown-item>
-                      <el-dropdown-item command="silence">静默此告警</el-dropdown-item>
-                      <el-dropdown-item command="create-ticket">创建工单</el-dropdown-item>
-                      <el-dropdown-item command="link-knowledge">关联知识库</el-dropdown-item>
-                      <el-dropdown-item command="resolve" divided>标记已解决</el-dropdown-item>
+                      <el-dropdown-item command="view">
+                        查看详情
+                      </el-dropdown-item>
+                      <el-dropdown-item command="silence">
+                        静默此告警
+                      </el-dropdown-item>
+                      <el-dropdown-item command="create-ticket">
+                        创建工单
+                      </el-dropdown-item>
+                      <el-dropdown-item command="link-knowledge">
+                        关联知识库
+                      </el-dropdown-item>
+                      <el-dropdown-item
+                        command="resolve"
+                        divided
+                      >
+                        标记已解决
+                      </el-dropdown-item>
                     </el-dropdown-menu>
                   </template>
                 </el-dropdown>
@@ -317,30 +512,77 @@
     </div>
 
     <!-- 告警详情抽屉 -->
-    <el-drawer v-model="showDetailDrawer" :title="currentAlert?.message" size="650px">
-      <div class="alert-detail" v-if="currentAlert">
-        <div class="detail-header" :class="currentAlert.level">
-          <el-tag :type="getLevelTagType(currentAlert.level)" size="large" effect="dark">
+    <el-drawer
+      v-model="showDetailDrawer"
+      :title="currentAlert?.message"
+      size="650px"
+    >
+      <div
+        v-if="currentAlert"
+        class="alert-detail"
+      >
+        <div
+          class="detail-header"
+          :class="currentAlert.level"
+        >
+          <el-tag
+            :type="getLevelTagType(currentAlert.level)"
+            size="large"
+            effect="dark"
+          >
             {{ getLevelText(currentAlert.level) }}
           </el-tag>
-          <el-tag :type="getStatusTagType(currentAlert.status)" size="large">
+          <el-tag
+            :type="getStatusTagType(currentAlert.status)"
+            size="large"
+          >
             {{ getStatusText(currentAlert.status) }}
           </el-tag>
         </div>
 
-        <el-descriptions :column="2" border class="detail-descriptions">
-          <el-descriptions-item label="告警主机">{{ currentAlert.host }}</el-descriptions-item>
-          <el-descriptions-item label="监控指标">{{ currentAlert.metric }}</el-descriptions-item>
-          <el-descriptions-item label="当前值">
-            <span class="value-text large" :class="currentAlert.level">{{ currentAlert.value }}</span>
+        <el-descriptions
+          :column="2"
+          border
+          class="detail-descriptions"
+        >
+          <el-descriptions-item label="告警主机">
+            {{ currentAlert.host }}
           </el-descriptions-item>
-          <el-descriptions-item label="阈值">{{ currentAlert.threshold }}</el-descriptions-item>
-          <el-descriptions-item label="发生时间" :span="2">{{ currentAlert.time }}</el-descriptions-item>
-          <el-descriptions-item label="持续时间" :span="2">{{ currentAlert.duration }}</el-descriptions-item>
-          <el-descriptions-item label="告警详情" :span="2">{{ currentAlert.message }}</el-descriptions-item>
+          <el-descriptions-item label="监控指标">
+            {{ currentAlert.metric }}
+          </el-descriptions-item>
+          <el-descriptions-item label="当前值">
+            <span
+              class="value-text large"
+              :class="currentAlert.level"
+            >{{ currentAlert.value }}</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="阈值">
+            {{ currentAlert.threshold }}
+          </el-descriptions-item>
+          <el-descriptions-item
+            label="发生时间"
+            :span="2"
+          >
+            {{ currentAlert.time }}
+          </el-descriptions-item>
+          <el-descriptions-item
+            label="持续时间"
+            :span="2"
+          >
+            {{ currentAlert.duration }}
+          </el-descriptions-item>
+          <el-descriptions-item
+            label="告警详情"
+            :span="2"
+          >
+            {{ currentAlert.message }}
+          </el-descriptions-item>
         </el-descriptions>
 
-        <el-divider content-position="left">处理记录</el-divider>
+        <el-divider content-position="left">
+          处理记录
+        </el-divider>
         <el-timeline>
           <el-timeline-item
             v-for="(item, index) in currentAlert.history"
@@ -349,13 +591,21 @@
             :type="item.type"
           >
             <p>{{ item.action }}</p>
-            <p class="history-operator">{{ item.operator }}</p>
+            <p class="history-operator">
+              {{ item.operator }}
+            </p>
           </el-timeline-item>
         </el-timeline>
 
-        <el-divider content-position="left">处理操作</el-divider>
+        <el-divider content-position="left">
+          处理操作
+        </el-divider>
         <div class="detail-actions">
-          <el-button type="primary" @click="handleAcknowledge(currentAlert)" v-if="currentAlert.status === 'active'">
+          <el-button
+            v-if="currentAlert.status === 'active'"
+            type="primary"
+            @click="handleAcknowledge(currentAlert)"
+          >
             确认告警
           </el-button>
           <el-button @click="handleCreateTicket(currentAlert)">
@@ -364,7 +614,10 @@
           <el-button @click="handleSilence(currentAlert)">
             静默告警
           </el-button>
-          <el-button type="success" @click="handleResolve(currentAlert)">
+          <el-button
+            type="success"
+            @click="handleResolve(currentAlert)"
+          >
             标记已解决
           </el-button>
         </div>
@@ -372,30 +625,68 @@
     </el-drawer>
 
     <!-- 告警规则配置对话框 -->
-    <el-dialog v-model="showRuleDialog" title="告警规则配置" width="700px">
-      <el-form :model="ruleForm" label-width="100px">
+    <el-dialog
+      v-model="showRuleDialog"
+      title="告警规则配置"
+      width="700px"
+    >
+      <el-form
+        :model="ruleForm"
+        label-width="100px"
+      >
         <el-form-item label="规则名称">
-          <el-input v-model="ruleForm.name" placeholder="请输入规则名称" />
+          <el-input
+            v-model="ruleForm.name"
+            placeholder="请输入规则名称"
+          />
         </el-form-item>
         <el-form-item label="监控指标">
-          <el-select v-model="ruleForm.metric" style="width: 100%">
-            <el-option label="CPU使用率" value="cpu" />
-            <el-option label="内存使用率" value="memory" />
-            <el-option label="磁盘使用率" value="disk" />
-            <el-option label="网络延迟" value="ping" />
+          <el-select
+            v-model="ruleForm.metric"
+            style="width: 100%"
+          >
+            <el-option
+              label="CPU使用率"
+              value="cpu"
+            />
+            <el-option
+              label="内存使用率"
+              value="memory"
+            />
+            <el-option
+              label="磁盘使用率"
+              value="disk"
+            />
+            <el-option
+              label="网络延迟"
+              value="ping"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="阈值条件">
           <el-row :gutter="10">
             <el-col :span="6">
               <el-select v-model="ruleForm.operator">
-                <el-option label="大于" value=">" />
-                <el-option label="小于" value="<" />
-                <el-option label="等于" value="=" />
+                <el-option
+                  label="大于"
+                  value=">"
+                />
+                <el-option
+                  label="小于"
+                  value="<"
+                />
+                <el-option
+                  label="等于"
+                  value="="
+                />
               </el-select>
             </el-col>
             <el-col :span="8">
-              <el-input-number v-model="ruleForm.threshold" :min="0" :max="100" />
+              <el-input-number
+                v-model="ruleForm.threshold"
+                :min="0"
+                :max="100"
+              />
             </el-col>
             <el-col :span="4">
               <span class="unit-text">%</span>
@@ -404,22 +695,41 @@
         </el-form-item>
         <el-form-item label="告警级别">
           <el-radio-group v-model="ruleForm.level">
-            <el-radio label="critical">严重</el-radio>
-            <el-radio label="warning">警告</el-radio>
-            <el-radio label="info">信息</el-radio>
+            <el-radio label="critical">
+              严重
+            </el-radio>
+            <el-radio label="warning">
+              警告
+            </el-radio>
+            <el-radio label="info">
+              信息
+            </el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="通知方式">
           <el-checkbox-group v-model="ruleForm.notifyChannels">
-            <el-checkbox label="email">邮件</el-checkbox>
-            <el-checkbox label="sms">短信</el-checkbox>
-            <el-checkbox label="webhook">Webhook</el-checkbox>
+            <el-checkbox label="email">
+              邮件
+            </el-checkbox>
+            <el-checkbox label="sms">
+              短信
+            </el-checkbox>
+            <el-checkbox label="webhook">
+              Webhook
+            </el-checkbox>
           </el-checkbox-group>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showRuleDialog = false">取消</el-button>
-        <el-button type="primary" @click="handleSaveRule">保存规则</el-button>
+        <el-button @click="showRuleDialog = false">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          @click="handleSaveRule"
+        >
+          保存规则
+        </el-button>
       </template>
     </el-dialog>
   </div>

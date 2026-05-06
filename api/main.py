@@ -19,9 +19,6 @@ from api.routes import (
     workorder_router,
     knowledge_router,
     report_router,
-    report_templates_router,
-    report_generate_router,
-    report_schedule_router,
     asset_router,
     ai_router,
     admin_router,
@@ -141,24 +138,6 @@ def create_app() -> FastAPI:
         report_router,
         prefix="/api/v1/report",
         tags=["报表管理"],
-    )
-    
-    app.include_router(
-        report_templates_router,
-        prefix="/api/v1/report/templates",
-        tags=["报告模板管理"],
-    )
-    
-    app.include_router(
-        report_generate_router,
-        prefix="/api/v1/report/generate",
-        tags=["报告生成"],
-    )
-    
-    app.include_router(
-        report_schedule_router,
-        prefix="/api/v1/report/schedule",
-        tags=["定时报告"],
     )
     
     app.include_router(

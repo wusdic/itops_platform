@@ -1,9 +1,12 @@
 <template>
   <div class="data-table">
     <!-- 工具栏 -->
-    <div class="table-toolbar" v-if="$slots.toolbar || showSearch || showRefresh">
+    <div
+      v-if="$slots.toolbar || showSearch || showRefresh"
+      class="table-toolbar"
+    >
       <div class="toolbar-left">
-        <slot name="toolbar"></slot>
+        <slot name="toolbar" />
       </div>
       <div class="toolbar-right">
         <el-input
@@ -23,8 +26,8 @@
         <el-button
           v-if="showRefresh"
           :icon="Refresh"
-          @click="handleRefresh"
           :loading="loading"
+          @click="handleRefresh"
         />
       </div>
     </div>
@@ -41,11 +44,11 @@
       :height="height"
       :max-height="maxHeight"
       :selection="selection"
+      class="main-table"
+      v-bind="$attrs"
       @selection-change="handleSelectionChange"
       @sort-change="handleSortChange"
       @row-click="handleRowClick"
-      class="main-table"
-      v-bind="$attrs"
     >
       <!-- 选择列 -->
       <el-table-column
@@ -66,25 +69,34 @@
       />
 
       <!-- 表格列 -->
-      <slot></slot>
+      <slot />
 
       <!-- 默认插槽（用于传入 el-table-column） -->
     </el-table>
 
     <!-- 空状态 -->
-    <div class="empty-state" v-if="!loading && tableData.length === 0">
-      <el-empty :description="emptyText" :image-size="120">
+    <div
+      v-if="!loading && tableData.length === 0"
+      class="empty-state"
+    >
+      <el-empty
+        :description="emptyText"
+        :image-size="120"
+      >
         <template #image>
           <div class="empty-icon">
             <el-icon><Document /></el-icon>
           </div>
         </template>
-        <slot name="empty"></slot>
+        <slot name="empty" />
       </el-empty>
     </div>
 
     <!-- 分页 -->
-    <div class="table-pagination" v-if="showPagination && total > 0">
+    <div
+      v-if="showPagination && total > 0"
+      class="table-pagination"
+    >
       <el-pagination
         v-model:current-page="currentPage"
         v-model:page-size="pageSize"

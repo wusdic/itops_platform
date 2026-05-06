@@ -1,32 +1,59 @@
 <template>
-  <div class="stat-card" :class="{ clickable, 'has-trend': trend !== null }">
+  <div
+    class="stat-card"
+    :class="{ clickable, 'has-trend': trend !== null }"
+  >
     <div class="stat-main">
       <!-- 左侧图标 -->
-      <div class="stat-icon" :style="iconStyle">
+      <div
+        class="stat-icon"
+        :style="iconStyle"
+      >
         <el-icon :size="iconSize">
-          <component :is="iconComponent" v-if="typeof iconComponent === 'object'" />
+          <component
+            :is="iconComponent"
+            v-if="typeof iconComponent === 'object'"
+          />
           <span v-else>{{ iconComponent }}</span>
         </el-icon>
       </div>
       
       <!-- 中间内容 -->
       <div class="stat-content">
-        <div class="stat-value" :style="{ color: valueColor }">
-          <slot name="value">{{ displayValue }}</slot>
+        <div
+          class="stat-value"
+          :style="{ color: valueColor }"
+        >
+          <slot name="value">
+            {{ displayValue }}
+          </slot>
         </div>
-        <div class="stat-title">{{ title }}</div>
-        <div v-if="description" class="stat-desc">{{ description }}</div>
+        <div class="stat-title">
+          {{ title }}
+        </div>
+        <div
+          v-if="description"
+          class="stat-desc"
+        >
+          {{ description }}
+        </div>
       </div>
     </div>
 
     <!-- 右侧趋势 -->
-    <div v-if="trend !== null" class="stat-trend" :class="trendClass">
-      <el-icon v-if="trend > 0"><TrendCharts /></el-icon>
+    <div
+      v-if="trend !== null"
+      class="stat-trend"
+      :class="trendClass"
+    >
+      <el-icon v-if="trend > 0">
+        <TrendCharts />
+      </el-icon>
       <span>{{ Math.abs(trend) }}%</span>
     </div>
 
     <!-- 点击效果 -->
-    <div class="stat-hover-effect"></div>
+    <div class="stat-hover-effect" />
   </div>
 </template>
 

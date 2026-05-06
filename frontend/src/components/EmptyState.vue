@@ -1,32 +1,54 @@
 <template>
-  <div class="empty-state" :class="[`size-${size}`, { 'is-center': center }]">
+  <div
+    class="empty-state"
+    :class="[`size-${size}`, { 'is-center': center }]"
+  >
     <!-- 装饰性背景 -->
     <div class="empty-bg">
-      <div class="bg-circle bg-circle-1"></div>
-      <div class="bg-circle bg-circle-2"></div>
-      <div class="bg-circle bg-circle-3"></div>
+      <div class="bg-circle bg-circle-1" />
+      <div class="bg-circle bg-circle-2" />
+      <div class="bg-circle bg-circle-3" />
     </div>
 
     <!-- 插画/SVG -->
-    <div class="empty-illustration" v-if="!hideIcon">
-      <div class="illustration-wrapper" :class="{ 'animate-bounce': animate }">
+    <div
+      v-if="!hideIcon"
+      class="empty-illustration"
+    >
+      <div
+        class="illustration-wrapper"
+        :class="{ 'animate-bounce': animate }"
+      >
         <component :is="illustrationComponent" />
       </div>
     </div>
 
     <!-- 文案 -->
     <div class="empty-content">
-      <h3 class="empty-title">{{ title }}</h3>
-      <p class="empty-description" v-if="description">{{ description }}</p>
+      <h3 class="empty-title">
+        {{ title }}
+      </h3>
+      <p
+        v-if="description"
+        class="empty-description"
+      >
+        {{ description }}
+      </p>
       
       <!-- 插槽：额外的描述信息 -->
-      <div class="empty-extra" v-if="$slots.extra">
-        <slot name="extra"/>
+      <div
+        v-if="$slots.extra"
+        class="empty-extra"
+      >
+        <slot name="extra" />
       </div>
     </div>
 
     <!-- 操作按钮 -->
-    <div class="empty-actions" v-if="$slots.actions || actionText">
+    <div
+      v-if="$slots.actions || actionText"
+      class="empty-actions"
+    >
       <slot name="actions">
         <el-button 
           v-if="actionText" 
@@ -34,18 +56,38 @@
           :size="buttonSize"
           @click="$emit('action')"
         >
-          <el-icon v-if="actionIcon" :size="14" class="mr-1"><component :is="actionIcon"/></el-icon>
+          <el-icon
+            v-if="actionIcon"
+            :size="14"
+            class="mr-1"
+          >
+            <component :is="actionIcon" />
+          </el-icon>
           {{ actionText }}
         </el-button>
       </slot>
     </div>
 
     <!-- 快捷提示 -->
-    <div class="empty-tips" v-if="tips && tips.length">
-      <div class="tips-label" v-if="tipsLabel">{{ tipsLabel }}</div>
+    <div
+      v-if="tips && tips.length"
+      class="empty-tips"
+    >
+      <div
+        v-if="tipsLabel"
+        class="tips-label"
+      >
+        {{ tipsLabel }}
+      </div>
       <ul class="tips-list">
-        <li v-for="(tip, i) in tips" :key="i" class="tips-item">
-          <el-icon :size="12"><ArrowRight /></el-icon>
+        <li
+          v-for="(tip, i) in tips"
+          :key="i"
+          class="tips-item"
+        >
+          <el-icon :size="12">
+            <ArrowRight />
+          </el-icon>
           {{ tip }}
         </li>
       </ul>

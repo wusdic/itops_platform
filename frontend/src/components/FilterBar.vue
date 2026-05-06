@@ -1,9 +1,15 @@
 <template>
-  <div class="filter-bar" :class="{ 'is-compact': compact }">
+  <div
+    class="filter-bar"
+    :class="{ 'is-compact': compact }"
+  >
     <!-- 左侧：筛选条件 -->
     <div class="filter-left">
       <!-- 搜索框 -->
-      <div class="filter-search" v-if="showSearch">
+      <div
+        v-if="showSearch"
+        class="filter-search"
+      >
         <el-input
           v-model="searchKeyword"
           :placeholder="searchPlaceholder"
@@ -18,7 +24,10 @@
       </div>
 
       <!-- 快速筛选标签 -->
-      <div class="filter-tags" v-if="quickFilters.length">
+      <div
+        v-if="quickFilters.length"
+        class="filter-tags"
+      >
         <el-radio-group 
           v-model="activeQuickFilter" 
           size="small"
@@ -30,20 +39,29 @@
             :value="filter.value"
           >
             {{ filter.label }}
-            <span class="filter-count" v-if="filter.count !== undefined">({{ filter.count }})</span>
+            <span
+              v-if="filter.count !== undefined"
+              class="filter-count"
+            >({{ filter.count }})</span>
           </el-radio-button>
         </el-radio-group>
       </div>
 
       <!-- 筛选下拉 -->
-      <slot name="filters"/>
+      <slot name="filters" />
     </div>
 
     <!-- 右侧：操作按钮 -->
     <div class="filter-right">
       <!-- 视图切换 -->
-      <div class="view-switch" v-if="showViewSwitch">
-        <el-radio-group v-model="viewMode" size="small">
+      <div
+        v-if="showViewSwitch"
+        class="view-switch"
+      >
+        <el-radio-group
+          v-model="viewMode"
+          size="small"
+        >
           <el-radio-button value="table">
             <el-icon><Grid /></el-icon>
           </el-radio-button>
@@ -54,7 +72,11 @@
       </div>
 
       <!-- 刷新按钮 -->
-      <el-tooltip content="刷新数据" placement="bottom" v-if="showRefresh">
+      <el-tooltip
+        v-if="showRefresh"
+        content="刷新数据"
+        placement="bottom"
+      >
         <el-button 
           :icon="Refresh" 
           circle 
@@ -65,10 +87,10 @@
       </el-tooltip>
 
       <!-- 批量操作 -->
-      <slot name="actions"/>
+      <slot name="actions" />
 
       <!-- 新增按钮 -->
-      <slot name="append"/>
+      <slot name="append" />
     </div>
   </div>
 </template>

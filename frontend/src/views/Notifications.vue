@@ -4,15 +4,22 @@
       <!-- 页面头部 -->
       <header class="page-header">
         <div class="header-left">
-          <h2 class="page-title">消息中心</h2>
-          <p class="page-subtitle">配置和管理告警通知渠道</p>
+          <h2 class="page-title">
+            消息中心
+          </h2>
+          <p class="page-subtitle">
+            配置和管理告警通知渠道
+          </p>
         </div>
         <div class="header-actions">
           <el-button @click="refreshChannels">
             <el-icon><Refresh /></el-icon>
             刷新
           </el-button>
-          <el-button type="primary" @click="openAddDialog">
+          <el-button
+            type="primary"
+            @click="openAddDialog"
+          >
             <el-icon><Plus /></el-icon>
             添加渠道
           </el-button>
@@ -26,8 +33,12 @@
             <el-icon><Message /></el-icon>
           </div>
           <div class="stat-info">
-            <div class="stat-value">{{ channels.filter(c => c.type === 'email').length }}</div>
-            <div class="stat-label">邮件渠道</div>
+            <div class="stat-value">
+              {{ channels.filter(c => c.type === 'email').length }}
+            </div>
+            <div class="stat-label">
+              邮件渠道
+            </div>
           </div>
         </div>
         <div class="stat-card">
@@ -35,8 +46,12 @@
             <el-icon><ChatLineSquare /></el-icon>
           </div>
           <div class="stat-info">
-            <div class="stat-value">{{ channels.filter(c => ['dingtalk', 'feishu', 'wecom'].includes(c.type)).length }}</div>
-            <div class="stat-label">IM 渠道</div>
+            <div class="stat-value">
+              {{ channels.filter(c => ['dingtalk', 'feishu', 'wecom'].includes(c.type)).length }}
+            </div>
+            <div class="stat-label">
+              IM 渠道
+            </div>
           </div>
         </div>
         <div class="stat-card">
@@ -44,8 +59,12 @@
             <el-icon><Link /></el-icon>
           </div>
           <div class="stat-info">
-            <div class="stat-value">{{ channels.filter(c => c.type === 'webhook').length }}</div>
-            <div class="stat-label">Webhook</div>
+            <div class="stat-value">
+              {{ channels.filter(c => c.type === 'webhook').length }}
+            </div>
+            <div class="stat-label">
+              Webhook
+            </div>
           </div>
         </div>
         <div class="stat-card">
@@ -53,8 +72,12 @@
             <el-icon><Bell /></el-icon>
           </div>
           <div class="stat-info">
-            <div class="stat-value">{{ channels.filter(c => c.enabled).length }}</div>
-            <div class="stat-label">已启用</div>
+            <div class="stat-value">
+              {{ channels.filter(c => c.enabled).length }}
+            </div>
+            <div class="stat-label">
+              已启用
+            </div>
           </div>
         </div>
       </div>
@@ -62,13 +85,30 @@
       <!-- 渠道列表 -->
       <div class="channels-section">
         <div class="section-toolbar">
-          <el-tabs v-model="activeChannelTab" @tab-change="filterChannels">
-            <el-tab-pane label="全部" name="all" />
-            <el-tab-pane label="已启用" name="enabled" />
-            <el-tab-pane label="已禁用" name="disabled" />
+          <el-tabs
+            v-model="activeChannelTab"
+            @tab-change="filterChannels"
+          >
+            <el-tab-pane
+              label="全部"
+              name="all"
+            />
+            <el-tab-pane
+              label="已启用"
+              name="enabled"
+            />
+            <el-tab-pane
+              label="已禁用"
+              name="disabled"
+            />
           </el-tabs>
           <div class="toolbar-actions">
-            <el-input v-model="searchText" placeholder="搜索渠道名称..." style="width: 200px" clearable>
+            <el-input
+              v-model="searchText"
+              placeholder="搜索渠道名称..."
+              style="width: 200px"
+              clearable
+            >
               <template #prefix>
                 <el-icon><Search /></el-icon>
               </template>
@@ -84,38 +124,63 @@
             :class="{ disabled: !channel.enabled }"
           >
             <div class="card-header">
-              <div class="channel-badge" :style="{ background: getChannelGradient(channel.type) }">
-                <el-icon :size="24"><component :is="getChannelIcon(channel.type)" /></el-icon>
+              <div
+                class="channel-badge"
+                :style="{ background: getChannelGradient(channel.type) }"
+              >
+                <el-icon :size="24">
+                  <component :is="getChannelIcon(channel.type)" />
+                </el-icon>
               </div>
               <div class="channel-meta">
-                <div class="channel-name">{{ channel.name }}</div>
-                <div class="channel-type-tag" :style="{ color: getChannelColor(channel.type) }">
+                <div class="channel-name">
+                  {{ channel.name }}
+                </div>
+                <div
+                  class="channel-type-tag"
+                  :style="{ color: getChannelColor(channel.type) }"
+                >
                   {{ getChannelTypeText(channel.type) }}
                 </div>
               </div>
               <div class="channel-toggle">
-                <el-switch v-model="channel.enabled" @change="toggleChannel(channel)" />
+                <el-switch
+                  v-model="channel.enabled"
+                  @change="toggleChannel(channel)"
+                />
               </div>
             </div>
 
             <div class="card-body">
               <div class="config-list">
-                <div v-if="channel.config?.webhook" class="config-item">
+                <div
+                  v-if="channel.config?.webhook"
+                  class="config-item"
+                >
                   <el-icon><Link /></el-icon>
                   <span class="config-label">地址:</span>
                   <span class="config-value">{{ truncateUrl(channel.config.webhook) }}</span>
                 </div>
-                <div v-if="channel.config?.email" class="config-item">
+                <div
+                  v-if="channel.config?.email"
+                  class="config-item"
+                >
                   <el-icon><Message /></el-icon>
                   <span class="config-label">邮箱:</span>
                   <span class="config-value">{{ channel.config.email }}</span>
                 </div>
-                <div v-if="channel.config?.receivers?.length" class="config-item">
+                <div
+                  v-if="channel.config?.receivers?.length"
+                  class="config-item"
+                >
                   <el-icon><User /></el-icon>
                   <span class="config-label">接收人:</span>
                   <span class="config-value">{{ channel.config.receivers.join(', ') }}</span>
                 </div>
-                <div v-if="channel.config?.smtp_host" class="config-item">
+                <div
+                  v-if="channel.config?.smtp_host"
+                  class="config-item"
+                >
                   <el-icon><Connection /></el-icon>
                   <span class="config-label">SMTP:</span>
                   <span class="config-value">{{ channel.config.smtp_host }}:{{ channel.config.smtp_port }}</span>
@@ -132,17 +197,30 @@
               </div>
               <div class="footer-actions">
                 <el-tooltip content="发送测试消息">
-                  <el-button text size="small" @click="testChannel(channel)">
+                  <el-button
+                    text
+                    size="small"
+                    @click="testChannel(channel)"
+                  >
                     <el-icon><Promotion /></el-icon>
                   </el-button>
                 </el-tooltip>
                 <el-tooltip content="编辑">
-                  <el-button text size="small" @click="editChannel(channel)">
+                  <el-button
+                    text
+                    size="small"
+                    @click="editChannel(channel)"
+                  >
                     <el-icon><Edit /></el-icon>
                   </el-button>
                 </el-tooltip>
                 <el-tooltip content="删除">
-                  <el-button text size="small" type="danger" @click="deleteChannel(channel)">
+                  <el-button
+                    text
+                    size="small"
+                    type="danger"
+                    @click="deleteChannel(channel)"
+                  >
                     <el-icon><Delete /></el-icon>
                   </el-button>
                 </el-tooltip>
@@ -151,11 +229,16 @@
           </div>
 
           <!-- 添加新渠道卡片 -->
-          <div class="add-channel-card" @click="openAddDialog">
+          <div
+            class="add-channel-card"
+            @click="openAddDialog"
+          >
             <div class="add-icon">
               <el-icon><Plus /></el-icon>
             </div>
-            <div class="add-text">添加新渠道</div>
+            <div class="add-text">
+              添加新渠道
+            </div>
           </div>
         </div>
       </div>
@@ -169,16 +252,31 @@
       :close-on-click-modal="false"
       class="channel-dialog"
     >
-      <el-form :model="form" :rules="formRules" ref="formRef" label-position="top">
-        <el-form-item label="渠道名称" prop="name">
-          <el-input v-model="form.name" placeholder="给渠道起个名字" maxlength="30">
+      <el-form
+        ref="formRef"
+        :model="form"
+        :rules="formRules"
+        label-position="top"
+      >
+        <el-form-item
+          label="渠道名称"
+          prop="name"
+        >
+          <el-input
+            v-model="form.name"
+            placeholder="给渠道起个名字"
+            maxlength="30"
+          >
             <template #prefix>
               <el-icon><Edit /></el-icon>
             </template>
           </el-input>
         </el-form-item>
 
-        <el-form-item label="渠道类型" prop="type">
+        <el-form-item
+          label="渠道类型"
+          prop="type"
+        >
           <div class="type-selector">
             <div 
               v-for="type in channelTypes" 
@@ -187,14 +285,24 @@
               :class="{ active: form.type === type.value }"
               @click="form.type = type.value"
             >
-              <div class="type-icon" :style="{ background: type.color }">
+              <div
+                class="type-icon"
+                :style="{ background: type.color }"
+              >
                 <el-icon><component :is="type.icon" /></el-icon>
               </div>
               <div class="type-info">
-                <div class="type-name">{{ type.label }}</div>
-                <div class="type-desc">{{ type.desc }}</div>
+                <div class="type-name">
+                  {{ type.label }}
+                </div>
+                <div class="type-desc">
+                  {{ type.desc }}
+                </div>
               </div>
-              <div class="type-check" v-if="form.type === type.value">
+              <div
+                v-if="form.type === type.value"
+                class="type-check"
+              >
                 <el-icon><Check /></el-icon>
               </div>
             </div>
@@ -204,9 +312,14 @@
         <!-- 邮件配置 -->
         <template v-if="form.type === 'email'">
           <div class="config-section">
-            <div class="config-title">邮件配置</div>
+            <div class="config-title">
+              邮件配置
+            </div>
             <el-form-item label="SMTP 服务器">
-              <el-input v-model="form.config.smtp_host" placeholder="smtp.example.com">
+              <el-input
+                v-model="form.config.smtp_host"
+                placeholder="smtp.example.com"
+              >
                 <template #prefix>
                   <el-icon><Connection /></el-icon>
                 </template>
@@ -214,24 +327,46 @@
             </el-form-item>
             <div class="form-row">
               <el-form-item label="SMTP 端口">
-                <el-input-number v-model="form.config.smtp_port" :min="1" :max="65535" style="width: 100%" />
+                <el-input-number
+                  v-model="form.config.smtp_port"
+                  :min="1"
+                  :max="65535"
+                  style="width: 100%"
+                />
               </el-form-item>
               <el-form-item label="使用 SSL">
                 <el-switch v-model="form.config.use_ssl" />
               </el-form-item>
             </div>
             <el-form-item label="发件人邮箱">
-              <el-input v-model="form.config.from_email" placeholder="noreply@example.com">
+              <el-input
+                v-model="form.config.from_email"
+                placeholder="noreply@example.com"
+              >
                 <template #prefix>
                   <el-icon><Message /></el-icon>
                 </template>
               </el-input>
             </el-form-item>
             <el-form-item label="收件人">
-              <el-select v-model="form.config.to_emails" multiple placeholder="选择收件人" style="width: 100%">
-                <el-option label="管理员 (admin@example.com)" value="admin@example.com" />
-                <el-option label="运维团队 (ops@example.com)" value="ops@example.com" />
-                <el-option label="值班人员 (oncall@example.com)" value="oncall@example.com" />
+              <el-select
+                v-model="form.config.to_emails"
+                multiple
+                placeholder="选择收件人"
+                style="width: 100%"
+              >
+                <el-option
+                  label="管理员 (admin@example.com)"
+                  value="admin@example.com"
+                />
+                <el-option
+                  label="运维团队 (ops@example.com)"
+                  value="ops@example.com"
+                />
+                <el-option
+                  label="值班人员 (oncall@example.com)"
+                  value="oncall@example.com"
+                />
               </el-select>
             </el-form-item>
           </div>
@@ -242,27 +377,57 @@
           <div class="config-section">
             <div class="config-title">
               {{ getChannelTypeText(form.type) }} 配置
-              <el-tag size="small" type="warning">需要配置群机器人</el-tag>
+              <el-tag
+                size="small"
+                type="warning"
+              >
+                需要配置群机器人
+              </el-tag>
             </div>
-            <el-form-item label="Webhook 地址" prop="config.webhook">
-              <el-input v-model="form.config.webhook" placeholder="https://oapi.dingtalk.com/robot/send?access_token=xxx">
+            <el-form-item
+              label="Webhook 地址"
+              prop="config.webhook"
+            >
+              <el-input
+                v-model="form.config.webhook"
+                placeholder="https://oapi.dingtalk.com/robot/send?access_token=xxx"
+              >
                 <template #prefix>
                   <el-icon><Link /></el-icon>
                 </template>
               </el-input>
             </el-form-item>
-            <el-form-item v-if="form.type === 'dingtalk'" label="加签密钥 (可选)">
-              <el-input v-model="form.config.secret" placeholder="SEC 开头的密钥">
+            <el-form-item
+              v-if="form.type === 'dingtalk'"
+              label="加签密钥 (可选)"
+            >
+              <el-input
+                v-model="form.config.secret"
+                placeholder="SEC 开头的密钥"
+              >
                 <template #prefix>
                   <el-icon><Key /></el-icon>
                 </template>
               </el-input>
             </el-form-item>
             <el-form-item label="接收群">
-              <el-select v-model="form.config.group" placeholder="选择接收群" style="width: 100%">
-                <el-option label="运维告警群" value="ops-alert" />
-                <el-option label="开发通知群" value="dev-notify" />
-                <el-option label="值班通知群" value="oncall" />
+              <el-select
+                v-model="form.config.group"
+                placeholder="选择接收群"
+                style="width: 100%"
+              >
+                <el-option
+                  label="运维告警群"
+                  value="ops-alert"
+                />
+                <el-option
+                  label="开发通知群"
+                  value="dev-notify"
+                />
+                <el-option
+                  label="值班通知群"
+                  value="oncall"
+                />
               </el-select>
             </el-form-item>
           </div>
@@ -271,9 +436,17 @@
         <!-- Webhook 配置 -->
         <template v-else-if="form.type === 'webhook'">
           <div class="config-section">
-            <div class="config-title">Webhook 配置</div>
-            <el-form-item label="请求地址" prop="config.webhook">
-              <el-input v-model="form.config.webhook" placeholder="https://your-api.com/webhook">
+            <div class="config-title">
+              Webhook 配置
+            </div>
+            <el-form-item
+              label="请求地址"
+              prop="config.webhook"
+            >
+              <el-input
+                v-model="form.config.webhook"
+                placeholder="https://your-api.com/webhook"
+              >
                 <template #prefix>
                   <el-icon><Link /></el-icon>
                 </template>
@@ -281,21 +454,47 @@
             </el-form-item>
             <div class="form-row">
               <el-form-item label="请求方法">
-                <el-select v-model="form.config.method" style="width: 100%">
-                  <el-option label="POST" value="POST" />
-                  <el-option label="PUT" value="PUT" />
-                  <el-option label="GET" value="GET" />
+                <el-select
+                  v-model="form.config.method"
+                  style="width: 100%"
+                >
+                  <el-option
+                    label="POST"
+                    value="POST"
+                  />
+                  <el-option
+                    label="PUT"
+                    value="PUT"
+                  />
+                  <el-option
+                    label="GET"
+                    value="GET"
+                  />
                 </el-select>
               </el-form-item>
               <el-form-item label="Content-Type">
-                <el-select v-model="form.config.content_type" style="width: 100%">
-                  <el-option label="application/json" value="application/json" />
-                  <el-option label="application/x-www-form-urlencoded" value="application/x-www-form-urlencoded" />
+                <el-select
+                  v-model="form.config.content_type"
+                  style="width: 100%"
+                >
+                  <el-option
+                    label="application/json"
+                    value="application/json"
+                  />
+                  <el-option
+                    label="application/x-www-form-urlencoded"
+                    value="application/x-www-form-urlencoded"
+                  />
                 </el-select>
               </el-form-item>
             </div>
             <el-form-item label="Headers (JSON)">
-              <el-input v-model="form.config.headers" type="textarea" :rows="2" placeholder='{"Authorization": "Bearer xxx"}' />
+              <el-input
+                v-model="form.config.headers"
+                type="textarea"
+                :rows="2"
+                placeholder="{&quot;Authorization&quot;: &quot;Bearer xxx&quot;}"
+              />
             </el-form-item>
           </div>
         </template>
@@ -310,8 +509,13 @@
       </el-form>
 
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitForm">
+        <el-button @click="dialogVisible = false">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          @click="submitForm"
+        >
           <el-icon><Check /></el-icon>
           {{ isEdit ? '保存修改' : '确认添加' }}
         </el-button>
@@ -319,24 +523,47 @@
     </el-dialog>
 
     <!-- 测试结果对话框 -->
-    <el-dialog v-model="testDialogVisible" title="测试结果" width="400px" class="test-dialog">
+    <el-dialog
+      v-model="testDialogVisible"
+      title="测试结果"
+      width="400px"
+      class="test-dialog"
+    >
       <div class="test-result-content">
-        <div class="result-icon" :class="testResult.success ? 'success' : 'error'">
+        <div
+          class="result-icon"
+          :class="testResult.success ? 'success' : 'error'"
+        >
           <el-icon :size="48">
             <component :is="testResult.success ? 'CircleCheck' : 'CircleClose'" />
           </el-icon>
         </div>
-        <div class="result-message">{{ testResult.message }}</div>
-        <div v-if="testResult.details" class="result-details">
-          <div v-for="(val, key) in testResult.details" :key="key" class="detail-row">
+        <div class="result-message">
+          {{ testResult.message }}
+        </div>
+        <div
+          v-if="testResult.details"
+          class="result-details"
+        >
+          <div
+            v-for="(val, key) in testResult.details"
+            :key="key"
+            class="detail-row"
+          >
             <span class="detail-key">{{ key }}:</span>
             <span class="detail-value">{{ val }}</span>
           </div>
         </div>
       </div>
       <template #footer>
-        <el-button @click="testDialogVisible = false">关闭</el-button>
-        <el-button type="primary" @click="testChannel(currentTestChannel)" v-if="currentTestChannel">
+        <el-button @click="testDialogVisible = false">
+          关闭
+        </el-button>
+        <el-button
+          v-if="currentTestChannel"
+          type="primary"
+          @click="testChannel(currentTestChannel)"
+        >
           重新测试
         </el-button>
       </template>

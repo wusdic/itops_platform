@@ -9,13 +9,22 @@
         </h2>
         <p class="welcome-desc">
           今天是 {{ currentDate }}，您有 
-          <span class="alert-count" v-if="alertStats.pending > 0">{{ alertStats.pending }} 条</span>
-          <span class="alert-count safe" v-else>0 条</span>
+          <span
+            v-if="alertStats.pending > 0"
+            class="alert-count"
+          >{{ alertStats.pending }} 条</span>
+          <span
+            v-else
+            class="alert-count safe"
+          >0 条</span>
           待处理告警
         </p>
       </div>
       <div class="welcome-actions">
-        <el-button type="primary" @click="handleQuickAction">
+        <el-button
+          type="primary"
+          @click="handleQuickAction"
+        >
           <el-icon><Plus /></el-icon>
           快捷操作
         </el-button>
@@ -31,40 +40,87 @@
         :style="{ animationDelay: `${index * 0.1}s` }"
         @click="handleStatClick(stat)"
       >
-        <div class="stat-icon" :style="{ background: stat.color }">
+        <div
+          class="stat-icon"
+          :style="{ background: stat.color }"
+        >
           <el-icon><component :is="stat.icon" /></el-icon>
         </div>
         <div class="stat-content">
-          <div class="stat-value">{{ stat.value }}</div>
-          <div class="stat-title">{{ stat.title }}</div>
-          <div class="stat-desc">{{ stat.description }}</div>
+          <div class="stat-value">
+            {{ stat.value }}
+          </div>
+          <div class="stat-title">
+            {{ stat.title }}
+          </div>
+          <div class="stat-desc">
+            {{ stat.description }}
+          </div>
         </div>
-        <div class="stat-trend" :class="stat.trend > 0 ? 'up' : 'down'" v-if="stat.trend !== undefined">
+        <div
+          v-if="stat.trend !== undefined"
+          class="stat-trend"
+          :class="stat.trend > 0 ? 'up' : 'down'"
+        >
           <el-icon><component :is="stat.trend > 0 ? 'Top' : 'Bottom'" /></el-icon>
           {{ Math.abs(stat.trend) }}%
         </div>
-        <div class="stat-accent" :style="{ background: stat.color }"></div>
+        <div
+          class="stat-accent"
+          :style="{ background: stat.color }"
+        />
       </div>
     </div>
 
     <!-- 主要内容区 -->
-    <el-row :gutter="20" class="main-content">
+    <el-row
+      :gutter="20"
+      class="main-content"
+    >
       <!-- 左侧图表区 -->
       <el-col :span="16">
         <!-- 服务器状态 -->
-        <PageCard title="设备状态分布" subtitle="实时监控设备运行状态" :icon="'Odometer'" icon-bg="rgba(22, 93, 255, 0.1)">
+        <PageCard
+          title="设备状态分布"
+          subtitle="实时监控设备运行状态"
+          :icon="'Odometer'"
+          icon-bg="rgba(22, 93, 255, 0.1)"
+        >
           <template #header>
-            <el-select v-model="serverTimeRange" size="small" @change="loadServerData">
-              <el-option label="实时" value="realtime" />
-              <el-option label="24小时" value="24h" />
-              <el-option label="7天" value="7d" />
+            <el-select
+              v-model="serverTimeRange"
+              size="small"
+              @change="loadServerData"
+            >
+              <el-option
+                label="实时"
+                value="realtime"
+              />
+              <el-option
+                label="24小时"
+                value="24h"
+              />
+              <el-option
+                label="7天"
+                value="7d"
+              />
             </el-select>
           </template>
           <div class="chart-wrapper">
-            <div ref="serverChartRef" class="chart-container"></div>
+            <div
+              ref="serverChartRef"
+              class="chart-container"
+            />
             <div class="chart-legend">
-              <div class="legend-item" v-for="item in serverLegend" :key="item.name">
-                <span class="legend-dot" :style="{ background: item.color }"></span>
+              <div
+                v-for="item in serverLegend"
+                :key="item.name"
+                class="legend-item"
+              >
+                <span
+                  class="legend-dot"
+                  :style="{ background: item.color }"
+                />
                 <span class="legend-label">{{ item.name }}</span>
                 <span class="legend-value">{{ item.value }}</span>
               </div>
@@ -73,23 +129,52 @@
         </PageCard>
 
         <!-- 告警趋势 -->
-        <PageCard title="告警趋势" subtitle="近7天告警统计" :icon="'DataLine'" icon-bg="rgba(255, 125, 0, 0.1)">
+        <PageCard
+          title="告警趋势"
+          subtitle="近7天告警统计"
+          :icon="'DataLine'"
+          icon-bg="rgba(255, 125, 0, 0.1)"
+        >
           <template #header>
-            <el-radio-group v-model="alertTimeRange" size="small" @change="loadAlertTrend">
-              <el-radio-button label="7d">近7天</el-radio-button>
-              <el-radio-button label="30d">近30天</el-radio-button>
+            <el-radio-group
+              v-model="alertTimeRange"
+              size="small"
+              @change="loadAlertTrend"
+            >
+              <el-radio-button label="7d">
+                近7天
+              </el-radio-button>
+              <el-radio-button label="30d">
+                近30天
+              </el-radio-button>
             </el-radio-group>
           </template>
-          <div ref="alertChartRef" class="chart-container" style="height: 280px"></div>
+          <div
+            ref="alertChartRef"
+            class="chart-container"
+            style="height: 280px"
+          />
         </PageCard>
 
         <!-- 资源使用率 -->
-        <PageCard title="资源使用率" subtitle="CPU/内存/磁盘实时状态" :icon="'Monitor'" icon-bg="rgba(0, 180, 42, 0.1)">
+        <PageCard
+          title="资源使用率"
+          subtitle="CPU/内存/磁盘实时状态"
+          :icon="'Monitor'"
+          icon-bg="rgba(0, 180, 42, 0.1)"
+        >
           <div class="resource-list">
-            <div class="resource-item" v-for="item in resourceItems" :key="item.name">
+            <div
+              v-for="item in resourceItems"
+              :key="item.name"
+              class="resource-item"
+            >
               <div class="resource-header">
                 <span class="resource-name">{{ item.name }}</span>
-                <span class="resource-value" :style="{ color: getResourceColor(item.value) }">
+                <span
+                  class="resource-value"
+                  :style="{ color: getResourceColor(item.value) }"
+                >
                   {{ item.value }}%
                 </span>
               </div>
@@ -111,67 +196,120 @@
       <!-- 右侧列表区 -->
       <el-col :span="8">
         <!-- 待办事项 -->
-        <PageCard :icon="'Bell'" icon-bg="rgba(245, 63, 63, 0.1)" badge-type="danger">
+        <PageCard
+          :icon="'Bell'"
+          icon-bg="rgba(245, 63, 63, 0.1)"
+          badge-type="danger"
+        >
           <template #header>
-            <el-badge :value="todoItems.length" type="danger" />
+            <el-badge
+              :value="todoItems.length"
+              type="danger"
+            />
           </template>
           <template #default>
             <div class="todo-list">
               <div 
-                class="todo-item" 
                 v-for="todo in todoItems" 
-                :key="todo.id"
+                :key="todo.id" 
+                class="todo-item"
                 @click="handleTodoClick(todo)"
               >
-                <div class="todo-priority" :class="todo.priority"></div>
+                <div
+                  class="todo-priority"
+                  :class="todo.priority"
+                />
                 <div class="todo-content">
-                  <p class="todo-title">{{ todo.title }}</p>
-                  <p class="todo-time">{{ todo.time }}</p>
+                  <p class="todo-title">
+                    {{ todo.title }}
+                  </p>
+                  <p class="todo-time">
+                    {{ todo.time }}
+                  </p>
                 </div>
-                <el-tag size="small" :type="todo.tagType">{{ todo.tag }}</el-tag>
+                <el-tag
+                  size="small"
+                  :type="todo.tagType"
+                >
+                  {{ todo.tag }}
+                </el-tag>
               </div>
             </div>
           </template>
         </PageCard>
 
         <!-- 最近告警 -->
-        <PageCard :icon="'Warning'" icon-bg="rgba(255, 125, 0, 0.1)">
+        <PageCard
+          :icon="'Warning'"
+          icon-bg="rgba(255, 125, 0, 0.1)"
+        >
           <template #header>
-            <el-link type="primary" @click="$router.push('/alerts')">查看全部</el-link>
+            <el-link
+              type="primary"
+              @click="$router.push('/alerts')"
+            >
+              查看全部
+            </el-link>
           </template>
           <template #default>
             <div class="alert-list">
               <div 
-                class="alert-item" 
                 v-for="alert in recentAlerts" 
-                :key="alert.id"
+                :key="alert.id" 
+                class="alert-item"
                 :class="alert.level"
               >
                 <div class="alert-level">
-                  <el-icon v-if="alert.level === 'critical'" color="#f53f3f"><CircleCheckFilled /></el-icon>
-                  <el-icon v-else color="#ff7d00"><WarningFilled /></el-icon>
+                  <el-icon
+                    v-if="alert.level === 'critical'"
+                    color="#f53f3f"
+                  >
+                    <CircleCheckFilled />
+                  </el-icon>
+                  <el-icon
+                    v-else
+                    color="#ff7d00"
+                  >
+                    <WarningFilled />
+                  </el-icon>
                 </div>
                 <div class="alert-content">
-                  <p class="alert-message">{{ alert.message }}</p>
-                  <p class="alert-host">{{ alert.host }} · {{ alert.time }}</p>
+                  <p class="alert-message">
+                    {{ alert.message }}
+                  </p>
+                  <p class="alert-host">
+                    {{ alert.host }} · {{ alert.time }}
+                  </p>
                 </div>
-                <el-button size="small" text @click.stop="handleAlertAck(alert)">处理</el-button>
+                <el-button
+                  size="small"
+                  text
+                  @click.stop="handleAlertAck(alert)"
+                >
+                  处理
+                </el-button>
               </div>
             </div>
           </template>
         </PageCard>
 
         <!-- 快捷操作 -->
-        <PageCard :icon="'Operation'" icon-bg="rgba(22, 93, 255, 0.1)">
+        <PageCard
+          :icon="'Operation'"
+          icon-bg="rgba(22, 93, 255, 0.1)"
+        >
           <template #default>
             <div class="quick-actions">
               <div 
-                class="quick-action" 
                 v-for="action in quickActions" 
-                :key="action.title"
+                :key="action.title" 
+                class="quick-action"
                 @click="handleQuickActionClick(action)"
               >
-                <div class="action-icon" :style="{ background: action.bg }">
+                <div
+                  class="action-icon"
+                  :style="{ background: action.bg }"
+                >
                   <el-icon><component :is="action.icon" /></el-icon>
                 </div>
                 <span class="action-title">{{ action.title }}</span>
@@ -183,8 +321,11 @@
     </el-row>
 
     <!-- Loading状态 -->
-    <div class="loading-overlay" v-if="loading">
-      <div class="loading-spinner"></div>
+    <div
+      v-if="loading"
+      class="loading-overlay"
+    >
+      <div class="loading-spinner" />
       <span>加载数据中...</span>
     </div>
   </div>

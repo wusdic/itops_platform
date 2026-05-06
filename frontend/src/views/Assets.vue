@@ -3,11 +3,18 @@
     <!-- 页面头部 -->
     <div class="page-header">
       <div class="page-header-left">
-        <h2 class="page-title">资产管理</h2>
-        <p class="page-subtitle">统一管理所有IT资产，支持多类型设备监控</p>
+        <h2 class="page-title">
+          资产管理
+        </h2>
+        <p class="page-subtitle">
+          统一管理所有IT资产，支持多类型设备监控
+        </p>
       </div>
       <div class="page-header-actions">
-        <el-button @click="handleExport" :loading="exportLoading">
+        <el-button
+          :loading="exportLoading"
+          @click="handleExport"
+        >
           <el-icon><Download /></el-icon>
           导出
         </el-button>
@@ -15,7 +22,10 @@
           <el-icon><Upload /></el-icon>
           导入
         </el-button>
-        <el-button type="primary" @click="handleCreate">
+        <el-button
+          type="primary"
+          @click="handleCreate"
+        >
           <el-icon><Plus /></el-icon>
           添加资产
         </el-button>
@@ -30,14 +40,25 @@
         class="stat-card"
         :style="{ animationDelay: `${index * 0.08}s` }"
       >
-        <div class="stat-icon" :style="{ background: stat.color }">
+        <div
+          class="stat-icon"
+          :style="{ background: stat.color }"
+        >
           <el-icon><component :is="stat.icon" /></el-icon>
         </div>
         <div class="stat-content">
-          <div class="stat-value">{{ stat.value }}</div>
-          <div class="stat-title">{{ stat.title }}</div>
+          <div class="stat-value">
+            {{ stat.value }}
+          </div>
+          <div class="stat-title">
+            {{ stat.title }}
+          </div>
         </div>
-        <div class="stat-trend" :class="stat.trend > 0 ? 'up' : 'down'" v-if="stat.trend !== undefined">
+        <div
+          v-if="stat.trend !== undefined"
+          class="stat-trend"
+          :class="stat.trend > 0 ? 'up' : 'down'"
+        >
           <el-icon><TrendCharts /></el-icon>
           {{ Math.abs(stat.trend) }}%
         </div>
@@ -59,71 +80,137 @@
             <el-icon><Search /></el-icon>
           </template>
           <template #append>
-            <el-button @click="handleSearch" :icon="Search" />
+            <el-button
+              :icon="Search"
+              @click="handleSearch"
+            />
           </template>
         </el-input>
 
-        <el-select v-model="typeFilter" placeholder="资产类型" style="width: 140px" clearable @change="handleFilterChange">
-          <el-option label="服务器" value="server">
+        <el-select
+          v-model="typeFilter"
+          placeholder="资产类型"
+          style="width: 140px"
+          clearable
+          @change="handleFilterChange"
+        >
+          <el-option
+            label="服务器"
+            value="server"
+          >
             <div class="option-item">
-              <span class="option-dot server"></span>
+              <span class="option-dot server" />
               <span>服务器</span>
             </div>
           </el-option>
-          <el-option label="网络设备" value="network">
+          <el-option
+            label="网络设备"
+            value="network"
+          >
             <div class="option-item">
-              <span class="option-dot network"></span>
+              <span class="option-dot network" />
               <span>网络设备</span>
             </div>
           </el-option>
-          <el-option label="存储设备" value="storage">
+          <el-option
+            label="存储设备"
+            value="storage"
+          >
             <div class="option-item">
-              <span class="option-dot storage"></span>
+              <span class="option-dot storage" />
               <span>存储设备</span>
             </div>
           </el-option>
-          <el-option label="安全设备" value="security">
+          <el-option
+            label="安全设备"
+            value="security"
+          >
             <div class="option-item">
-              <span class="option-dot security"></span>
+              <span class="option-dot security" />
               <span>安全设备</span>
             </div>
           </el-option>
         </el-select>
 
-        <el-select v-model="statusFilter" placeholder="运行状态" style="width: 130px" clearable @change="handleFilterChange">
-          <el-option label="在线" value="online">
+        <el-select
+          v-model="statusFilter"
+          placeholder="运行状态"
+          style="width: 130px"
+          clearable
+          @change="handleFilterChange"
+        >
+          <el-option
+            label="在线"
+            value="online"
+          >
             <template #default>
-              <span class="status-dot online"></span>
+              <span class="status-dot online" />
               在线
             </template>
           </el-option>
-          <el-option label="离线" value="offline">
+          <el-option
+            label="离线"
+            value="offline"
+          >
             <template #default>
-              <span class="status-dot offline"></span>
+              <span class="status-dot offline" />
               离线
             </template>
           </el-option>
-          <el-option label="维护中" value="maintenance">
+          <el-option
+            label="维护中"
+            value="maintenance"
+          >
             <template #default>
-              <span class="status-dot maintenance"></span>
+              <span class="status-dot maintenance" />
               维护中
             </template>
           </el-option>
         </el-select>
 
-        <el-select v-model="osFilter" placeholder="操作系统" style="width: 140px" clearable @change="handleFilterChange">
-          <el-option label="CentOS" value="centos" />
-          <el-option label="Ubuntu" value="ubuntu" />
-          <el-option label="麒麟Linux" value="kylin" />
-          <el-option label="Windows Server" value="windows" />
-          <el-option label="其他" value="other" />
+        <el-select
+          v-model="osFilter"
+          placeholder="操作系统"
+          style="width: 140px"
+          clearable
+          @change="handleFilterChange"
+        >
+          <el-option
+            label="CentOS"
+            value="centos"
+          />
+          <el-option
+            label="Ubuntu"
+            value="ubuntu"
+          />
+          <el-option
+            label="麒麟Linux"
+            value="kylin"
+          />
+          <el-option
+            label="Windows Server"
+            value="windows"
+          />
+          <el-option
+            label="其他"
+            value="other"
+          />
         </el-select>
       </div>
 
       <div class="filter-right">
-        <el-checkbox v-model="showOnlineOnly" @change="handleFilterChange">仅显示在线</el-checkbox>
+        <el-checkbox
+          v-model="showOnlineOnly"
+          @change="handleFilterChange"
+        >
+          仅显示在线
+        </el-checkbox>
         <el-divider direction="vertical" />
-        <el-button text @click="handleRefresh" :loading="loading">
+        <el-button
+          text
+          :loading="loading"
+          @click="handleRefresh"
+        >
           <el-icon><Refresh /></el-icon>
         </el-button>
       </div>
@@ -139,12 +226,22 @@
         row-key="id"
         @selection-change="handleSelectionChange"
       >
-        <el-table-column type="selection" width="50" />
+        <el-table-column
+          type="selection"
+          width="50"
+        />
 
-        <el-table-column label="资产信息" min-width="200" show-overflow-tooltip>
+        <el-table-column
+          label="资产信息"
+          min-width="200"
+          show-overflow-tooltip
+        >
           <template #default="{ row }">
             <div class="asset-info">
-              <div class="asset-icon" :class="row.type">
+              <div
+                class="asset-icon"
+                :class="row.type"
+              >
                 <el-icon><component :is="getTypeIcon(row.type)" /></el-icon>
               </div>
               <div class="asset-details">
@@ -155,66 +252,119 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="类型" width="110">
+        <el-table-column
+          label="类型"
+          width="110"
+        >
           <template #default="{ row }">
-            <el-tag size="small" :type="getTypeTagType(row.type)" effect="light">
+            <el-tag
+              size="small"
+              :type="getTypeTagType(row.type)"
+              effect="light"
+            >
               {{ getTypeText(row.type) }}
             </el-tag>
           </template>
         </el-table-column>
 
-        <el-table-column label="IP地址" width="140">
+        <el-table-column
+          label="IP地址"
+          width="140"
+        >
           <template #default="{ row }">
             <span class="ip-address">{{ row.ip || '-' }}</span>
           </template>
         </el-table-column>
 
-        <el-table-column label="状态" width="100">
+        <el-table-column
+          label="状态"
+          width="100"
+        >
           <template #default="{ row }">
             <div class="status-cell">
-              <span class="status-dot" :class="row.status"></span>
+              <span
+                class="status-dot"
+                :class="row.status"
+              />
               <span class="status-text">{{ getStatusText(row.status) }}</span>
             </div>
           </template>
         </el-table-column>
 
-        <el-table-column label="操作系统" width="120">
+        <el-table-column
+          label="操作系统"
+          width="120"
+        >
           <template #default="{ row }">
             <span class="os-text">{{ row.os_type || '-' }}</span>
           </template>
         </el-table-column>
 
-        <el-table-column label="位置" width="130" show-overflow-tooltip>
+        <el-table-column
+          label="位置"
+          width="130"
+          show-overflow-tooltip
+        >
           <template #default="{ row }">
             <span class="location-text">{{ row.location || '-' }}</span>
           </template>
         </el-table-column>
 
-        <el-table-column label="最后更新" width="160">
+        <el-table-column
+          label="最后更新"
+          width="160"
+        >
           <template #default="{ row }">
             <span class="time-text">{{ formatTime(row.updated_at) }}</span>
           </template>
         </el-table-column>
 
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column
+          label="操作"
+          width="180"
+          fixed="right"
+        >
           <template #default="{ row }">
             <div class="action-buttons">
-              <el-tooltip content="查看详情" placement="top">
-                <el-button text type="primary" @click="handleView(row)">
+              <el-tooltip
+                content="查看详情"
+                placement="top"
+              >
+                <el-button
+                  text
+                  type="primary"
+                  @click="handleView(row)"
+                >
                   <el-icon><View /></el-icon>
                 </el-button>
               </el-tooltip>
-              <el-tooltip content="编辑" placement="top">
-                <el-button text type="primary" @click="handleEdit(row)">
+              <el-tooltip
+                content="编辑"
+                placement="top"
+              >
+                <el-button
+                  text
+                  type="primary"
+                  @click="handleEdit(row)"
+                >
                   <el-icon><Edit /></el-icon>
                 </el-button>
               </el-tooltip>
-              <el-tooltip content="监控数据" placement="top">
-                <el-button text @click="handleMonitor(row)">
+              <el-tooltip
+                content="监控数据"
+                placement="top"
+              >
+                <el-button
+                  text
+                  @click="handleMonitor(row)"
+                >
                   <el-icon><DataLine /></el-icon>
                 </el-button>
               </el-tooltip>
-              <el-dropdown trigger="click" @command="(cmd) => handleCommand(cmd, row)">
+              <el-dropdown
+                trigger="click"
+                @command="(cmd) => handleCommand(cmd, row)"
+              >
                 <el-button text>
                   <el-icon><MoreFilled /></el-icon>
                 </el-button>
@@ -228,7 +378,10 @@
                       <el-icon><Tools /></el-icon>
                       进入维护
                     </el-dropdown-item>
-                    <el-dropdown-item command="delete" divided>
+                    <el-dropdown-item
+                      command="delete"
+                      divided
+                    >
                       <el-icon><Delete /></el-icon>
                       删除资产
                     </el-dropdown-item>
@@ -258,44 +411,98 @@
     </div>
 
     <!-- 资产详情抽屉 -->
-    <el-drawer v-model="showDetailDrawer" :title="currentAsset?.name" size="600px">
-      <div class="asset-detail" v-if="currentAsset">
+    <el-drawer
+      v-model="showDetailDrawer"
+      :title="currentAsset?.name"
+      size="600px"
+    >
+      <div
+        v-if="currentAsset"
+        class="asset-detail"
+      >
         <div class="detail-header">
-          <div class="detail-icon" :class="currentAsset.type">
+          <div
+            class="detail-icon"
+            :class="currentAsset.type"
+          >
             <el-icon><component :is="getTypeIcon(currentAsset.type)" /></el-icon>
           </div>
           <div class="detail-status">
-            <span class="status-dot large" :class="currentAsset.status"></span>
+            <span
+              class="status-dot large"
+              :class="currentAsset.status"
+            />
             {{ getStatusText(currentAsset.status) }}
           </div>
         </div>
 
-        <el-descriptions :column="2" border class="detail-descriptions">
-          <el-descriptions-item label="资产名称">{{ currentAsset.name }}</el-descriptions-item>
-          <el-descriptions-item label="主机名">{{ currentAsset.hostname || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="资产类型">{{ getTypeText(currentAsset.type) }}</el-descriptions-item>
-          <el-descriptions-item label="IP地址">{{ currentAsset.ip || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="操作系统">{{ currentAsset.os_type || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="端口">{{ currentAsset.port || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="位置" :span="2">{{ currentAsset.location || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="描述" :span="2">{{ currentAsset.description || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="创建时间">{{ currentAsset.created_at || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="更新时间">{{ currentAsset.updated_at || '-' }}</el-descriptions-item>
+        <el-descriptions
+          :column="2"
+          border
+          class="detail-descriptions"
+        >
+          <el-descriptions-item label="资产名称">
+            {{ currentAsset.name }}
+          </el-descriptions-item>
+          <el-descriptions-item label="主机名">
+            {{ currentAsset.hostname || '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="资产类型">
+            {{ getTypeText(currentAsset.type) }}
+          </el-descriptions-item>
+          <el-descriptions-item label="IP地址">
+            {{ currentAsset.ip || '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="操作系统">
+            {{ currentAsset.os_type || '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="端口">
+            {{ currentAsset.port || '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item
+            label="位置"
+            :span="2"
+          >
+            {{ currentAsset.location || '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item
+            label="描述"
+            :span="2"
+          >
+            {{ currentAsset.description || '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="创建时间">
+            {{ currentAsset.created_at || '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="更新时间">
+            {{ currentAsset.updated_at || '-' }}
+          </el-descriptions-item>
         </el-descriptions>
 
-        <el-divider content-position="left">监控指标</el-divider>
+        <el-divider content-position="left">
+          监控指标
+        </el-divider>
         <div class="monitor-metrics">
           <div class="metric-item">
             <span class="metric-label">CPU使用率</span>
-            <el-progress :percentage="72" :color="getProgressColor(72)" />
+            <el-progress
+              :percentage="72"
+              :color="getProgressColor(72)"
+            />
           </div>
           <div class="metric-item">
             <span class="metric-label">内存使用率</span>
-            <el-progress :percentage="58" :color="getProgressColor(58)" />
+            <el-progress
+              :percentage="58"
+              :color="getProgressColor(58)"
+            />
           </div>
           <div class="metric-item">
             <span class="metric-label">磁盘使用率</span>
-            <el-progress :percentage="45" :color="getProgressColor(45)" />
+            <el-progress
+              :percentage="45"
+              :color="getProgressColor(45)"
+            />
           </div>
         </div>
       </div>
@@ -308,40 +515,99 @@
       width="650px"
       :close-on-click-modal="false"
     >
-      <el-form ref="formRef" :model="form" :rules="rules" label-width="100px" class="asset-form">
+      <el-form
+        ref="formRef"
+        :model="form"
+        :rules="rules"
+        label-width="100px"
+        class="asset-form"
+      >
         <div class="form-section">
-          <h4 class="form-section-title">基本信息</h4>
+          <h4 class="form-section-title">
+            基本信息
+          </h4>
           <el-row :gutter="20">
             <el-col :span="12">
-              <el-form-item label="资产名称" prop="name">
-                <el-input v-model="form.name" placeholder="请输入资产名称" />
+              <el-form-item
+                label="资产名称"
+                prop="name"
+              >
+                <el-input
+                  v-model="form.name"
+                  placeholder="请输入资产名称"
+                />
               </el-form-item>
             </el-col>
             <el-col :span="12">
-              <el-form-item label="主机名" prop="hostname">
-                <el-input v-model="form.hostname" placeholder="请输入主机名" />
+              <el-form-item
+                label="主机名"
+                prop="hostname"
+              >
+                <el-input
+                  v-model="form.hostname"
+                  placeholder="请输入主机名"
+                />
               </el-form-item>
             </el-col>
           </el-row>
           <el-row :gutter="20">
             <el-col :span="12">
-              <el-form-item label="资产类型" prop="type">
-                <el-select v-model="form.type" style="width: 100%">
-                  <el-option label="服务器" value="server" />
-                  <el-option label="网络设备" value="network" />
-                  <el-option label="存储设备" value="storage" />
-                  <el-option label="安全设备" value="security" />
+              <el-form-item
+                label="资产类型"
+                prop="type"
+              >
+                <el-select
+                  v-model="form.type"
+                  style="width: 100%"
+                >
+                  <el-option
+                    label="服务器"
+                    value="server"
+                  />
+                  <el-option
+                    label="网络设备"
+                    value="network"
+                  />
+                  <el-option
+                    label="存储设备"
+                    value="storage"
+                  />
+                  <el-option
+                    label="安全设备"
+                    value="security"
+                  />
                 </el-select>
               </el-form-item>
             </el-col>
             <el-col :span="12">
-              <el-form-item label="操作系统" prop="os_type">
-                <el-select v-model="form.os_type" style="width: 100%">
-                  <el-option label="CentOS" value="centos" />
-                  <el-option label="Ubuntu" value="ubuntu" />
-                  <el-option label="麒麟Linux" value="kylin" />
-                  <el-option label="Windows Server" value="windows" />
-                  <el-option label="其他" value="other" />
+              <el-form-item
+                label="操作系统"
+                prop="os_type"
+              >
+                <el-select
+                  v-model="form.os_type"
+                  style="width: 100%"
+                >
+                  <el-option
+                    label="CentOS"
+                    value="centos"
+                  />
+                  <el-option
+                    label="Ubuntu"
+                    value="ubuntu"
+                  />
+                  <el-option
+                    label="麒麟Linux"
+                    value="kylin"
+                  />
+                  <el-option
+                    label="Windows Server"
+                    value="windows"
+                  />
+                  <el-option
+                    label="其他"
+                    value="other"
+                  />
                 </el-select>
               </el-form-item>
             </el-col>
@@ -349,48 +615,97 @@
         </div>
 
         <div class="form-section">
-          <h4 class="form-section-title">网络配置</h4>
+          <h4 class="form-section-title">
+            网络配置
+          </h4>
           <el-row :gutter="20">
             <el-col :span="12">
-              <el-form-item label="IP地址" prop="ip">
-                <el-input v-model="form.ip" placeholder="如: 192.168.1.100" />
+              <el-form-item
+                label="IP地址"
+                prop="ip"
+              >
+                <el-input
+                  v-model="form.ip"
+                  placeholder="如: 192.168.1.100"
+                />
               </el-form-item>
             </el-col>
             <el-col :span="12">
-              <el-form-item label="端口" prop="port">
-                <el-input-number v-model="form.port" :min="1" :max="65535" style="width: 100%" />
+              <el-form-item
+                label="端口"
+                prop="port"
+              >
+                <el-input-number
+                  v-model="form.port"
+                  :min="1"
+                  :max="65535"
+                  style="width: 100%"
+                />
               </el-form-item>
             </el-col>
           </el-row>
         </div>
 
         <div class="form-section">
-          <h4 class="form-section-title">位置信息</h4>
-          <el-form-item label="位置" prop="location">
-            <el-input v-model="form.location" placeholder="如: 机房A-机柜3" />
+          <h4 class="form-section-title">
+            位置信息
+          </h4>
+          <el-form-item
+            label="位置"
+            prop="location"
+          >
+            <el-input
+              v-model="form.location"
+              placeholder="如: 机房A-机柜3"
+            />
           </el-form-item>
         </div>
 
         <div class="form-section">
-          <h4 class="form-section-title">备注信息</h4>
+          <h4 class="form-section-title">
+            备注信息
+          </h4>
           <el-form-item label="备注">
-            <el-input v-model="form.description" type="textarea" :rows="3" placeholder="请输入备注信息" />
+            <el-input
+              v-model="form.description"
+              type="textarea"
+              :rows="3"
+              placeholder="请输入备注信息"
+            />
           </el-form-item>
         </div>
       </el-form>
       <template #footer>
-        <el-button @click="showFormDialog = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit" :loading="submitLoading">保存</el-button>
+        <el-button @click="showFormDialog = false">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          :loading="submitLoading"
+          @click="handleSubmit"
+        >
+          保存
+        </el-button>
       </template>
     </el-dialog>
 
     <!-- 导入对话框 -->
-    <el-dialog v-model="showImportDialog" title="导入资产" width="500px">
+    <el-dialog
+      v-model="showImportDialog"
+      title="导入资产"
+      width="500px"
+    >
       <div class="import-tip">
-        <el-icon color="#909399"><InfoFilled /></el-icon>
+        <el-icon color="#909399">
+          <InfoFilled />
+        </el-icon>
         <span>支持 Excel (.xlsx, .xls) 和 CSV 格式，请下载模板后上传</span>
       </div>
-      <el-button type="text" class="download-template" @click="handleDownloadTemplate">
+      <el-button
+        type="text"
+        class="download-template"
+        @click="handleDownloadTemplate"
+      >
         <el-icon><Download /></el-icon>
         下载导入模板
       </el-button>
@@ -404,15 +719,29 @@
         accept=".xlsx,.xls,.csv"
         class="import-upload"
       >
-        <el-icon class="upload-icon"><UploadFilled /></el-icon>
-        <div class="upload-text">拖拽文件到此处，或 <em>点击上传</em></div>
+        <el-icon class="upload-icon">
+          <UploadFilled />
+        </el-icon>
+        <div class="upload-text">
+          拖拽文件到此处，或 <em>点击上传</em>
+        </div>
         <template #tip>
-          <div class="upload-tip">支持 Excel (.xlsx, .xls) 和 CSV 格式</div>
+          <div class="upload-tip">
+            支持 Excel (.xlsx, .xls) 和 CSV 格式
+          </div>
         </template>
       </el-upload>
       <template #footer>
-        <el-button @click="showImportDialog = false">取消</el-button>
-        <el-button type="primary" @click="handleImportSubmit" :loading="importLoading">开始导入</el-button>
+        <el-button @click="showImportDialog = false">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          :loading="importLoading"
+          @click="handleImportSubmit"
+        >
+          开始导入
+        </el-button>
       </template>
     </el-dialog>
   </div>

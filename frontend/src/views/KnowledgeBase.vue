@@ -1,22 +1,57 @@
 <template>
   <div class="knowledge-base-page">
-    <el-tabs v-model="activeTab" @tab-change="handleTabChange">
-      <el-tab-pane label="文档管理" name="documents">
+    <el-tabs
+      v-model="activeTab"
+      @tab-change="handleTabChange"
+    >
+      <el-tab-pane
+        label="文档管理"
+        name="documents"
+      >
         <div class="page-header">
           <h2>文档管理</h2>
-          <el-button type="primary" @click="showUploadDialog">上传文档</el-button>
+          <el-button
+            type="primary"
+            @click="showUploadDialog"
+          >
+            上传文档
+          </el-button>
         </div>
 
         <!-- 拖拽上传区域 -->
-        <div class="upload-zone" :class="{ 'is-dragover': isDragover }" @drop.prevent="handleDrop" @dragover.prevent="isDragover = true" @dragleave="isDragover = false">
-          <el-icon :size="48"><UploadFilled /></el-icon>
-          <p>将文件拖拽到此处，或 <el-button type="text" @click="showUploadDialog">点击上传</el-button></p>
-          <p class="upload-hint">支持 PDF、Word、Excel、TXT、Markdown 格式</p>
+        <div
+          class="upload-zone"
+          :class="{ 'is-dragover': isDragover }"
+          @drop.prevent="handleDrop"
+          @dragover.prevent="isDragover = true"
+          @dragleave="isDragover = false"
+        >
+          <el-icon :size="48">
+            <UploadFilled />
+          </el-icon>
+          <p>
+            将文件拖拽到此处，或 <el-button
+              type="text"
+              @click="showUploadDialog"
+            >
+              点击上传
+            </el-button>
+          </p>
+          <p class="upload-hint">
+            支持 PDF、Word、Excel、TXT、Markdown 格式
+          </p>
         </div>
 
         <!-- 文档列表 -->
-        <el-table :data="documents" stripe style="width: 100%; margin-top: 20px">
-          <el-table-column prop="name" label="文档名称">
+        <el-table
+          :data="documents"
+          stripe
+          style="width: 100%; margin-top: 20px"
+        >
+          <el-table-column
+            prop="name"
+            label="文档名称"
+          >
             <template #default="{ row }">
               <div class="doc-name">
                 <el-icon><Document /></el-icon>
@@ -24,64 +59,158 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column prop="type" label="类型" width="100">
+          <el-table-column
+            prop="type"
+            label="类型"
+            width="100"
+          >
             <template #default="{ row }">
-              <el-tag size="small" :type="getDocTypeTag(row.type)">{{ row.type.toUpperCase() }}</el-tag>
+              <el-tag
+                size="small"
+                :type="getDocTypeTag(row.type)"
+              >
+                {{ row.type.toUpperCase() }}
+              </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="size" label="大小" width="100" />
-          <el-table-column prop="uploadedAt" label="上传时间" width="180" />
-          <el-table-column prop="status" label="状态" width="100">
+          <el-table-column
+            prop="size"
+            label="大小"
+            width="100"
+          />
+          <el-table-column
+            prop="uploadedAt"
+            label="上传时间"
+            width="180"
+          />
+          <el-table-column
+            prop="status"
+            label="状态"
+            width="100"
+          >
             <template #default="{ row }">
-              <el-tag size="small" :type="row.status === 'ready' ? 'success' : 'warning'">
+              <el-tag
+                size="small"
+                :type="row.status === 'ready' ? 'success' : 'warning'"
+              >
                 {{ row.status === 'ready' ? '已处理' : '处理中' }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="200" fixed="right">
+          <el-table-column
+            label="操作"
+            width="200"
+            fixed="right"
+          >
             <template #default="{ row }">
-              <el-button size="small" type="primary" @click="searchDoc(row)">检索</el-button>
-              <el-button size="small" type="danger" @click="deleteDoc(row)">删除</el-button>
+              <el-button
+                size="small"
+                type="primary"
+                @click="searchDoc(row)"
+              >
+                检索
+              </el-button>
+              <el-button
+                size="small"
+                type="danger"
+                @click="deleteDoc(row)"
+              >
+                删除
+              </el-button>
             </template>
           </el-table-column>
         </el-table>
       </el-tab-pane>
 
-      <el-tab-pane label="知识检索" name="search">
+      <el-tab-pane
+        label="知识检索"
+        name="search"
+      >
         <div class="page-header">
           <h2>知识检索</h2>
         </div>
 
         <div class="search-box">
-          <el-input v-model="searchQuery" placeholder="输入关键词搜索知识库..." size="large" @keyup.enter="doSearch">
+          <el-input
+            v-model="searchQuery"
+            placeholder="输入关键词搜索知识库..."
+            size="large"
+            @keyup.enter="doSearch"
+          >
             <template #append>
-              <el-button :icon="Search" @click="doSearch">搜索</el-button>
+              <el-button
+                :icon="Search"
+                @click="doSearch"
+              >
+                搜索
+              </el-button>
             </template>
           </el-input>
         </div>
 
         <div class="search-filters">
-          <el-select v-model="searchFilter.docType" placeholder="文档类型" clearable style="width: 150px">
-            <el-option label="PDF" value="pdf" />
-            <el-option label="Word" value="doc" />
-            <el-option label="Excel" value="xlsx" />
-            <el-option label="TXT" value="txt" />
+          <el-select
+            v-model="searchFilter.docType"
+            placeholder="文档类型"
+            clearable
+            style="width: 150px"
+          >
+            <el-option
+              label="PDF"
+              value="pdf"
+            />
+            <el-option
+              label="Word"
+              value="doc"
+            />
+            <el-option
+              label="Excel"
+              value="xlsx"
+            />
+            <el-option
+              label="TXT"
+              value="txt"
+            />
           </el-select>
-          <el-select v-model="searchFilter.topK" placeholder="返回数量" style="width: 120px">
-            <el-option label="5条" :value="5" />
-            <el-option label="10条" :value="10" />
-            <el-option label="20条" :value="20" />
+          <el-select
+            v-model="searchFilter.topK"
+            placeholder="返回数量"
+            style="width: 120px"
+          >
+            <el-option
+              label="5条"
+              :value="5"
+            />
+            <el-option
+              label="10条"
+              :value="10"
+            />
+            <el-option
+              label="20条"
+              :value="20"
+            />
           </el-select>
         </div>
 
-        <div class="search-results" v-if="searchResults.length > 0">
-          <div class="result-header">找到 {{ searchResults.length }} 条相关结果</div>
-          <div v-for="result in searchResults" :key="result.id" class="result-item">
+        <div
+          v-if="searchResults.length > 0"
+          class="search-results"
+        >
+          <div class="result-header">
+            找到 {{ searchResults.length }} 条相关结果
+          </div>
+          <div
+            v-for="result in searchResults"
+            :key="result.id"
+            class="result-item"
+          >
             <div class="result-header">
               <span class="result-title">{{ result.title }}</span>
               <span class="result-score">相似度: {{ (result.score * 100).toFixed(1) }}%</span>
             </div>
-            <div class="result-content">{{ result.content }}</div>
+            <div class="result-content">
+              {{ result.content }}
+            </div>
             <div class="result-meta">
               <span>来源: {{ result.source }}</span>
               <span>页码: {{ result.page || 'N/A' }}</span>
@@ -89,61 +218,139 @@
           </div>
         </div>
 
-        <div class="empty-state" v-else-if="hasSearched">
+        <div
+          v-else-if="hasSearched"
+          class="empty-state"
+        >
           <el-empty description="未找到相关结果" />
         </div>
       </el-tab-pane>
 
-      <el-tab-pane label="RAG对话" name="chat">
+      <el-tab-pane
+        label="RAG对话"
+        name="chat"
+      >
         <div class="page-header">
           <h2>RAG 对话</h2>
-          <el-button size="small" @click="clearChat">清空对话</el-button>
+          <el-button
+            size="small"
+            @click="clearChat"
+          >
+            清空对话
+          </el-button>
         </div>
 
         <div class="chat-container">
-          <div class="chat-messages" ref="chatMessagesRef">
-            <div v-for="msg in chatMessages" :key="msg.id" class="chat-message" :class="'msg-' + msg.role">
+          <div
+            ref="chatMessagesRef"
+            class="chat-messages"
+          >
+            <div
+              v-for="msg in chatMessages"
+              :key="msg.id"
+              class="chat-message"
+              :class="'msg-' + msg.role"
+            >
               <div class="message-content">
-                <div class="message-text" v-if="msg.role === 'user'">{{ msg.content }}</div>
-                <div class="message-text" v-else v-html="renderMarkdown(msg.content)"></div>
-                <div class="message-time">{{ msg.time }}</div>
+                <div
+                  v-if="msg.role === 'user'"
+                  class="message-text"
+                >
+                  {{ msg.content }}
+                </div>
+                <div
+                  v-else
+                  class="message-text"
+                  v-html="renderMarkdown(msg.content)"
+                />
+                <div class="message-time">
+                  {{ msg.time }}
+                </div>
               </div>
             </div>
-            <div v-if="isTyping" class="chat-message msg-assistant">
+            <div
+              v-if="isTyping"
+              class="chat-message msg-assistant"
+            >
               <div class="message-content">
                 <div class="message-text typing">
-                  <span class="dot"></span>
-                  <span class="dot"></span>
-                  <span class="dot"></span>
+                  <span class="dot" />
+                  <span class="dot" />
+                  <span class="dot" />
                 </div>
               </div>
             </div>
           </div>
 
           <div class="chat-input">
-            <el-input v-model="chatInput" type="textarea" placeholder="输入问题，AI将基于知识库回答..." :rows="2" @keydown.enter.meta="sendMessage" @keydown.enter.ctrl="sendMessage" />
-            <el-button type="primary" @click="sendMessage" :disabled="!chatInput.trim() || isTyping">发送</el-button>
+            <el-input
+              v-model="chatInput"
+              type="textarea"
+              placeholder="输入问题，AI将基于知识库回答..."
+              :rows="2"
+              @keydown.enter.meta="sendMessage"
+              @keydown.enter.ctrl="sendMessage"
+            />
+            <el-button
+              type="primary"
+              :disabled="!chatInput.trim() || isTyping"
+              @click="sendMessage"
+            >
+              发送
+            </el-button>
           </div>
         </div>
       </el-tab-pane>
     </el-tabs>
 
     <!-- 上传弹窗 -->
-    <el-dialog v-model="uploadDialogVisible" title="上传文档" width="500px">
-      <el-form :model="uploadForm" ref="uploadFormRef" label-width="100px">
+    <el-dialog
+      v-model="uploadDialogVisible"
+      title="上传文档"
+      width="500px"
+    >
+      <el-form
+        ref="uploadFormRef"
+        :model="uploadForm"
+        label-width="100px"
+      >
         <el-form-item label="文档名称">
-          <el-input v-model="uploadForm.name" placeholder="自动从文件名获取" />
+          <el-input
+            v-model="uploadForm.name"
+            placeholder="自动从文件名获取"
+          />
         </el-form-item>
         <el-form-item label="文档类型">
-          <el-select v-model="uploadForm.type" style="width: 100%">
-            <el-option label="技术文档" value="tech" />
-            <el-option label="运维手册" value="ops" />
-            <el-option label="故障案例" value="case" />
-            <el-option label="配置文档" value="config" />
+          <el-select
+            v-model="uploadForm.type"
+            style="width: 100%"
+          >
+            <el-option
+              label="技术文档"
+              value="tech"
+            />
+            <el-option
+              label="运维手册"
+              value="ops"
+            />
+            <el-option
+              label="故障案例"
+              value="case"
+            />
+            <el-option
+              label="配置文档"
+              value="config"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="上传文件">
-          <el-upload ref="uploadRef" :auto-upload="false" :limit="1" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.md" :on-change="handleFileChange">
+          <el-upload
+            ref="uploadRef"
+            :auto-upload="false"
+            :limit="1"
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.md"
+            :on-change="handleFileChange"
+          >
             <el-button>选择文件</el-button>
           </el-upload>
         </el-form-item>
@@ -153,8 +360,15 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="uploadDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="confirmUpload">上传</el-button>
+        <el-button @click="uploadDialogVisible = false">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          @click="confirmUpload"
+        >
+          上传
+        </el-button>
       </template>
     </el-dialog>
   </div>

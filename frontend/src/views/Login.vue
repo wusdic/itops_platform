@@ -2,9 +2,9 @@
   <div class="login-page">
     <!-- 背景装饰 -->
     <div class="bg-decoration">
-      <div class="decoration-circle circle-1"></div>
-      <div class="decoration-circle circle-2"></div>
-      <div class="decoration-circle circle-3"></div>
+      <div class="decoration-circle circle-1" />
+      <div class="decoration-circle circle-2" />
+      <div class="decoration-circle circle-3" />
     </div>
 
     <div class="login-container">
@@ -12,14 +12,37 @@
       <div class="brand-section">
         <div class="brand-content">
           <div class="brand-logo">
-            <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
-              <rect width="56" height="56" rx="14" fill="#165dff"/>
-              <path d="M14 21L28 14L42 21V35L28 42L14 35V21Z" stroke="white" stroke-width="2.5"/>
-              <circle cx="28" cy="28" r="5" fill="white"/>
+            <svg
+              width="56"
+              height="56"
+              viewBox="0 0 56 56"
+              fill="none"
+            >
+              <rect
+                width="56"
+                height="56"
+                rx="14"
+                fill="#165dff"
+              />
+              <path
+                d="M14 21L28 14L42 21V35L28 42L14 35V21Z"
+                stroke="white"
+                stroke-width="2.5"
+              />
+              <circle
+                cx="28"
+                cy="28"
+                r="5"
+                fill="white"
+              />
             </svg>
           </div>
-          <h1 class="brand-title">IT运维平台</h1>
-          <p class="brand-subtitle">智能化 · 自动化 · 本地化</p>
+          <h1 class="brand-title">
+            IT运维平台
+          </h1>
+          <p class="brand-subtitle">
+            智能化 · 自动化 · 本地化
+          </p>
           
           <div class="feature-list">
             <div class="feature-item">
@@ -57,8 +80,12 @@
       <div class="login-section">
         <div class="login-card">
           <div class="login-header">
-            <h2 class="login-title">{{ isLogin ? '欢迎回来' : '创建账号' }}</h2>
-            <p class="login-hint">{{ isLogin ? '请登录您的账号继续使用' : '填写以下信息完成注册' }}</p>
+            <h2 class="login-title">
+              {{ isLogin ? '欢迎回来' : '创建账号' }}
+            </h2>
+            <p class="login-hint">
+              {{ isLogin ? '请登录您的账号继续使用' : '填写以下信息完成注册' }}
+            </p>
           </div>
 
           <!-- 登录/注册表单切换 -->
@@ -80,7 +107,10 @@
           </div>
 
           <!-- 登录表单 -->
-          <transition name="slide-fade" mode="out-in">
+          <transition
+            name="slide-fade"
+            mode="out-in"
+          >
             <el-form 
               v-if="isLogin"
               ref="loginFormRef"
@@ -103,7 +133,10 @@
               <div class="form-item">
                 <label class="form-label">
                   <span>密码</span>
-                  <el-link type="primary" class="forgot-link">忘记密码？</el-link>
+                  <el-link
+                    type="primary"
+                    class="forgot-link"
+                  >忘记密码？</el-link>
                 </label>
                 <el-input
                   v-model="loginForm.password"
@@ -117,7 +150,9 @@
               </div>
 
               <div class="form-options">
-                <el-checkbox v-model="loginForm.remember">记住登录状态</el-checkbox>
+                <el-checkbox v-model="loginForm.remember">
+                  记住登录状态
+                </el-checkbox>
               </div>
 
               <el-button 
@@ -190,7 +225,11 @@
 
               <div class="form-options">
                 <el-checkbox v-model="registerForm.agreeTerms">
-                  我已阅读并同意 <el-link type="primary">《服务条款》</el-link> 和 <el-link type="primary">《隐私政策》</el-link>
+                  我已阅读并同意 <el-link type="primary">
+                    《服务条款》
+                  </el-link> 和 <el-link type="primary">
+                    《隐私政策》
+                  </el-link>
                 </el-checkbox>
               </div>
 
@@ -207,20 +246,37 @@
           </transition>
 
           <!-- 其他登录方式 -->
-          <div class="social-login" v-if="isLogin">
+          <div
+            v-if="isLogin"
+            class="social-login"
+          >
             <div class="divider">
               <span>其他登录方式</span>
             </div>
             <div class="social-icons">
-              <button class="social-btn" title="企业微信">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h-2v-6h2v6zm4 0h-2v-6h2v6zm-2-8c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z"/>
+              <button
+                class="social-btn"
+                title="企业微信"
+              >
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h-2v-6h2v6zm4 0h-2v-6h2v6zm-2-8c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z" />
                 </svg>
               </button>
-              <button class="social-btn" title="钉钉">
+              <button
+                class="social-btn"
+                title="钉钉"
+              >
                 <el-icon><Share /></el-icon>
               </button>
-              <button class="social-btn" title="飞书">
+              <button
+                class="social-btn"
+                title="飞书"
+              >
                 <el-icon><Connection /></el-icon>
               </button>
             </div>

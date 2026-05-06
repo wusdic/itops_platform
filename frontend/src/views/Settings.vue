@@ -21,15 +21,25 @@
             :class="{ active: activeTab === item.key }"
             @click="switchTab(item.key)"
           >
-            <div class="nav-icon" :style="{ background: item.gradient }">
+            <div
+              class="nav-icon"
+              :style="{ background: item.gradient }"
+            >
               <el-icon><component :is="item.icon" /></el-icon>
             </div>
             <div class="nav-text">
-              <div class="nav-title">{{ item.title }}</div>
-              <div class="nav-desc">{{ item.desc }}</div>
+              <div class="nav-title">
+                {{ item.title }}
+              </div>
+              <div class="nav-desc">
+                {{ item.desc }}
+              </div>
             </div>
-            <div class="nav-indicator" v-if="activeTab === item.key">
-              <div class="indicator-bar"></div>
+            <div
+              v-if="activeTab === item.key"
+              class="nav-indicator"
+            >
+              <div class="indicator-bar" />
             </div>
           </div>
         </nav>
@@ -39,7 +49,7 @@
           <div class="status-header">
             <span>系统状态</span>
             <div class="status-badge">
-              <span class="status-dot"></span>
+              <span class="status-dot" />
               在线
             </div>
           </div>
@@ -65,20 +75,28 @@
       <!-- 右侧内容 -->
       <main class="settings-content">
         <!-- 基本信息 -->
-        <div v-show="activeTab === 'basic'" class="content-section">
+        <div
+          v-show="activeTab === 'basic'"
+          class="content-section"
+        >
           <div class="section-header">
             <div class="header-info">
               <h3 class="section-title">
                 <el-icon><InfoFilled /></el-icon>
                 基本信息
               </h3>
-              <p class="section-desc">配置系统核心信息和全局参数</p>
+              <p class="section-desc">
+                配置系统核心信息和全局参数
+              </p>
             </div>
           </div>
 
           <div class="settings-card">
             <div class="card-header">
-              <div class="card-icon" style="background: linear-gradient(135deg, #409eff, #53a8ff)">
+              <div
+                class="card-icon"
+                style="background: linear-gradient(135deg, #409eff, #53a8ff)"
+              >
                 <el-icon><OfficeBuilding /></el-icon>
               </div>
               <div class="card-title">
@@ -87,10 +105,17 @@
               </div>
             </div>
             <div class="card-body">
-              <el-form label-position="top" class="settings-form">
+              <el-form
+                label-position="top"
+                class="settings-form"
+              >
                 <div class="form-grid">
                   <el-form-item label="系统名称">
-                    <el-input v-model="basicSettings.systemName" placeholder="给系统起个名字" maxlength="30">
+                    <el-input
+                      v-model="basicSettings.systemName"
+                      placeholder="给系统起个名字"
+                      maxlength="30"
+                    >
                       <template #prefix>
                         <el-icon><Edit /></el-icon>
                       </template>
@@ -100,38 +125,63 @@
                     </el-input>
                   </el-form-item>
                   <el-form-item label="系统描述">
-                    <el-input v-model="basicSettings.description" type="textarea" :rows="3" placeholder="描述系统功能用途" maxlength="200" show-word-limit />
+                    <el-input
+                      v-model="basicSettings.description"
+                      type="textarea"
+                      :rows="3"
+                      placeholder="描述系统功能用途"
+                      maxlength="200"
+                      show-word-limit
+                    />
                   </el-form-item>
                 </div>
                 <div class="form-grid">
                   <el-form-item label="联系邮箱">
-                    <el-input v-model="basicSettings.email" placeholder="admin@example.com">
+                    <el-input
+                      v-model="basicSettings.email"
+                      placeholder="admin@example.com"
+                    >
                       <template #prefix>
                         <el-icon><Message /></el-icon>
                       </template>
                     </el-input>
                   </el-form-item>
                   <el-form-item label="时区设置">
-                    <el-select v-model="basicSettings.timezone" style="width: 100%">
-                      <el-option label="Asia/Shanghai (UTC+8)" value="Asia/Shanghai">
+                    <el-select
+                      v-model="basicSettings.timezone"
+                      style="width: 100%"
+                    >
+                      <el-option
+                        label="Asia/Shanghai (UTC+8)"
+                        value="Asia/Shanghai"
+                      >
                         <div class="timezone-option">
                           <span>上海</span>
                           <span class="tz-offset">UTC+8</span>
                         </div>
                       </el-option>
-                      <el-option label="Asia/Beijing (UTC+8)" value="Asia/Beijing">
+                      <el-option
+                        label="Asia/Beijing (UTC+8)"
+                        value="Asia/Beijing"
+                      >
                         <div class="timezone-option">
                           <span>北京</span>
                           <span class="tz-offset">UTC+8</span>
                         </div>
                       </el-option>
-                      <el-option label="America/New_York (UTC-5)" value="America/New_York">
+                      <el-option
+                        label="America/New_York (UTC-5)"
+                        value="America/New_York"
+                      >
                         <div class="timezone-option">
                           <span>纽约</span>
                           <span class="tz-offset">UTC-5</span>
                         </div>
                       </el-option>
-                      <el-option label="Europe/London (UTC+0)" value="Europe/London">
+                      <el-option
+                        label="Europe/London (UTC+0)"
+                        value="Europe/London"
+                      >
                         <div class="timezone-option">
                           <span>伦敦</span>
                           <span class="tz-offset">UTC+0</span>
@@ -142,7 +192,10 @@
                 </div>
               </el-form>
               <div class="form-actions">
-                <el-button type="primary" @click="saveBasicSettings">
+                <el-button
+                  type="primary"
+                  @click="saveBasicSettings"
+                >
                   <el-icon><Check /></el-icon>
                   保存设置
                 </el-button>
@@ -152,7 +205,10 @@
 
           <div class="settings-card">
             <div class="card-header">
-              <div class="card-icon" style="background: linear-gradient(135deg, #722ed1, #b37feb)">
+              <div
+                class="card-icon"
+                style="background: linear-gradient(135deg, #722ed1, #b37feb)"
+              >
                 <el-icon><Picture /></el-icon>
               </div>
               <div class="card-title">
@@ -163,25 +219,50 @@
             <div class="card-body">
               <div class="logo-upload-section">
                 <div class="logo-preview-area">
-                  <div class="logo-preview" :class="{ 'has-logo': hasLogo }">
-                    <el-icon v-if="!hasLogo" :size="48"><Monitor /></el-icon>
-                    <img v-else src="" alt="Logo" />
+                  <div
+                    class="logo-preview"
+                    :class="{ 'has-logo': hasLogo }"
+                  >
+                    <el-icon
+                      v-if="!hasLogo"
+                      :size="48"
+                    >
+                      <Monitor />
+                    </el-icon>
+                    <img
+                      v-else
+                      src=""
+                      alt="Logo"
+                    >
                   </div>
                   <div class="logo-info">
-                    <div class="logo-name">{{ basicSettings.systemName || 'IT运维平台' }}</div>
-                    <div class="logo-tagline">智能运维管理</div>
+                    <div class="logo-name">
+                      {{ basicSettings.systemName || 'IT运维平台' }}
+                    </div>
+                    <div class="logo-tagline">
+                      智能运维管理
+                    </div>
                   </div>
                 </div>
                 <div class="upload-actions">
-                  <el-button type="primary" plain>
+                  <el-button
+                    type="primary"
+                    plain
+                  >
                     <el-icon><Upload /></el-icon>
                     上传 Logo
                   </el-button>
-                  <el-button v-if="hasLogo" type="danger" plain>
+                  <el-button
+                    v-if="hasLogo"
+                    type="danger"
+                    plain
+                  >
                     <el-icon><Delete /></el-icon>
                     移除
                   </el-button>
-                  <p class="upload-hint">支持 PNG、JPG，建议尺寸 128x128，最大 2MB</p>
+                  <p class="upload-hint">
+                    支持 PNG、JPG，建议尺寸 128x128，最大 2MB
+                  </p>
                 </div>
               </div>
             </div>
@@ -189,20 +270,28 @@
         </div>
 
         <!-- 监控配置 -->
-        <div v-show="activeTab === 'monitoring'" class="content-section">
+        <div
+          v-show="activeTab === 'monitoring'"
+          class="content-section"
+        >
           <div class="section-header">
             <div class="header-info">
               <h3 class="section-title">
                 <el-icon><DataLine /></el-icon>
                 监控配置
               </h3>
-              <p class="section-desc">配置数据采集源、存储策略和性能参数</p>
+              <p class="section-desc">
+                配置数据采集源、存储策略和性能参数
+              </p>
             </div>
           </div>
 
           <div class="settings-card">
             <div class="card-header">
-              <div class="card-icon" style="background: linear-gradient(135deg, #67c23a, #85ce61)">
+              <div
+                class="card-icon"
+                style="background: linear-gradient(135deg, #67c23a, #85ce61)"
+              >
                 <el-icon><Connection /></el-icon>
               </div>
               <div class="card-title">
@@ -211,7 +300,10 @@
               </div>
             </div>
             <div class="card-body">
-              <el-form label-position="top" class="settings-form">
+              <el-form
+                label-position="top"
+                class="settings-form"
+              >
                 <el-form-item label="数据源类型">
                   <div class="source-type-grid">
                     <div 
@@ -225,25 +317,39 @@
                         <div class="type-icon">
                           <el-icon><component :is="type.icon" /></el-icon>
                         </div>
-                        <div class="type-check" v-if="monitoringSettings.sourceType === type.value">
+                        <div
+                          v-if="monitoringSettings.sourceType === type.value"
+                          class="type-check"
+                        >
                           <el-icon><Check /></el-icon>
                         </div>
                       </div>
-                      <div class="type-name">{{ type.label }}</div>
-                      <div class="type-desc">{{ type.desc }}</div>
+                      <div class="type-name">
+                        {{ type.label }}
+                      </div>
+                      <div class="type-desc">
+                        {{ type.desc }}
+                      </div>
                     </div>
                   </div>
                 </el-form-item>
                 <div class="form-grid">
                   <el-form-item label="数据源地址">
-                    <el-input v-model="monitoringSettings.sourceUrl" placeholder="http://localhost:9090">
+                    <el-input
+                      v-model="monitoringSettings.sourceUrl"
+                      placeholder="http://localhost:9090"
+                    >
                       <template #prefix>
                         <el-icon><Link /></el-icon>
                       </template>
                     </el-input>
                   </el-form-item>
                   <el-form-item label="API Key (可选)">
-                    <el-input v-model="monitoringSettings.apiKey" placeholder="输入 API Key" show-password>
+                    <el-input
+                      v-model="monitoringSettings.apiKey"
+                      placeholder="输入 API Key"
+                      show-password
+                    >
                       <template #prefix>
                         <el-icon><Key /></el-icon>
                       </template>
@@ -253,26 +359,44 @@
                 <div class="form-grid half">
                   <el-form-item label="采集间隔">
                     <div class="input-with-unit">
-                      <el-input-number v-model="monitoringSettings.interval" :min="10" :max="300" />
+                      <el-input-number
+                        v-model="monitoringSettings.interval"
+                        :min="10"
+                        :max="300"
+                      />
                       <span class="unit">秒</span>
                     </div>
-                    <div class="field-hint">数据采集的频率，建议 15-60 秒</div>
+                    <div class="field-hint">
+                      数据采集的频率，建议 15-60 秒
+                    </div>
                   </el-form-item>
                   <el-form-item label="数据保留天数">
                     <div class="input-with-unit">
-                      <el-input-number v-model="monitoringSettings.retentionDays" :min="7" :max="365" />
+                      <el-input-number
+                        v-model="monitoringSettings.retentionDays"
+                        :min="7"
+                        :max="365"
+                      />
                       <span class="unit">天</span>
                     </div>
-                    <div class="field-hint">超出后自动清理历史数据</div>
+                    <div class="field-hint">
+                      超出后自动清理历史数据
+                    </div>
                   </el-form-item>
                 </div>
               </el-form>
               <div class="form-actions">
-                <el-button @click="testConnection" :loading="testing">
+                <el-button
+                  :loading="testing"
+                  @click="testConnection"
+                >
                   <el-icon><Connection /></el-icon>
                   测试连接
                 </el-button>
-                <el-button type="primary" @click="saveMonitoringSettings">
+                <el-button
+                  type="primary"
+                  @click="saveMonitoringSettings"
+                >
                   <el-icon><Check /></el-icon>
                   保存设置
                 </el-button>
@@ -282,7 +406,10 @@
 
           <div class="settings-card">
             <div class="card-header">
-              <div class="card-icon" style="background: linear-gradient(135deg, #e6a23c, #ebb562)">
+              <div
+                class="card-icon"
+                style="background: linear-gradient(135deg, #e6a23c, #ebb562)"
+              >
                 <el-icon><Histogram /></el-icon>
               </div>
               <div class="card-title">
@@ -290,23 +417,43 @@
                 <span class="card-subtitle">Storage Policy</span>
               </div>
               <div class="card-actions">
-                <el-tag size="small" type="info">自动优化</el-tag>
+                <el-tag
+                  size="small"
+                  type="info"
+                >
+                  自动优化
+                </el-tag>
               </div>
             </div>
             <div class="card-body">
               <div class="storage-rules">
-                <div class="rule-item" v-for="(rule, index) in storageRules" :key="index">
+                <div
+                  v-for="(rule, index) in storageRules"
+                  :key="index"
+                  class="rule-item"
+                >
                   <div class="rule-header">
-                    <el-tag size="small" :type="rule.enabled ? 'success' : 'info'">
+                    <el-tag
+                      size="small"
+                      :type="rule.enabled ? 'success' : 'info'"
+                    >
                       {{ rule.period }}
                     </el-tag>
                     <span class="rule-name">{{ rule.name }}</span>
                   </div>
                   <div class="rule-info">
-                    <div class="rule-desc">{{ rule.desc }}</div>
-                    <div class="rule-progress" v-if="rule.enabled">
+                    <div class="rule-desc">
+                      {{ rule.desc }}
+                    </div>
+                    <div
+                      v-if="rule.enabled"
+                      class="rule-progress"
+                    >
                       <div class="progress-bar">
-                        <div class="progress-fill" :style="{ width: rule.usage + '%' }"></div>
+                        <div
+                          class="progress-fill"
+                          :style="{ width: rule.usage + '%' }"
+                        />
                       </div>
                       <span class="progress-text">{{ rule.usage }}% 已用</span>
                     </div>
@@ -321,20 +468,28 @@
         </div>
 
         <!-- 告警配置 -->
-        <div v-show="activeTab === 'alerts'" class="content-section">
+        <div
+          v-show="activeTab === 'alerts'"
+          class="content-section"
+        >
           <div class="section-header">
             <div class="header-info">
               <h3 class="section-title">
                 <el-icon><Warning /></el-icon>
                 告警配置
               </h3>
-              <p class="section-desc">配置告警规则、阈值和通知渠道</p>
+              <p class="section-desc">
+                配置告警规则、阈值和通知渠道
+              </p>
             </div>
           </div>
 
           <div class="settings-card">
             <div class="card-header">
-              <div class="card-icon" style="background: linear-gradient(135deg, #f56c6c, #ff7875)">
+              <div
+                class="card-icon"
+                style="background: linear-gradient(135deg, #f56c6c, #ff7875)"
+              >
                 <el-icon><Bell /></el-icon>
               </div>
               <div class="card-title">
@@ -343,7 +498,10 @@
               </div>
             </div>
             <div class="card-body">
-              <el-form label-position="top" class="settings-form">
+              <el-form
+                label-position="top"
+                class="settings-form"
+              >
                 <el-form-item label="启用的告警级别">
                   <div class="level-cards">
                     <div 
@@ -353,16 +511,29 @@
                       :class="{ active: alertSettings.levels.includes(level.value) }"
                       @click="toggleLevel(level.value)"
                     >
-                      <div class="level-indicator" :style="{ background: level.color }"></div>
+                      <div
+                        class="level-indicator"
+                        :style="{ background: level.color }"
+                      />
                       <div class="level-content">
-                        <div class="level-icon" :style="{ background: level.color }">
+                        <div
+                          class="level-icon"
+                          :style="{ background: level.color }"
+                        >
                           <el-icon><component :is="level.icon" /></el-icon>
                         </div>
                         <div class="level-info">
-                          <div class="level-name">{{ level.label }}</div>
-                          <div class="level-desc">{{ level.desc }}</div>
+                          <div class="level-name">
+                            {{ level.label }}
+                          </div>
+                          <div class="level-desc">
+                            {{ level.desc }}
+                          </div>
                         </div>
-                        <div class="level-check" v-if="alertSettings.levels.includes(level.value)">
+                        <div
+                          v-if="alertSettings.levels.includes(level.value)"
+                          class="level-check"
+                        >
                           <el-icon><Check /></el-icon>
                         </div>
                       </div>
@@ -381,7 +552,13 @@
                         <span class="threshold-label">CPU 使用率</span>
                         <span class="threshold-value">{{ alertSettings.cpuThreshold }}%</span>
                       </div>
-                      <el-slider v-model="alertSettings.cpuThreshold" :min="0" :max="100" :step="5" :colors="['#67c23a', '#e6a23c', '#f56c6c']" />
+                      <el-slider
+                        v-model="alertSettings.cpuThreshold"
+                        :min="0"
+                        :max="100"
+                        :step="5"
+                        :colors="['#67c23a', '#e6a23c', '#f56c6c']"
+                      />
                       <div class="threshold-range">
                         <span>0%</span>
                         <span>50%</span>
@@ -393,7 +570,13 @@
                         <span class="threshold-label">内存使用率</span>
                         <span class="threshold-value">{{ alertSettings.memThreshold }}%</span>
                       </div>
-                      <el-slider v-model="alertSettings.memThreshold" :min="0" :max="100" :step="5" :colors="['#67c23a', '#e6a23c', '#f56c6c']" />
+                      <el-slider
+                        v-model="alertSettings.memThreshold"
+                        :min="0"
+                        :max="100"
+                        :step="5"
+                        :colors="['#67c23a', '#e6a23c', '#f56c6c']"
+                      />
                       <div class="threshold-range">
                         <span>0%</span>
                         <span>50%</span>
@@ -405,7 +588,13 @@
                         <span class="threshold-label">磁盘使用率</span>
                         <span class="threshold-value">{{ alertSettings.diskThreshold }}%</span>
                       </div>
-                      <el-slider v-model="alertSettings.diskThreshold" :min="0" :max="100" :step="5" :colors="['#67c23a', '#e6a23c', '#f56c6c']" />
+                      <el-slider
+                        v-model="alertSettings.diskThreshold"
+                        :min="0"
+                        :max="100"
+                        :step="5"
+                        :colors="['#67c23a', '#e6a23c', '#f56c6c']"
+                      />
                       <div class="threshold-range">
                         <span>0%</span>
                         <span>50%</span>
@@ -416,7 +605,10 @@
                 </div>
               </el-form>
               <div class="form-actions">
-                <el-button type="primary" @click="saveAlertSettings">
+                <el-button
+                  type="primary"
+                  @click="saveAlertSettings"
+                >
                   <el-icon><Check /></el-icon>
                   保存设置
                 </el-button>
@@ -426,7 +618,10 @@
 
           <div class="settings-card">
             <div class="card-header">
-              <div class="card-icon" style="background: linear-gradient(135deg, #409eff, #53a8ff)">
+              <div
+                class="card-icon"
+                style="background: linear-gradient(135deg, #409eff, #53a8ff)"
+              >
                 <el-icon><Message /></el-icon>
               </div>
               <div class="card-title">
@@ -442,19 +637,41 @@
                   class="channel-item"
                   :class="{ active: alertSettings.channels.includes(channel.id) }"
                 >
-                  <div class="channel-icon" :style="{ background: channel.color }">
+                  <div
+                    class="channel-icon"
+                    :style="{ background: channel.color }"
+                  >
                     <el-icon><component :is="channel.icon" /></el-icon>
                   </div>
                   <div class="channel-info">
-                    <div class="channel-name">{{ channel.name }}</div>
-                    <div class="channel-desc">{{ channel.desc }}</div>
+                    <div class="channel-name">
+                      {{ channel.name }}
+                    </div>
+                    <div class="channel-desc">
+                      {{ channel.desc }}
+                    </div>
                   </div>
                   <div class="channel-status">
-                    <el-tag v-if="channel.enabled" size="small" type="success">已启用</el-tag>
-                    <el-tag v-else size="small" type="info">未启用</el-tag>
+                    <el-tag
+                      v-if="channel.enabled"
+                      size="small"
+                      type="success"
+                    >
+                      已启用
+                    </el-tag>
+                    <el-tag
+                      v-else
+                      size="small"
+                      type="info"
+                    >
+                      未启用
+                    </el-tag>
                   </div>
                   <div class="channel-action">
-                    <el-switch v-model="channel.enabled" @change="toggleChannel(channel.id)" />
+                    <el-switch
+                      v-model="channel.enabled"
+                      @change="toggleChannel(channel.id)"
+                    />
                   </div>
                 </div>
               </div>
@@ -463,21 +680,29 @@
         </div>
 
         <!-- 用户管理 -->
-        <div v-show="activeTab === 'users'" class="content-section">
+        <div
+          v-show="activeTab === 'users'"
+          class="content-section"
+        >
           <div class="section-header">
             <div class="header-info">
               <h3 class="section-title">
                 <el-icon><User /></el-icon>
                 用户管理
               </h3>
-              <p class="section-desc">管理系统用户、角色权限和访问控制</p>
+              <p class="section-desc">
+                管理系统用户、角色权限和访问控制
+              </p>
             </div>
             <div class="header-actions">
               <el-button @click="exportUsers">
                 <el-icon><Download /></el-icon>
                 导出
               </el-button>
-              <el-button type="primary" @click="showUserDialog = true">
+              <el-button
+                type="primary"
+                @click="showUserDialog = true"
+              >
                 <el-icon><Plus /></el-icon>
                 添加用户
               </el-button>
@@ -486,41 +711,76 @@
 
           <div class="settings-card">
             <div class="card-body no-padding">
-              <el-table :data="users" stripe style="width: 100%" :header-cell-style="{ background: '#f5f7fa', color: '#606266' }">
-                <el-table-column label="用户信息" min-width="220">
+              <el-table
+                :data="users"
+                stripe
+                style="width: 100%"
+                :header-cell-style="{ background: '#f5f7fa', color: '#606266' }"
+              >
+                <el-table-column
+                  label="用户信息"
+                  min-width="220"
+                >
                   <template #default="{ row }">
                     <div class="user-cell">
-                      <div class="user-avatar" :style="{ background: row.avatarColor }">
+                      <div
+                        class="user-avatar"
+                        :style="{ background: row.avatarColor }"
+                      >
                         {{ row.name.charAt(0).toUpperCase() }}
                       </div>
                       <div class="user-info">
-                        <div class="user-name">{{ row.name }}</div>
-                        <div class="user-email">{{ row.email }}</div>
+                        <div class="user-name">
+                          {{ row.name }}
+                        </div>
+                        <div class="user-email">
+                          {{ row.email }}
+                        </div>
                       </div>
                     </div>
                   </template>
                 </el-table-column>
-                <el-table-column prop="username" label="用户名" width="150">
+                <el-table-column
+                  prop="username"
+                  label="用户名"
+                  width="150"
+                >
                   <template #default="{ row }">
                     <span class="mono-text">{{ row.username }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column label="角色" width="140">
+                <el-table-column
+                  label="角色"
+                  width="140"
+                >
                   <template #default="{ row }">
-                    <el-tag :type="getRoleTagType(row.role)" size="small" effect="light">
+                    <el-tag
+                      :type="getRoleTagType(row.role)"
+                      size="small"
+                      effect="light"
+                    >
                       {{ row.roleText }}
                     </el-tag>
                   </template>
                 </el-table-column>
-                <el-table-column label="状态" width="120">
+                <el-table-column
+                  label="状态"
+                  width="120"
+                >
                   <template #default="{ row }">
                     <div class="status-cell">
-                      <span class="status-dot" :class="row.status"></span>
+                      <span
+                        class="status-dot"
+                        :class="row.status"
+                      />
                       <span>{{ row.statusText }}</span>
                     </div>
                   </template>
                 </el-table-column>
-                <el-table-column label="最后登录" width="180">
+                <el-table-column
+                  label="最后登录"
+                  width="180"
+                >
                   <template #default="{ row }">
                     <div class="last-login-cell">
                       <el-icon><Clock /></el-icon>
@@ -528,21 +788,48 @@
                     </div>
                   </template>
                 </el-table-column>
-                <el-table-column label="操作" width="160" fixed="right">
+                <el-table-column
+                  label="操作"
+                  width="160"
+                  fixed="right"
+                >
                   <template #default="{ row }">
                     <div class="action-buttons">
-                      <el-tooltip content="编辑用户" placement="top">
-                        <el-button size="small" text type="primary" @click="editUser(row)">
+                      <el-tooltip
+                        content="编辑用户"
+                        placement="top"
+                      >
+                        <el-button
+                          size="small"
+                          text
+                          type="primary"
+                          @click="editUser(row)"
+                        >
                           <el-icon><Edit /></el-icon>
                         </el-button>
                       </el-tooltip>
-                      <el-tooltip content="重置密码" placement="top">
-                        <el-button size="small" text @click="resetPassword(row)">
+                      <el-tooltip
+                        content="重置密码"
+                        placement="top"
+                      >
+                        <el-button
+                          size="small"
+                          text
+                          @click="resetPassword(row)"
+                        >
                           <el-icon><Key /></el-icon>
                         </el-button>
                       </el-tooltip>
-                      <el-tooltip content="删除用户" placement="top">
-                        <el-button size="small" text type="danger" @click="deleteUser(row)">
+                      <el-tooltip
+                        content="删除用户"
+                        placement="top"
+                      >
+                        <el-button
+                          size="small"
+                          text
+                          type="danger"
+                          @click="deleteUser(row)"
+                        >
                           <el-icon><Delete /></el-icon>
                         </el-button>
                       </el-tooltip>
@@ -555,21 +842,30 @@
         </div>
 
         <!-- 系统日志 -->
-        <div v-show="activeTab === 'logs'" class="content-section">
+        <div
+          v-show="activeTab === 'logs'"
+          class="content-section"
+        >
           <div class="section-header">
             <div class="header-info">
               <h3 class="section-title">
                 <el-icon><Postcard /></el-icon>
                 系统日志
               </h3>
-              <p class="section-desc">查看系统运行日志和操作审计记录</p>
+              <p class="section-desc">
+                查看系统运行日志和操作审计记录
+              </p>
             </div>
             <div class="header-actions">
               <el-button @click="clearOldLogs">
                 <el-icon><Delete /></el-icon>
                 清理旧日志
               </el-button>
-              <el-button type="primary" plain @click="exportLogs">
+              <el-button
+                type="primary"
+                plain
+                @click="exportLogs"
+              >
                 <el-icon><Download /></el-icon>
                 导出日志
               </el-button>
@@ -578,26 +874,56 @@
 
           <div class="settings-card">
             <div class="card-header with-actions">
-              <el-form :inline="true" class="log-filters">
+              <el-form
+                :inline="true"
+                class="log-filters"
+              >
                 <el-form-item label="日志级别">
-                  <el-select v-model="logSettings.level" placeholder="选择级别" style="width: 120px" clearable>
-                    <el-option label="全部" value="" />
-                    <el-option label="ERROR" value="error">
+                  <el-select
+                    v-model="logSettings.level"
+                    placeholder="选择级别"
+                    style="width: 120px"
+                    clearable
+                  >
+                    <el-option
+                      label="全部"
+                      value=""
+                    />
+                    <el-option
+                      label="ERROR"
+                      value="error"
+                    >
                       <span style="color: #f56c6c">● ERROR</span>
                     </el-option>
-                    <el-option label="WARNING" value="warning">
+                    <el-option
+                      label="WARNING"
+                      value="warning"
+                    >
                       <span style="color: #e6a23c">● WARNING</span>
                     </el-option>
-                    <el-option label="INFO" value="info">
+                    <el-option
+                      label="INFO"
+                      value="info"
+                    >
                       <span style="color: #409eff">● INFO</span>
                     </el-option>
                   </el-select>
                 </el-form-item>
                 <el-form-item label="日期范围">
-                  <el-date-picker v-model="logSettings.dateRange" type="daterange" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" style="width: 240px" />
+                  <el-date-picker
+                    v-model="logSettings.dateRange"
+                    type="daterange"
+                    range-separator="至"
+                    start-placeholder="开始日期"
+                    end-placeholder="结束日期"
+                    style="width: 240px"
+                  />
                 </el-form-item>
                 <el-form-item>
-                  <el-button type="primary" @click="refreshLogs">
+                  <el-button
+                    type="primary"
+                    @click="refreshLogs"
+                  >
                     <el-icon><Search /></el-icon>
                     搜索
                   </el-button>
@@ -608,27 +934,56 @@
               </el-form>
             </div>
             <div class="card-body no-padding">
-              <el-table :data="logs" stripe style="width: 100%">
-                <el-table-column label="时间" width="180">
+              <el-table
+                :data="logs"
+                stripe
+                style="width: 100%"
+              >
+                <el-table-column
+                  label="时间"
+                  width="180"
+                >
                   <template #default="{ row }">
                     <span class="log-time">{{ row.time }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column label="级别" width="100">
+                <el-table-column
+                  label="级别"
+                  width="100"
+                >
                   <template #default="{ row }">
-                    <el-tag :type="getLogLevelType(row.level)" size="small" effect="dark">
+                    <el-tag
+                      :type="getLogLevelType(row.level)"
+                      size="small"
+                      effect="dark"
+                    >
                       {{ row.level }}
                     </el-tag>
                   </template>
                 </el-table-column>
-                <el-table-column prop="module" label="模块" width="120">
+                <el-table-column
+                  prop="module"
+                  label="模块"
+                  width="120"
+                >
                   <template #default="{ row }">
-                    <el-tag type="info" size="small">{{ row.module }}</el-tag>
+                    <el-tag
+                      type="info"
+                      size="small"
+                    >
+                      {{ row.module }}
+                    </el-tag>
                   </template>
                 </el-table-column>
-                <el-table-column prop="message" label="日志内容">
+                <el-table-column
+                  prop="message"
+                  label="日志内容"
+                >
                   <template #default="{ row }">
-                    <span class="log-message" :class="'log-' + row.level.toLowerCase()">{{ row.message }}</span>
+                    <span
+                      class="log-message"
+                      :class="'log-' + row.level.toLowerCase()"
+                    >{{ row.message }}</span>
                   </template>
                 </el-table-column>
               </el-table>
@@ -649,20 +1004,28 @@
         </div>
 
         <!-- 安全设置 -->
-        <div v-show="activeTab === 'security'" class="content-section">
+        <div
+          v-show="activeTab === 'security'"
+          class="content-section"
+        >
           <div class="section-header">
             <div class="header-info">
               <h3 class="section-title">
                 <el-icon><Lock /></el-icon>
                 安全设置
               </h3>
-              <p class="section-desc">系统安全认证、密码策略和访问控制</p>
+              <p class="section-desc">
+                系统安全认证、密码策略和访问控制
+              </p>
             </div>
           </div>
 
           <div class="settings-card">
             <div class="card-header">
-              <div class="card-icon" style="background: linear-gradient(135deg, #7232dd, #b37feb)">
+              <div
+                class="card-icon"
+                style="background: linear-gradient(135deg, #7232dd, #b37feb)"
+              >
                 <el-icon><Key /></el-icon>
               </div>
               <div class="card-title">
@@ -671,57 +1034,94 @@
               </div>
             </div>
             <div class="card-body">
-              <el-form label-position="top" class="settings-form">
+              <el-form
+                label-position="top"
+                class="settings-form"
+              >
                 <div class="form-grid half">
                   <el-form-item label="最小密码长度">
                     <div class="input-with-unit">
-                      <el-input-number v-model="securitySettings.minPasswordLength" :min="6" :max="32" />
+                      <el-input-number
+                        v-model="securitySettings.minPasswordLength"
+                        :min="6"
+                        :max="32"
+                      />
                       <span class="unit">字符</span>
                     </div>
                   </el-form-item>
                   <el-form-item label="密码过期天数">
                     <div class="input-with-unit">
-                      <el-input-number v-model="securitySettings.passwordExpireDays" :min="0" :max="365" />
+                      <el-input-number
+                        v-model="securitySettings.passwordExpireDays"
+                        :min="0"
+                        :max="365"
+                      />
                       <span class="unit">天</span>
                     </div>
-                    <div class="field-hint">0 表示不过期</div>
+                    <div class="field-hint">
+                      0 表示不过期
+                    </div>
                   </el-form-item>
                 </div>
                 <div class="policy-toggles">
-                  <div class="policy-item" :class="{ active: securitySettings.requireUppercase }">
+                  <div
+                    class="policy-item"
+                    :class="{ active: securitySettings.requireUppercase }"
+                  >
                     <div class="policy-icon">
                       <el-icon><ArrowUp /></el-icon>
                     </div>
                     <div class="policy-info">
-                      <div class="policy-name">大写字母</div>
-                      <div class="policy-desc">密码必须包含至少一个大写字母</div>
+                      <div class="policy-name">
+                        大写字母
+                      </div>
+                      <div class="policy-desc">
+                        密码必须包含至少一个大写字母
+                      </div>
                     </div>
                     <el-switch v-model="securitySettings.requireUppercase" />
                   </div>
-                  <div class="policy-item" :class="{ active: securitySettings.requireNumber }">
+                  <div
+                    class="policy-item"
+                    :class="{ active: securitySettings.requireNumber }"
+                  >
                     <div class="policy-icon">
                       <el-icon><List /></el-icon>
                     </div>
                     <div class="policy-info">
-                      <div class="policy-name">数字</div>
-                      <div class="policy-desc">密码必须包含至少一个数字</div>
+                      <div class="policy-name">
+                        数字
+                      </div>
+                      <div class="policy-desc">
+                        密码必须包含至少一个数字
+                      </div>
                     </div>
                     <el-switch v-model="securitySettings.requireNumber" />
                   </div>
-                  <div class="policy-item" :class="{ active: securitySettings.requireSpecial }">
+                  <div
+                    class="policy-item"
+                    :class="{ active: securitySettings.requireSpecial }"
+                  >
                     <div class="policy-icon">
                       <el-icon><Star /></el-icon>
                     </div>
                     <div class="policy-info">
-                      <div class="policy-name">特殊字符</div>
-                      <div class="policy-desc">密码必须包含至少一个特殊字符 (!@#$)</div>
+                      <div class="policy-name">
+                        特殊字符
+                      </div>
+                      <div class="policy-desc">
+                        密码必须包含至少一个特殊字符 (!@#$)
+                      </div>
                     </div>
                     <el-switch v-model="securitySettings.requireSpecial" />
                   </div>
                 </div>
               </el-form>
               <div class="form-actions">
-                <el-button type="primary" @click="saveSecuritySettings">
+                <el-button
+                  type="primary"
+                  @click="saveSecuritySettings"
+                >
                   <el-icon><Check /></el-icon>
                   保存设置
                 </el-button>
@@ -731,7 +1131,10 @@
 
           <div class="settings-card">
             <div class="card-header">
-              <div class="card-icon" style="background: linear-gradient(135deg, #165dff, #4080ff)">
+              <div
+                class="card-icon"
+                style="background: linear-gradient(135deg, #165dff, #4080ff)"
+              >
                 <el-icon><Timer /></el-icon>
               </div>
               <div class="card-title">
@@ -740,17 +1143,28 @@
               </div>
             </div>
             <div class="card-body">
-              <el-form label-position="top" class="settings-form">
+              <el-form
+                label-position="top"
+                class="settings-form"
+              >
                 <div class="form-grid half">
                   <el-form-item label="会话超时时间">
                     <div class="input-with-unit">
-                      <el-input-number v-model="securitySettings.sessionTimeout" :min="5" :max="1440" />
+                      <el-input-number
+                        v-model="securitySettings.sessionTimeout"
+                        :min="5"
+                        :max="1440"
+                      />
                       <span class="unit">分钟</span>
                     </div>
                   </el-form-item>
                   <el-form-item label="同一账号最多登录">
                     <div class="input-with-unit">
-                      <el-input-number v-model="securitySettings.maxSessions" :min="1" :max="10" />
+                      <el-input-number
+                        v-model="securitySettings.maxSessions"
+                        :min="1"
+                        :max="10"
+                      />
                       <span class="unit">个会话</span>
                     </div>
                   </el-form-item>
@@ -763,16 +1177,29 @@
                     </span>
                   </div>
                 </el-form-item>
-                <el-form-item v-if="securitySettings.enableLockout" label="失败次数阈值" class="animate-in">
+                <el-form-item
+                  v-if="securitySettings.enableLockout"
+                  label="失败次数阈值"
+                  class="animate-in"
+                >
                   <div class="input-with-unit">
-                    <el-input-number v-model="securitySettings.maxFailedAttempts" :min="3" :max="10" />
+                    <el-input-number
+                      v-model="securitySettings.maxFailedAttempts"
+                      :min="3"
+                      :max="10"
+                    />
                     <span class="unit">次</span>
                   </div>
-                  <div class="field-hint">锁定后需管理员手动解锁</div>
+                  <div class="field-hint">
+                    锁定后需管理员手动解锁
+                  </div>
                 </el-form-item>
               </el-form>
               <div class="form-actions">
-                <el-button type="primary" @click="saveSecuritySettings">
+                <el-button
+                  type="primary"
+                  @click="saveSecuritySettings"
+                >
                   <el-icon><Check /></el-icon>
                   保存设置
                 </el-button>
@@ -784,18 +1211,44 @@
     </div>
 
     <!-- 添加用户对话框 -->
-    <el-dialog v-model="showUserDialog" :title="isEditingUser ? '编辑用户' : '添加用户'" width="550px" :close-on-click-modal="false" class="user-dialog">
-      <el-form :model="newUser" label-position="top" class="user-form">
+    <el-dialog
+      v-model="showUserDialog"
+      :title="isEditingUser ? '编辑用户' : '添加用户'"
+      width="550px"
+      :close-on-click-modal="false"
+      class="user-dialog"
+    >
+      <el-form
+        :model="newUser"
+        label-position="top"
+        class="user-form"
+      >
         <div class="form-grid">
-          <el-form-item label="用户名" required>
-            <el-input v-model="newUser.username" placeholder="用于登录" :disabled="isEditingUser" />
+          <el-form-item
+            label="用户名"
+            required
+          >
+            <el-input
+              v-model="newUser.username"
+              placeholder="用于登录"
+              :disabled="isEditingUser"
+            />
           </el-form-item>
-          <el-form-item label="姓名" required>
-            <el-input v-model="newUser.name" placeholder="显示名称" />
+          <el-form-item
+            label="姓名"
+            required
+          >
+            <el-input
+              v-model="newUser.name"
+              placeholder="显示名称"
+            />
           </el-form-item>
         </div>
         <el-form-item label="邮箱">
-          <el-input v-model="newUser.email" placeholder="user@example.com">
+          <el-input
+            v-model="newUser.email"
+            placeholder="user@example.com"
+          >
             <template #prefix>
               <el-icon><Message /></el-icon>
             </template>
@@ -803,29 +1256,61 @@
         </el-form-item>
         <div class="form-grid">
           <el-form-item label="角色">
-            <el-select v-model="newUser.role" style="width: 100%">
-              <el-option label="管理员" value="admin">
+            <el-select
+              v-model="newUser.role"
+              style="width: 100%"
+            >
+              <el-option
+                label="管理员"
+                value="admin"
+              >
                 <div class="role-option">
-                  <el-tag type="danger" size="small">管理员</el-tag>
+                  <el-tag
+                    type="danger"
+                    size="small"
+                  >
+                    管理员
+                  </el-tag>
                   <span>完全访问权限</span>
                 </div>
               </el-option>
-              <el-option label="运维工程师" value="operator">
+              <el-option
+                label="运维工程师"
+                value="operator"
+              >
                 <div class="role-option">
-                  <el-tag type="success" size="small">运维工程师</el-tag>
+                  <el-tag
+                    type="success"
+                    size="small"
+                  >
+                    运维工程师
+                  </el-tag>
                   <span>运维操作权限</span>
                 </div>
               </el-option>
-              <el-option label="只读用户" value="readonly">
+              <el-option
+                label="只读用户"
+                value="readonly"
+              >
                 <div class="role-option">
-                  <el-tag type="info" size="small">只读用户</el-tag>
+                  <el-tag
+                    type="info"
+                    size="small"
+                  >
+                    只读用户
+                  </el-tag>
                   <span>仅查看权限</span>
                 </div>
               </el-option>
             </el-select>
           </el-form-item>
           <el-form-item :label="isEditingUser ? '新密码（留空不修改）' : '初始密码'">
-            <el-input v-model="newUser.password" type="password" placeholder="请输入密码" show-password>
+            <el-input
+              v-model="newUser.password"
+              type="password"
+              placeholder="请输入密码"
+              show-password
+            >
               <template #prefix>
                 <el-icon><Lock /></el-icon>
               </template>
@@ -834,8 +1319,13 @@
         </div>
       </el-form>
       <template #footer>
-        <el-button @click="showUserDialog = false">取消</el-button>
-        <el-button type="primary" @click="addUser">
+        <el-button @click="showUserDialog = false">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          @click="addUser"
+        >
           <el-icon><Check /></el-icon>
           {{ isEditingUser ? '保存修改' : '确认添加' }}
         </el-button>
@@ -1044,7 +1534,9 @@ const clearOldLogs = async () => {
   try {
     await ElMessageBox.confirm('确定要清理30天前的日志吗？', '提示', { type: 'warning' })
     ElMessage.success('旧日志已清理')
-  } catch (e) {}
+  } catch (e) {
+    // User cancelled
+  }
 }
 
 const exportUsers = () => {
@@ -1067,7 +1559,9 @@ const resetPassword = async (row) => {
   try {
     await ElMessageBox.confirm(`确定要重置用户「${row.name}」的密码吗？`, '提示', { type: 'warning' })
     ElMessage.success('密码已重置为默认值')
-  } catch (e) {}
+  } catch (e) {
+    // User cancelled
+  }
 }
 
 const deleteUser = async (row) => {
@@ -1079,7 +1573,9 @@ const deleteUser = async (row) => {
     })
     users.value = users.value.filter(u => u.username !== row.username)
     ElMessage.success('用户已删除')
-  } catch (e) {}
+  } catch (e) {
+    // User cancelled
+  }
 }
 
 const addUser = () => {

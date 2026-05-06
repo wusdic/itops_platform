@@ -3,15 +3,22 @@
     <!-- 页面头部 -->
     <div class="page-header">
       <div class="page-header-left">
-        <h2 class="page-title">知识库</h2>
-        <p class="page-subtitle">运维知识积累与共享，支持文档分类管理和智能搜索</p>
+        <h2 class="page-title">
+          知识库
+        </h2>
+        <p class="page-subtitle">
+          运维知识积累与共享，支持文档分类管理和智能搜索
+        </p>
       </div>
       <div class="page-header-actions">
         <el-button @click="handleExport">
           <el-icon><Download /></el-icon>
           导出
         </el-button>
-        <el-button type="primary" @click="showCreateDialog = true">
+        <el-button
+          type="primary"
+          @click="showCreateDialog = true"
+        >
           <el-icon><DocumentAdd /></el-icon>
           新建文档
         </el-button>
@@ -32,7 +39,9 @@
           <el-icon><Search /></el-icon>
         </template>
         <template #append>
-          <el-button @click="handleSearch">搜索</el-button>
+          <el-button @click="handleSearch">
+            搜索
+          </el-button>
         </template>
       </el-input>
       
@@ -46,7 +55,11 @@
         >
           {{ tag }}
         </el-tag>
-        <el-button text size="small" @click="showTagDialog = true">
+        <el-button
+          text
+          size="small"
+          @click="showTagDialog = true"
+        >
           <el-icon><Plus /></el-icon>
           添加标签
         </el-button>
@@ -59,20 +72,27 @@
       <div class="sidebar">
         <div class="sidebar-header">
           <span>文档分类</span>
-          <el-button text size="small" @click="showCategoryDialog = true">
+          <el-button
+            text
+            size="small"
+            @click="showCategoryDialog = true"
+          >
             <el-icon><Plus /></el-icon>
           </el-button>
         </div>
         
         <el-menu 
           :default-active="activeCategory" 
-          @select="handleCategorySelect"
           class="category-menu"
+          @select="handleCategorySelect"
         >
           <el-menu-item index="all">
             <el-icon><FolderOpened /></el-icon>
             <span>全部文档</span>
-            <el-badge :value="totalDocs" type="info" />
+            <el-badge
+              :value="totalDocs"
+              type="info"
+            />
           </el-menu-item>
           <el-menu-item-group title="分类">
             <el-menu-item 
@@ -82,7 +102,10 @@
             >
               <el-icon><Folder /></el-icon>
               <span>{{ category.name }}</span>
-              <el-badge :value="category.count" type="info" />
+              <el-badge
+                :value="category.count"
+                type="info"
+              />
             </el-menu-item>
           </el-menu-item-group>
           <el-menu-item-group title="快捷入口">
@@ -107,7 +130,10 @@
         <!-- 筛选工具栏 -->
         <div class="filter-bar">
           <div class="filter-left">
-            <el-radio-group v-model="viewMode" size="small">
+            <el-radio-group
+              v-model="viewMode"
+              size="small"
+            >
               <el-radio-button value="list">
                 <el-icon><List /></el-icon>
               </el-radio-button>
@@ -116,24 +142,46 @@
               </el-radio-button>
             </el-radio-group>
 
-            <el-select v-model="sortBy" style="width: 120px" @change="handleSortChange">
-              <el-option label="最新发布" value="created" />
-              <el-option label="最近更新" value="updated" />
-              <el-option label="浏览最多" value="views" />
-              <el-option label="评分最高" value="rating" />
+            <el-select
+              v-model="sortBy"
+              style="width: 120px"
+              @change="handleSortChange"
+            >
+              <el-option
+                label="最新发布"
+                value="created"
+              />
+              <el-option
+                label="最近更新"
+                value="updated"
+              />
+              <el-option
+                label="浏览最多"
+                value="views"
+              />
+              <el-option
+                label="评分最高"
+                value="rating"
+              />
             </el-select>
           </div>
 
           <div class="filter-right">
             <span class="result-count">共 {{ totalDocs }} 篇文档</span>
-            <el-button text @click="handleRefresh">
+            <el-button
+              text
+              @click="handleRefresh"
+            >
               <el-icon><Refresh /></el-icon>
             </el-button>
           </div>
         </div>
 
         <!-- 网格视图 -->
-        <div class="docs-grid" v-if="viewMode === 'grid'">
+        <div
+          v-if="viewMode === 'grid'"
+          class="docs-grid"
+        >
           <div 
             v-for="doc in docsData" 
             :key="doc.id"
@@ -141,12 +189,22 @@
             @click="handleViewDoc(doc)"
           >
             <div class="doc-header">
-              <div class="doc-icon" :class="doc.category.toLowerCase()">
+              <div
+                class="doc-icon"
+                :class="doc.category.toLowerCase()"
+              >
                 <el-icon><component :is="getCategoryIcon(doc.category)" /></el-icon>
               </div>
               <div class="doc-actions">
-                <el-tooltip content="收藏" placement="top">
-                  <el-button text size="small" @click.stop="handleToggleFavorite(doc)">
+                <el-tooltip
+                  content="收藏"
+                  placement="top"
+                >
+                  <el-button
+                    text
+                    size="small"
+                    @click.stop="handleToggleFavorite(doc)"
+                  >
                     <el-icon :class="{ 'is-favorite': doc.favorite }">
                       <Star :filled="doc.favorite" />
                     </el-icon>
@@ -155,8 +213,12 @@
               </div>
             </div>
             <div class="doc-body">
-              <h4 class="doc-title">{{ doc.title }}</h4>
-              <p class="doc-summary">{{ doc.summary }}</p>
+              <h4 class="doc-title">
+                {{ doc.title }}
+              </h4>
+              <p class="doc-summary">
+                {{ doc.summary }}
+              </p>
               <div class="doc-tags">
                 <el-tag 
                   v-for="tag in doc.tags" 
@@ -185,41 +247,66 @@
                 </span>
               </div>
               <div class="doc-rating">
-                <el-rate v-model="doc.rating" disabled text-color="#ff9900" />
+                <el-rate
+                  v-model="doc.rating"
+                  disabled
+                  text-color="#ff9900"
+                />
               </div>
             </div>
           </div>
         </div>
 
         <!-- 列表视图 -->
-        <div class="docs-table" v-else>
+        <div
+          v-else
+          class="docs-table"
+        >
           <el-table 
             v-loading="loading" 
             :data="docsData" 
             stripe
             @row-click="handleViewDoc"
           >
-            <el-table-column label="文档信息" min-width="300">
+            <el-table-column
+              label="文档信息"
+              min-width="300"
+            >
               <template #default="{ row }">
                 <div class="doc-info-cell">
-                  <div class="doc-icon-small" :class="row.category.toLowerCase()">
+                  <div
+                    class="doc-icon-small"
+                    :class="row.category.toLowerCase()"
+                  >
                     <el-icon><component :is="getCategoryIcon(row.category)" /></el-icon>
                   </div>
                   <div class="doc-text">
-                    <div class="doc-title">{{ row.title }}</div>
-                    <div class="doc-summary">{{ row.summary }}</div>
+                    <div class="doc-title">
+                      {{ row.title }}
+                    </div>
+                    <div class="doc-summary">
+                      {{ row.summary }}
+                    </div>
                   </div>
                 </div>
               </template>
             </el-table-column>
 
-            <el-table-column label="分类" width="120">
+            <el-table-column
+              label="分类"
+              width="120"
+            >
               <template #default="{ row }">
-                <el-tag size="small">{{ row.category }}</el-tag>
+                <el-tag size="small">
+                  {{ row.category }}
+                </el-tag>
               </template>
             </el-table-column>
 
-            <el-table-column label="标签" width="180">
+            <el-table-column
+              label="标签"
+              width="180"
+            >
               <template #default="{ row }">
                 <div class="tags-cell">
                   <el-tag 
@@ -230,62 +317,118 @@
                   >
                     {{ tag }}
                   </el-tag>
-                  <el-tag v-if="row.tags.length > 3" size="small">
+                  <el-tag
+                    v-if="row.tags.length > 3"
+                    size="small"
+                  >
                     +{{ row.tags.length - 3 }}
                   </el-tag>
                 </div>
               </template>
             </el-table-column>
 
-            <el-table-column label="作者" width="100">
+            <el-table-column
+              label="作者"
+              width="100"
+            >
               <template #default="{ row }">
                 <span>{{ row.author }}</span>
               </template>
             </el-table-column>
 
-            <el-table-column label="浏览" width="80">
+            <el-table-column
+              label="浏览"
+              width="80"
+            >
               <template #default="{ row }">
                 <span>{{ row.views }}</span>
               </template>
             </el-table-column>
 
-            <el-table-column label="评分" width="100">
+            <el-table-column
+              label="评分"
+              width="100"
+            >
               <template #default="{ row }">
-                <el-rate v-model="row.rating" disabled size="small" />
+                <el-rate
+                  v-model="row.rating"
+                  disabled
+                  size="small"
+                />
               </template>
             </el-table-column>
 
-            <el-table-column label="更新时间" width="120">
+            <el-table-column
+              label="更新时间"
+              width="120"
+            >
               <template #default="{ row }">
                 <span>{{ row.updatedAt }}</span>
               </template>
             </el-table-column>
 
-            <el-table-column label="操作" width="140" fixed="right">
+            <el-table-column
+              label="操作"
+              width="140"
+              fixed="right"
+            >
               <template #default="{ row }">
                 <div class="action-buttons">
-                  <el-tooltip content="编辑" placement="top">
-                    <el-button text type="primary" size="small" @click.stop="handleEditDoc(row)">
+                  <el-tooltip
+                    content="编辑"
+                    placement="top"
+                  >
+                    <el-button
+                      text
+                      type="primary"
+                      size="small"
+                      @click.stop="handleEditDoc(row)"
+                    >
                       <el-icon><Edit /></el-icon>
                     </el-button>
                   </el-tooltip>
-                  <el-tooltip content="收藏" placement="top">
-                    <el-button text size="small" @click.stop="handleToggleFavorite(row)">
+                  <el-tooltip
+                    content="收藏"
+                    placement="top"
+                  >
+                    <el-button
+                      text
+                      size="small"
+                      @click.stop="handleToggleFavorite(row)"
+                    >
                       <el-icon :class="{ 'is-favorite': row.favorite }">
                         <Star :filled="row.favorite" />
                       </el-icon>
                     </el-button>
                   </el-tooltip>
-                  <el-dropdown trigger="click" @command="(cmd) => handleDocCommand(cmd, row)" @click.stop>
-                    <el-button text size="small">
+                  <el-dropdown
+                    trigger="click"
+                    @command="(cmd) => handleDocCommand(cmd, row)"
+                    @click.stop
+                  >
+                    <el-button
+                      text
+                      size="small"
+                    >
                       <el-icon><MoreFilled /></el-icon>
                     </el-button>
                     <template #dropdown>
                       <el-dropdown-menu>
-                        <el-dropdown-item command="view">查看详情</el-dropdown-item>
-                        <el-dropdown-item command="copy">复制链接</el-dropdown-item>
-                        <el-dropdown-item command="export">导出</el-dropdown-item>
-                        <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
+                        <el-dropdown-item command="view">
+                          查看详情
+                        </el-dropdown-item>
+                        <el-dropdown-item command="copy">
+                          复制链接
+                        </el-dropdown-item>
+                        <el-dropdown-item command="export">
+                          导出
+                        </el-dropdown-item>
+                        <el-dropdown-item
+                          command="delete"
+                          divided
+                        >
+                          删除
+                        </el-dropdown-item>
                       </el-dropdown-menu>
                     </template>
                   </el-dropdown>
@@ -311,12 +454,25 @@
     </div>
 
     <!-- 文档预览抽屉 -->
-    <el-drawer v-model="showDocDrawer" :title="currentDoc?.title" size="800px">
-      <div class="doc-preview" v-if="currentDoc">
+    <el-drawer
+      v-model="showDocDrawer"
+      :title="currentDoc?.title"
+      size="800px"
+    >
+      <div
+        v-if="currentDoc"
+        class="doc-preview"
+      >
         <div class="preview-header">
           <div class="preview-badges">
             <el-tag>{{ currentDoc.category }}</el-tag>
-            <el-tag v-for="tag in currentDoc.tags" :key="tag" size="small">{{ tag }}</el-tag>
+            <el-tag
+              v-for="tag in currentDoc.tags"
+              :key="tag"
+              size="small"
+            >
+              {{ tag }}
+            </el-tag>
           </div>
           <div class="preview-meta">
             <span>作者: {{ currentDoc.author }}</span>
@@ -332,13 +488,16 @@
           <p>{{ currentDoc.summary }}</p>
           
           <h3>正文</h3>
-          <div v-html="currentDoc.content"></div>
+          <div v-html="currentDoc.content" />
         </div>
 
         <el-divider />
 
         <div class="preview-actions">
-          <el-button type="primary" @click="handleEditDoc(currentDoc)">
+          <el-button
+            type="primary"
+            @click="handleEditDoc(currentDoc)"
+          >
             <el-icon><Edit /></el-icon>
             编辑文档
           </el-button>
@@ -346,19 +505,32 @@
             <el-icon><Star /></el-icon>
             {{ currentDoc.favorite ? '取消收藏' : '收藏' }}
           </el-button>
-          <el-rate v-model="currentDoc.rating" allow-half @change="handleRateChange" />
+          <el-rate
+            v-model="currentDoc.rating"
+            allow-half
+            @change="handleRateChange"
+          />
         </div>
 
         <div class="preview-comments">
           <h4>评论 ({{ currentDoc.comments?.length || 0 }})</h4>
           <div class="comment-list">
-            <div v-for="(comment, index) in currentDoc.comments" :key="index" class="comment-item">
+            <div
+              v-for="(comment, index) in currentDoc.comments"
+              :key="index"
+              class="comment-item"
+            >
               <div class="comment-header">
-                <el-avatar :size="28" :icon="UserFilled" />
+                <el-avatar
+                  :size="28"
+                  :icon="UserFilled"
+                />
                 <span class="comment-author">{{ comment.author }}</span>
                 <span class="comment-time">{{ comment.time }}</span>
               </div>
-              <div class="comment-text">{{ comment.text }}</div>
+              <div class="comment-text">
+                {{ comment.text }}
+              </div>
             </div>
           </div>
           <div class="comment-input">
@@ -368,7 +540,11 @@
               :rows="3"
               placeholder="添加评论..."
             />
-            <el-button type="primary" @click="handleAddComment" style="margin-top: 10px;">
+            <el-button
+              type="primary"
+              style="margin-top: 10px;"
+              @click="handleAddComment"
+            >
               发表评论
             </el-button>
           </div>
@@ -383,13 +559,33 @@
       width="800px"
       :close-on-click-modal="false"
     >
-      <el-form :model="docForm" label-width="100px" :rules="formRules" ref="docFormRef">
-        <el-form-item label="文档标题" prop="title">
-          <el-input v-model="docForm.title" placeholder="请输入文档标题" maxlength="100" show-word-limit />
+      <el-form
+        ref="docFormRef"
+        :model="docForm"
+        label-width="100px"
+        :rules="formRules"
+      >
+        <el-form-item
+          label="文档标题"
+          prop="title"
+        >
+          <el-input
+            v-model="docForm.title"
+            placeholder="请输入文档标题"
+            maxlength="100"
+            show-word-limit
+          />
         </el-form-item>
 
-        <el-form-item label="文档分类" prop="category">
-          <el-select v-model="docForm.category" placeholder="选择分类" style="width: 100%">
+        <el-form-item
+          label="文档分类"
+          prop="category"
+        >
+          <el-select
+            v-model="docForm.category"
+            placeholder="选择分类"
+            style="width: 100%"
+          >
             <el-option 
               v-for="cat in categories" 
               :key="cat.id" 
@@ -399,7 +595,10 @@
           </el-select>
         </el-form-item>
 
-        <el-form-item label="文档标签" prop="tags">
+        <el-form-item
+          label="文档标签"
+          prop="tags"
+        >
           <el-select 
             v-model="docForm.tags" 
             multiple 
@@ -417,7 +616,10 @@
           </el-select>
         </el-form-item>
 
-        <el-form-item label="文档摘要" prop="summary">
+        <el-form-item
+          label="文档摘要"
+          prop="summary"
+        >
           <el-input 
             v-model="docForm.summary" 
             type="textarea" 
@@ -428,7 +630,10 @@
           />
         </el-form-item>
 
-        <el-form-item label="文档内容" prop="content">
+        <el-form-item
+          label="文档内容"
+          prop="content"
+        >
           <el-input 
             v-model="docForm.content" 
             type="textarea" 
@@ -438,18 +643,40 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showCreateDialog = false">取消</el-button>
-        <el-button @click="handleSaveDraft">保存草稿</el-button>
-        <el-button type="primary" @click="handleSubmitDoc">发布文档</el-button>
+        <el-button @click="showCreateDialog = false">
+          取消
+        </el-button>
+        <el-button @click="handleSaveDraft">
+          保存草稿
+        </el-button>
+        <el-button
+          type="primary"
+          @click="handleSubmitDoc"
+        >
+          发布文档
+        </el-button>
       </template>
     </el-dialog>
 
     <!-- 标签管理对话框 -->
-    <el-dialog v-model="showTagDialog" title="标签管理" width="500px">
+    <el-dialog
+      v-model="showTagDialog"
+      title="标签管理"
+      width="500px"
+    >
       <div class="tag-management">
         <div class="tag-input-section">
-          <el-input v-model="newTag" placeholder="输入新标签名称" style="width: 200px" />
-          <el-button type="primary" @click="handleAddTag">添加</el-button>
+          <el-input
+            v-model="newTag"
+            placeholder="输入新标签名称"
+            style="width: 200px"
+          />
+          <el-button
+            type="primary"
+            @click="handleAddTag"
+          >
+            添加
+          </el-button>
         </div>
         <div class="tag-list">
           <el-tag
@@ -465,21 +692,57 @@
     </el-dialog>
 
     <!-- 分类管理对话框 -->
-    <el-dialog v-model="showCategoryDialog" title="分类管理" width="500px">
+    <el-dialog
+      v-model="showCategoryDialog"
+      title="分类管理"
+      width="500px"
+    >
       <div class="category-management">
         <div class="category-input-section">
-          <el-input v-model="newCategory" placeholder="输入新分类名称" style="width: 200px" />
-          <el-button type="primary" @click="handleAddCategory">添加</el-button>
+          <el-input
+            v-model="newCategory"
+            placeholder="输入新分类名称"
+            style="width: 200px"
+          />
+          <el-button
+            type="primary"
+            @click="handleAddCategory"
+          >
+            添加
+          </el-button>
         </div>
-        <el-table :data="categories" stripe>
-          <el-table-column prop="name" label="分类名称" />
-          <el-table-column prop="count" label="文档数" width="100" />
-          <el-table-column label="操作" width="120">
+        <el-table
+          :data="categories"
+          stripe
+        >
+          <el-table-column
+            prop="name"
+            label="分类名称"
+          />
+          <el-table-column
+            prop="count"
+            label="文档数"
+            width="100"
+          />
+          <el-table-column
+            label="操作"
+            width="120"
+          >
             <template #default="{ row }">
-              <el-button text size="small" type="primary" @click="handleEditCategory(row)">
+              <el-button
+                text
+                size="small"
+                type="primary"
+                @click="handleEditCategory(row)"
+              >
                 编辑
               </el-button>
-              <el-button text size="small" type="danger" @click="handleDeleteCategory(row)">
+              <el-button
+                text
+                size="small"
+                type="danger"
+                @click="handleDeleteCategory(row)"
+              >
                 删除
               </el-button>
             </template>

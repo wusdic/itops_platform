@@ -1,26 +1,47 @@
 <template>
-  <div class="advanced-table" :class="{ 'is-loading': loading }">
+  <div
+    class="advanced-table"
+    :class="{ 'is-loading': loading }"
+  >
     <!-- 工具栏 -->
-    <div class="table-toolbar" v-if="showToolbar">
+    <div
+      v-if="showToolbar"
+      class="table-toolbar"
+    >
       <div class="toolbar-left">
         <!-- 批量选择提示 -->
         <transition name="fade">
-          <div class="batch-info" v-if="selectedCount > 0">
-            <el-badge :value="selectedCount" type="primary"/>
+          <div
+            v-if="selectedCount > 0"
+            class="batch-info"
+          >
+            <el-badge
+              :value="selectedCount"
+              type="primary"
+            />
             <span class="batch-text">已选中 {{ selectedCount }} 项</span>
             <slot name="batch-actions">
-              <el-button size="small" text @click="clearSelection">清空</el-button>
+              <el-button
+                size="small"
+                text
+                @click="clearSelection"
+              >
+                清空
+              </el-button>
             </slot>
           </div>
         </transition>
       </div>
       <div class="toolbar-right">
-        <slot name="toolbar-actions"/>
+        <slot name="toolbar-actions" />
       </div>
     </div>
 
     <!-- 表格主体 -->
-    <div class="table-wrapper" :class="{ 'is-bordered': bordered }">
+    <div
+      class="table-wrapper"
+      :class="{ 'is-bordered': bordered }"
+    >
       <el-table
         ref="tableRef"
         :data="data"
@@ -32,17 +53,33 @@
         v-on="$listeners"
       >
         <!-- 展开行 -->
-        <el-table-column type="expand" v-if="showExpand">
+        <el-table-column
+          v-if="showExpand"
+          type="expand"
+        >
           <template #default="{ row }">
-            <slot name="expand" :row="row"/>
+            <slot
+              name="expand"
+              :row="row"
+            />
           </template>
         </el-table-column>
 
         <!-- 多选列 -->
-        <el-table-column type="selection" width="50" v-if="showSelection"/>
+        <el-table-column
+          v-if="showSelection"
+          type="selection"
+          width="50"
+        />
 
         <!-- 序号列 -->
-        <el-table-column type="index" label="序号" width="60" align="center" v-if="showIndex"/>
+        <el-table-column
+          v-if="showIndex"
+          type="index"
+          label="序号"
+          width="60"
+          align="center"
+        />
 
         <!-- 数据列 -->
         <el-table-column
@@ -58,7 +95,11 @@
           :show-overflow-tooltip="col.showOverflow !== false"
         >
           <template #default="{ row }">
-            <slot :name="`column-${col.prop}`" :row="row" :value="row[col.prop]">
+            <slot
+              :name="`column-${col.prop}`"
+              :row="row"
+              :value="row[col.prop]"
+            >
               <!-- 格式化器 -->
               <template v-if="col.formatter">
                 {{ col.formatter(row, col) }}
@@ -72,7 +113,10 @@
 
           <!-- 表头插槽 -->
           <template #header="{ column }">
-            <slot :name="`header-${col.prop}`" :column="column">
+            <slot
+              :name="`header-${col.prop}`"
+              :column="column"
+            >
               {{ col.label }}
             </slot>
           </template>
@@ -87,7 +131,10 @@
           align="center"
         >
           <template #default="{ row }">
-            <slot name="actions" :row="row"/>
+            <slot
+              name="actions"
+              :row="row"
+            />
           </template>
         </el-table-column>
 
@@ -106,7 +153,10 @@
     </div>
 
     <!-- 分页 -->
-    <div class="table-pagination" v-if="showPagination">
+    <div
+      v-if="showPagination"
+      class="table-pagination"
+    >
       <div class="pagination-info">
         <span>共 {{ total }} 条</span>
         <el-select 
@@ -115,10 +165,22 @@
           style="width: 100px; margin-left: 16px;"
           @change="handlePageSizeChange"
         >
-          <el-option :value="10" label="10 条/页"/>
-          <el-option :value="20" label="20 条/页"/>
-          <el-option :value="50" label="50 条/页"/>
-          <el-option :value="100" label="100 条/页"/>
+          <el-option
+            :value="10"
+            label="10 条/页"
+          />
+          <el-option
+            :value="20"
+            label="20 条/页"
+          />
+          <el-option
+            :value="50"
+            label="50 条/页"
+          />
+          <el-option
+            :value="100"
+            label="100 条/页"
+          />
         </el-select>
       </div>
       <el-pagination
@@ -134,9 +196,12 @@
 
     <!-- Loading遮罩 -->
     <transition name="fade">
-      <div class="table-loading" v-if="loading">
+      <div
+        v-if="loading"
+        class="table-loading"
+      >
         <div class="loading-content">
-          <div class="loading-spinner"></div>
+          <div class="loading-spinner" />
           <span>加载中...</span>
         </div>
       </div>

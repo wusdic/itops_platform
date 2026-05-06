@@ -3,15 +3,22 @@
     <!-- 页面头部 -->
     <div class="page-header">
       <div class="page-header-left">
-        <h2 class="page-title">报告中心</h2>
-        <p class="page-subtitle">运维报告生成与管理，支持定期报告和自定义报告模板</p>
+        <h2 class="page-title">
+          报告中心
+        </h2>
+        <p class="page-subtitle">
+          运维报告生成与管理，支持定期报告和自定义报告模板
+        </p>
       </div>
       <div class="page-header-actions">
         <el-button @click="showTemplateDialog = true">
           <el-icon><Setting /></el-icon>
           模板设置
         </el-button>
-        <el-button type="primary" @click="showCreateDialog = true">
+        <el-button
+          type="primary"
+          @click="showCreateDialog = true"
+        >
           <el-icon><Plus /></el-icon>
           生成报告
         </el-button>
@@ -26,12 +33,19 @@
         class="quick-action-card"
         @click="handleQuickAction(action)"
       >
-        <div class="action-icon" :class="action.key">
+        <div
+          class="action-icon"
+          :class="action.key"
+        >
           <el-icon><component :is="action.icon" /></el-icon>
         </div>
         <div class="action-text">
-          <div class="action-title">{{ action.title }}</div>
-          <div class="action-desc">{{ action.desc }}</div>
+          <div class="action-title">
+            {{ action.title }}
+          </div>
+          <div class="action-desc">
+            {{ action.desc }}
+          </div>
         </div>
       </div>
     </div>
@@ -39,13 +53,37 @@
     <!-- 筛选工具栏 -->
     <div class="filter-bar">
       <div class="filter-left">
-        <el-select v-model="reportType" placeholder="报告类型" style="width: 130px" clearable @change="handleFilterChange">
-          <el-option label="运维日报" value="daily" />
-          <el-option label="运维周报" value="weekly" />
-          <el-option label="运维月报" value="monthly" />
-          <el-option label="资产报告" value="asset" />
-          <el-option label="告警报告" value="alert" />
-          <el-option label="工单报告" value="workorder" />
+        <el-select
+          v-model="reportType"
+          placeholder="报告类型"
+          style="width: 130px"
+          clearable
+          @change="handleFilterChange"
+        >
+          <el-option
+            label="运维日报"
+            value="daily"
+          />
+          <el-option
+            label="运维周报"
+            value="weekly"
+          />
+          <el-option
+            label="运维月报"
+            value="monthly"
+          />
+          <el-option
+            label="资产报告"
+            value="asset"
+          />
+          <el-option
+            label="告警报告"
+            value="alert"
+          />
+          <el-option
+            label="工单报告"
+            value="workorder"
+          />
         </el-select>
 
         <el-date-picker
@@ -58,10 +96,25 @@
           @change="handleFilterChange"
         />
 
-        <el-select v-model="statusFilter" placeholder="状态" style="width: 120px" clearable @change="handleFilterChange">
-          <el-option label="已完成" value="completed" />
-          <el-option label="生成中" value="generating" />
-          <el-option label="已过期" value="expired" />
+        <el-select
+          v-model="statusFilter"
+          placeholder="状态"
+          style="width: 120px"
+          clearable
+          @change="handleFilterChange"
+        >
+          <el-option
+            label="已完成"
+            value="completed"
+          />
+          <el-option
+            label="生成中"
+            value="generating"
+          />
+          <el-option
+            label="已过期"
+            value="expired"
+          />
         </el-select>
       </div>
 
@@ -77,7 +130,10 @@
             <el-icon><Search /></el-icon>
           </template>
         </el-input>
-        <el-button text @click="handleRefresh">
+        <el-button
+          text
+          @click="handleRefresh"
+        >
           <el-icon><Refresh /></el-icon>
         </el-button>
       </div>
@@ -85,15 +141,27 @@
 
     <!-- 报告列表 -->
     <div class="table-card">
-      <el-table v-loading="loading" :data="reportsData" stripe>
-        <el-table-column label="报告信息" min-width="280">
+      <el-table
+        v-loading="loading"
+        :data="reportsData"
+        stripe
+      >
+        <el-table-column
+          label="报告信息"
+          min-width="280"
+        >
           <template #default="{ row }">
             <div class="report-info">
-              <div class="report-icon" :class="row.type">
+              <div
+                class="report-icon"
+                :class="row.type"
+              >
                 <el-icon><component :is="getTypeIcon(row.type)" /></el-icon>
               </div>
               <div class="report-text">
-                <div class="report-name">{{ row.name }}</div>
+                <div class="report-name">
+                  {{ row.name }}
+                </div>
                 <div class="report-meta">
                   <span class="type-badge">{{ getTypeText(row.type) }}</span>
                   <span>{{ row.period }}</span>
@@ -103,60 +171,119 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="生成时间" width="170">
+        <el-table-column
+          label="生成时间"
+          width="170"
+        >
           <template #default="{ row }">
             <span>{{ row.createdAt }}</span>
           </template>
         </el-table-column>
 
-        <el-table-column label="数据范围" width="180">
+        <el-table-column
+          label="数据范围"
+          width="180"
+        >
           <template #default="{ row }">
             <span>{{ row.dataRange }}</span>
           </template>
         </el-table-column>
 
-        <el-table-column label="状态" width="100">
+        <el-table-column
+          label="状态"
+          width="100"
+        >
           <template #default="{ row }">
-            <el-tag size="small" :type="getStatusTagType(row.status)" effect="light">
+            <el-tag
+              size="small"
+              :type="getStatusTagType(row.status)"
+              effect="light"
+            >
               {{ getStatusText(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
 
-        <el-table-column label="大小" width="80">
+        <el-table-column
+          label="大小"
+          width="80"
+        >
           <template #default="{ row }">
             <span>{{ row.size }}</span>
           </template>
         </el-table-column>
 
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column
+          label="操作"
+          width="200"
+          fixed="right"
+        >
           <template #default="{ row }">
             <div class="action-buttons">
-              <el-tooltip content="预览" placement="top">
-                <el-button text type="primary" size="small" @click="handlePreview(row)">
+              <el-tooltip
+                content="预览"
+                placement="top"
+              >
+                <el-button
+                  text
+                  type="primary"
+                  size="small"
+                  @click="handlePreview(row)"
+                >
                   <el-icon><View /></el-icon>
                 </el-button>
               </el-tooltip>
-              <el-tooltip content="下载" placement="top">
-                <el-button text size="small" @click="handleDownload(row)">
+              <el-tooltip
+                content="下载"
+                placement="top"
+              >
+                <el-button
+                  text
+                  size="small"
+                  @click="handleDownload(row)"
+                >
                   <el-icon><Download /></el-icon>
                 </el-button>
               </el-tooltip>
-              <el-tooltip content="分享" placement="top">
-                <el-button text size="small" @click="handleShare(row)">
+              <el-tooltip
+                content="分享"
+                placement="top"
+              >
+                <el-button
+                  text
+                  size="small"
+                  @click="handleShare(row)"
+                >
                   <el-icon><Share /></el-icon>
                 </el-button>
               </el-tooltip>
-              <el-dropdown trigger="click" @command="(cmd) => handleReportCommand(cmd, row)">
-                <el-button text size="small">
+              <el-dropdown
+                trigger="click"
+                @command="(cmd) => handleReportCommand(cmd, row)"
+              >
+                <el-button
+                  text
+                  size="small"
+                >
                   <el-icon><MoreFilled /></el-icon>
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item command="regenerate">重新生成</el-dropdown-item>
-                    <el-dropdown-item command="edit">编辑</el-dropdown-item>
-                    <el-dropdown-item command="schedule">加入计划</el-dropdown-item>
-                    <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
+                    <el-dropdown-item command="regenerate">
+                      重新生成
+                    </el-dropdown-item>
+                    <el-dropdown-item command="edit">
+                      编辑
+                    </el-dropdown-item>
+                    <el-dropdown-item command="schedule">
+                      加入计划
+                    </el-dropdown-item>
+                    <el-dropdown-item
+                      command="delete"
+                      divided
+                    >
+                      删除
+                    </el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -189,21 +316,61 @@
       width="700px"
       :close-on-click-modal="false"
     >
-      <el-form :model="reportForm" label-width="110px" :rules="formRules" ref="reportFormRef">
-        <el-form-item label="报告类型" prop="type">
-          <el-select v-model="reportForm.type" placeholder="选择报告类型" style="width: 100%" @change="handleTypeChange">
-            <el-option label="运维日报" value="daily" />
-            <el-option label="运维周报" value="weekly" />
-            <el-option label="运维月报" value="monthly" />
-            <el-option label="资产报告" value="asset" />
-            <el-option label="告警报告" value="alert" />
-            <el-option label="工单报告" value="workorder" />
-            <el-option label="自定义报告" value="custom" />
+      <el-form
+        ref="reportFormRef"
+        :model="reportForm"
+        label-width="110px"
+        :rules="formRules"
+      >
+        <el-form-item
+          label="报告类型"
+          prop="type"
+        >
+          <el-select
+            v-model="reportForm.type"
+            placeholder="选择报告类型"
+            style="width: 100%"
+            @change="handleTypeChange"
+          >
+            <el-option
+              label="运维日报"
+              value="daily"
+            />
+            <el-option
+              label="运维周报"
+              value="weekly"
+            />
+            <el-option
+              label="运维月报"
+              value="monthly"
+            />
+            <el-option
+              label="资产报告"
+              value="asset"
+            />
+            <el-option
+              label="告警报告"
+              value="alert"
+            />
+            <el-option
+              label="工单报告"
+              value="workorder"
+            />
+            <el-option
+              label="自定义报告"
+              value="custom"
+            />
           </el-select>
         </el-form-item>
 
-        <el-form-item label="报告名称" prop="name">
-          <el-input v-model="reportForm.name" placeholder="请输入报告名称" />
+        <el-form-item
+          label="报告名称"
+          prop="name"
+        >
+          <el-input
+            v-model="reportForm.name"
+            placeholder="请输入报告名称"
+          />
         </el-form-item>
 
         <el-form-item label="数据范围">
@@ -246,18 +413,37 @@
         </el-form-item>
 
         <el-form-item label="报告模板">
-          <el-select v-model="reportForm.template" placeholder="选择模板" style="width: 100%">
-            <el-option label="默认模板" value="default" />
-            <el-option label="简洁模板" value="simple" />
-            <el-option label="详细模板" value="detailed" />
+          <el-select
+            v-model="reportForm.template"
+            placeholder="选择模板"
+            style="width: 100%"
+          >
+            <el-option
+              label="默认模板"
+              value="default"
+            />
+            <el-option
+              label="简洁模板"
+              value="simple"
+            />
+            <el-option
+              label="详细模板"
+              value="detailed"
+            />
           </el-select>
         </el-form-item>
 
         <el-form-item label="输出格式">
           <el-checkbox-group v-model="reportForm.formats">
-            <el-checkbox label="pdf">PDF</el-checkbox>
-            <el-checkbox label="excel">Excel</el-checkbox>
-            <el-checkbox label="html">HTML</el-checkbox>
+            <el-checkbox label="pdf">
+              PDF
+            </el-checkbox>
+            <el-checkbox label="excel">
+              Excel
+            </el-checkbox>
+            <el-checkbox label="html">
+              HTML
+            </el-checkbox>
           </el-checkbox-group>
         </el-form-item>
 
@@ -275,73 +461,179 @@
           <span class="form-hint">生成后自动发送到指定邮箱</span>
         </el-form-item>
 
-        <el-form-item v-if="reportForm.autoSend" label="收件人">
-          <el-input v-model="reportForm.recipients" placeholder="多个邮箱用逗号分隔" />
+        <el-form-item
+          v-if="reportForm.autoSend"
+          label="收件人"
+        >
+          <el-input
+            v-model="reportForm.recipients"
+            placeholder="多个邮箱用逗号分隔"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showCreateDialog = false">取消</el-button>
-        <el-button @click="handleSaveAsTemplate">另存为模板</el-button>
-        <el-button type="primary" @click="handleGenerateReport">生成报告</el-button>
+        <el-button @click="showCreateDialog = false">
+          取消
+        </el-button>
+        <el-button @click="handleSaveAsTemplate">
+          另存为模板
+        </el-button>
+        <el-button
+          type="primary"
+          @click="handleGenerateReport"
+        >
+          生成报告
+        </el-button>
       </template>
     </el-dialog>
 
     <!-- 模板设置对话框 -->
-    <el-dialog v-model="showTemplateDialog" title="报告模板设置" width="900px">
+    <el-dialog
+      v-model="showTemplateDialog"
+      title="报告模板设置"
+      width="900px"
+    >
       <el-tabs v-model="templateTab">
-        <el-tab-pane label="模板列表" name="list">
-          <el-table :data="templates" stripe>
-            <el-table-column prop="name" label="模板名称" />
-            <el-table-column prop="type" label="报告类型" />
-            <el-table-column prop="format" label="格式" width="100" />
-            <el-table-column prop="items" label="包含项" width="200">
+        <el-tab-pane
+          label="模板列表"
+          name="list"
+        >
+          <el-table
+            :data="templates"
+            stripe
+          >
+            <el-table-column
+              prop="name"
+              label="模板名称"
+            />
+            <el-table-column
+              prop="type"
+              label="报告类型"
+            />
+            <el-table-column
+              prop="format"
+              label="格式"
+              width="100"
+            />
+            <el-table-column
+              prop="items"
+              label="包含项"
+              width="200"
+            >
               <template #default="{ row }">
-                <el-tag v-for="item in row.items" :key="item" size="small" style="margin-right: 4px;">
+                <el-tag
+                  v-for="item in row.items"
+                  :key="item"
+                  size="small"
+                  style="margin-right: 4px;"
+                >
                   {{ item }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="150">
+            <el-table-column
+              label="操作"
+              width="150"
+            >
               <template #default="{ row }">
-                <el-button text size="small" type="primary" @click="handleEditTemplate(row)">编辑</el-button>
-                <el-button text size="small" type="danger" @click="handleDeleteTemplate(row)">删除</el-button>
+                <el-button
+                  text
+                  size="small"
+                  type="primary"
+                  @click="handleEditTemplate(row)"
+                >
+                  编辑
+                </el-button>
+                <el-button
+                  text
+                  size="small"
+                  type="danger"
+                  @click="handleDeleteTemplate(row)"
+                >
+                  删除
+                </el-button>
               </template>
             </el-table-column>
           </el-table>
         </el-tab-pane>
-        <el-tab-pane label="添加模板" name="add">
-          <el-form :model="templateForm" label-width="100px">
+        <el-tab-pane
+          label="添加模板"
+          name="add"
+        >
+          <el-form
+            :model="templateForm"
+            label-width="100px"
+          >
             <el-form-item label="模板名称">
-              <el-input v-model="templateForm.name" placeholder="请输入模板名称" />
+              <el-input
+                v-model="templateForm.name"
+                placeholder="请输入模板名称"
+              />
             </el-form-item>
             <el-form-item label="报告类型">
-              <el-select v-model="templateForm.type" style="width: 100%">
-                <el-option label="运维日报" value="daily" />
-                <el-option label="运维周报" value="weekly" />
-                <el-option label="运维月报" value="monthly" />
+              <el-select
+                v-model="templateForm.type"
+                style="width: 100%"
+              >
+                <el-option
+                  label="运维日报"
+                  value="daily"
+                />
+                <el-option
+                  label="运维周报"
+                  value="weekly"
+                />
+                <el-option
+                  label="运维月报"
+                  value="monthly"
+                />
               </el-select>
             </el-form-item>
             <el-form-item label="包含内容">
               <el-checkbox-group v-model="templateForm.items">
-                <el-checkbox label="设备概览">设备概览</el-checkbox>
-                <el-checkbox label="告警统计">告警统计</el-checkbox>
-                <el-checkbox label="工单统计">工单统计</el-checkbox>
-                <el-checkbox label="性能趋势">性能趋势</el-checkbox>
-                <el-checkbox label="容量分析">容量分析</el-checkbox>
-                <el-checkbox label="可用性">可用性</el-checkbox>
+                <el-checkbox label="设备概览">
+                  设备概览
+                </el-checkbox>
+                <el-checkbox label="告警统计">
+                  告警统计
+                </el-checkbox>
+                <el-checkbox label="工单统计">
+                  工单统计
+                </el-checkbox>
+                <el-checkbox label="性能趋势">
+                  性能趋势
+                </el-checkbox>
+                <el-checkbox label="容量分析">
+                  容量分析
+                </el-checkbox>
+                <el-checkbox label="可用性">
+                  可用性
+                </el-checkbox>
               </el-checkbox-group>
             </el-form-item>
           </el-form>
           <div style="text-align: right; margin-top: 20px;">
-            <el-button type="primary" @click="handleSaveTemplate">保存模板</el-button>
+            <el-button
+              type="primary"
+              @click="handleSaveTemplate"
+            >
+              保存模板
+            </el-button>
           </div>
         </el-tab-pane>
       </el-tabs>
     </el-dialog>
 
     <!-- 报告预览抽屉 -->
-    <el-drawer v-model="showPreviewDrawer" title="报告预览" size="900px">
-      <div class="report-preview" v-if="currentReport">
+    <el-drawer
+      v-model="showPreviewDrawer"
+      title="报告预览"
+      size="900px"
+    >
+      <div
+        v-if="currentReport"
+        class="report-preview"
+      >
         <div class="preview-header">
           <h3>{{ currentReport.name }}</h3>
           <div class="preview-meta">
@@ -389,18 +681,40 @@
           <!-- 详细数据 -->
           <div class="preview-section">
             <h4>详细数据</h4>
-            <el-table :data="previewTableData" stripe size="small">
-              <el-table-column prop="device" label="设备" />
-              <el-table-column prop="cpu" label="CPU平均" />
-              <el-table-column prop="memory" label="内存平均" />
-              <el-table-column prop="disk" label="磁盘平均" />
-              <el-table-column prop="alerts" label="告警数" />
+            <el-table
+              :data="previewTableData"
+              stripe
+              size="small"
+            >
+              <el-table-column
+                prop="device"
+                label="设备"
+              />
+              <el-table-column
+                prop="cpu"
+                label="CPU平均"
+              />
+              <el-table-column
+                prop="memory"
+                label="内存平均"
+              />
+              <el-table-column
+                prop="disk"
+                label="磁盘平均"
+              />
+              <el-table-column
+                prop="alerts"
+                label="告警数"
+              />
             </el-table>
           </div>
         </div>
 
         <div class="preview-footer">
-          <el-button type="primary" @click="handleDownload(currentReport)">
+          <el-button
+            type="primary"
+            @click="handleDownload(currentReport)"
+          >
             <el-icon><Download /></el-icon>
             下载报告
           </el-button>

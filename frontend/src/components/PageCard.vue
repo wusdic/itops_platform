@@ -9,42 +9,86 @@
     @click="handleClick"
   >
     <!-- 顶部装饰条 -->
-    <div class="card-accent" v-if="accent" :style="{ background: accentColor }"></div>
+    <div
+      v-if="accent"
+      class="card-accent"
+      :style="{ background: accentColor }"
+    />
 
     <!-- 头部 -->
-    <div class="card-header" v-if="$slots.header || title">
+    <div
+      v-if="$slots.header || title"
+      class="card-header"
+    >
       <div class="card-header-left">
-        <div class="card-icon" v-if="icon" :style="{ background: iconBg }">
-          <el-icon :size="iconSize"><component :is="icon"/></el-icon>
+        <div
+          v-if="icon"
+          class="card-icon"
+          :style="{ background: iconBg }"
+        >
+          <el-icon :size="iconSize">
+            <component :is="icon" />
+          </el-icon>
         </div>
         <div class="card-titles">
-          <h3 class="card-title" v-if="title">{{ title }}</h3>
-          <p class="card-subtitle" v-if="subtitle">{{ subtitle }}</p>
+          <h3
+            v-if="title"
+            class="card-title"
+          >
+            {{ title }}
+          </h3>
+          <p
+            v-if="subtitle"
+            class="card-subtitle"
+          >
+            {{ subtitle }}
+          </p>
         </div>
       </div>
-      <div class="card-header-right" v-if="$slots.header">
-        <slot name="header"/>
+      <div
+        v-if="$slots.header"
+        class="card-header-right"
+      >
+        <slot name="header" />
       </div>
     </div>
 
     <!-- 内容 -->
-    <div class="card-body" :class="{ 'no-padding': noPadding }">
-      <slot/>
+    <div
+      class="card-body"
+      :class="{ 'no-padding': noPadding }"
+    >
+      <slot />
     </div>
 
     <!-- 底部 -->
-    <div class="card-footer" v-if="$slots.footer">
-      <slot name="footer"/>
+    <div
+      v-if="$slots.footer"
+      class="card-footer"
+    >
+      <slot name="footer" />
     </div>
 
     <!-- 悬浮角标 -->
-    <div class="card-badge" v-if="badge">
-      <el-badge :value="badge" :type="badgeType" :max="99"/>
+    <div
+      v-if="badge"
+      class="card-badge"
+    >
+      <el-badge
+        :value="badge"
+        :type="badgeType"
+        :max="99"
+      />
     </div>
 
     <!-- 选中态 -->
-    <div class="card-checked" v-if="selected">
-      <el-icon :size="20"><Check /></el-icon>
+    <div
+      v-if="selected"
+      class="card-checked"
+    >
+      <el-icon :size="20">
+        <Check />
+      </el-icon>
     </div>
   </div>
 </template>

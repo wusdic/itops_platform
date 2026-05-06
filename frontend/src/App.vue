@@ -1,21 +1,55 @@
 <template>
-  <div class="app-layout" :class="[themeClass, { 'is-collapse': isCollapse }]">
+  <div
+    class="app-layout"
+    :class="[themeClass, { 'is-collapse': isCollapse }]"
+  >
     <!-- 左侧导航 -->
     <aside class="sidebar">
       <!-- Logo区域 -->
       <div class="sidebar-header">
-        <div class="logo" @click="goHome">
+        <div
+          class="logo"
+          @click="goHome"
+        >
           <div class="logo-icon">
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <rect width="32" height="32" rx="8" :fill="accentColor"/>
-              <path d="M8 12L16 8L24 12V20L16 24L8 20V12Z" stroke="white" stroke-width="2"/>
-              <circle cx="16" cy="16" r="3" fill="white"/>
+            <svg
+              width="32"
+              height="32"
+              viewBox="0 0 32 32"
+              fill="none"
+            >
+              <rect
+                width="32"
+                height="32"
+                rx="8"
+                :fill="accentColor"
+              />
+              <path
+                d="M8 12L16 8L24 12V20L16 24L8 20V12Z"
+                stroke="white"
+                stroke-width="2"
+              />
+              <circle
+                cx="16"
+                cy="16"
+                r="3"
+                fill="white"
+              />
             </svg>
           </div>
-          <span class="logo-text" v-show="!isCollapse">智能运维平台</span>
+          <span
+            v-show="!isCollapse"
+            class="logo-text"
+          >智能运维平台</span>
         </div>
-        <button class="collapse-btn" @click="toggleCollapse" title="收起/展开">
-          <el-icon :size="16"><Expand v-if="isCollapse"/><Fold v-else/></el-icon>
+        <button
+          class="collapse-btn"
+          title="收起/展开"
+          @click="toggleCollapse"
+        >
+          <el-icon :size="16">
+            <Expand v-if="isCollapse" /><Fold v-else />
+          </el-icon>
         </button>
       </div>
 
@@ -26,36 +60,70 @@
           :key="group.key"
           class="nav-group"
         >
-          <div class="nav-group-title" v-show="!isCollapse">{{ group.label }}</div>
+          <div
+            v-show="!isCollapse"
+            class="nav-group-title"
+          >
+            {{ group.label }}
+          </div>
           <div
             v-for="item in group.items"
             :key="item.path"
             class="nav-item"
             :class="{ active: isActive(item) }"
-            @click="navigate(item)"
             :title="isCollapse ? item.label : ''"
+            @click="navigate(item)"
           >
-            <el-icon :size="18"><component :is="item.icon"/></el-icon>
-            <span class="nav-label" v-show="!isCollapse">{{ item.label }}</span>
-            <span class="nav-badge" v-if="item.badge && !isCollapse">{{ item.badge }}</span>
+            <el-icon :size="18">
+              <component :is="item.icon" />
+            </el-icon>
+            <span
+              v-show="!isCollapse"
+              class="nav-label"
+            >{{ item.label }}</span>
+            <span
+              v-if="item.badge && !isCollapse"
+              class="nav-badge"
+            >{{ item.badge }}</span>
           </div>
         </div>
       </nav>
 
       <!-- 快捷操作 -->
-      <div class="sidebar-quick-actions" v-show="!isCollapse">
-        <div class="quick-action-label">快捷操作</div>
+      <div
+        v-show="!isCollapse"
+        class="sidebar-quick-actions"
+      >
+        <div class="quick-action-label">
+          快捷操作
+        </div>
         <div class="quick-actions-grid">
-          <div class="quick-action-btn" @click="createWorkOrder" title="创建工单">
+          <div
+            class="quick-action-btn"
+            title="创建工单"
+            @click="createWorkOrder"
+          >
             <el-icon><Edit /></el-icon>
           </div>
-          <div class="quick-action-btn" @click="quickCollect" title="快速采集">
+          <div
+            class="quick-action-btn"
+            title="快速采集"
+            @click="quickCollect"
+          >
             <el-icon><Download /></el-icon>
           </div>
-          <div class="quick-action-btn" @click="openAIPanel" title="AI助手">
+          <div
+            class="quick-action-btn"
+            title="AI助手"
+            @click="openAIPanel"
+          >
             <el-icon><MagicStick /></el-icon>
           </div>
-          <div class="quick-action-btn" @click="showShortcuts" title="快捷键">
+          <div
+            class="quick-action-btn"
+            title="快捷键"
+            @click="showShortcuts"
+          >
             <el-icon><EditPen /></el-icon>
           </div>
         </div>
@@ -63,15 +131,32 @@
 
       <!-- 底部用户信息 -->
       <div class="sidebar-footer">
-        <div class="user-card" @click="showUserMenu = true">
-          <el-avatar :size="32" class="user-avatar">
-            <el-icon :size="18"><User /></el-icon>
+        <div
+          class="user-card"
+          @click="showUserMenu = true"
+        >
+          <el-avatar
+            :size="32"
+            class="user-avatar"
+          >
+            <el-icon :size="18">
+              <User />
+            </el-icon>
           </el-avatar>
-          <div class="user-info" v-show="!isCollapse">
+          <div
+            v-show="!isCollapse"
+            class="user-info"
+          >
             <span class="user-name">{{ username }}</span>
             <span class="user-role">{{ userRoleText }}</span>
           </div>
-          <el-icon :size="14" class="user-arrow" v-show="!isCollapse"><ArrowRight /></el-icon>
+          <el-icon
+            v-show="!isCollapse"
+            :size="14"
+            class="user-arrow"
+          >
+            <ArrowRight />
+          </el-icon>
         </div>
       </div>
     </aside>
@@ -88,21 +173,41 @@
             :class="{ active: currentTab === tab.path }"
             @click="switchTab(tab)"
           >
-            <el-icon :size="14"><component :is="tab.icon"/></el-icon>
+            <el-icon :size="14">
+              <component :is="tab.icon" />
+            </el-icon>
             <span>{{ tab.label }}</span>
-            <el-icon class="tab-close" :size="12" @click.stop="closeTab(tab, index)"><Close /></el-icon>
+            <el-icon
+              class="tab-close"
+              :size="12"
+              @click.stop="closeTab(tab, index)"
+            >
+              <Close />
+            </el-icon>
           </div>
         </div>
         <div class="tabs-actions">
-          <el-dropdown trigger="click" @command="handleTabCommand">
-            <el-button size="small" text>
+          <el-dropdown
+            trigger="click"
+            @command="handleTabCommand"
+          >
+            <el-button
+              size="small"
+              text
+            >
               <el-icon><MoreFilled /></el-icon>
             </el-button>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="close-others">关闭其他</el-dropdown-item>
-                <el-dropdown-item command="close-all">关闭全部</el-dropdown-item>
-                <el-dropdown-item command="refresh">刷新页面</el-dropdown-item>
+                <el-dropdown-item command="close-others">
+                  关闭其他
+                </el-dropdown-item>
+                <el-dropdown-item command="close-all">
+                  关闭全部
+                </el-dropdown-item>
+                <el-dropdown-item command="refresh">
+                  刷新页面
+                </el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -112,8 +217,14 @@
       <!-- 内容区 -->
       <main class="main-content">
         <router-view v-slot="{ Component, route }">
-          <transition :name="transitionName" mode="out-in">
-            <component :is="Component" :key="route.path"/>
+          <transition
+            :name="transitionName"
+            mode="out-in"
+          >
+            <component
+              :is="Component"
+              :key="route.path"
+            />
           </transition>
         </router-view>
       </main>
@@ -121,11 +232,19 @@
 
     <!-- 右侧设置面板 -->
     <transition name="slide-right">
-      <aside class="settings-panel" v-if="showSettings">
+      <aside
+        v-if="showSettings"
+        class="settings-panel"
+      >
         <div class="settings-header">
           <h3>偏好设置</h3>
-          <el-button text @click="showSettings = false">
-            <el-icon :size="18"><Close /></el-icon>
+          <el-button
+            text
+            @click="showSettings = false"
+          >
+            <el-icon :size="18">
+              <Close />
+            </el-icon>
           </el-button>
         </div>
         <div class="settings-content">
@@ -140,8 +259,14 @@
                 :class="{ active: theme === t.value }"
                 @click="setTheme(t.value)"
               >
-                <div class="theme-preview" :style="{ background: t.bg }">
-                  <div class="theme-sidebar" :style="{ background: t.sidebar }"></div>
+                <div
+                  class="theme-preview"
+                  :style="{ background: t.bg }"
+                >
+                  <div
+                    class="theme-sidebar"
+                    :style="{ background: t.sidebar }"
+                  />
                 </div>
                 <span>{{ t.label }}</span>
               </div>
@@ -158,9 +283,9 @@
                 class="accent-option"
                 :class="{ active: accentColor === c.value }"
                 :style="{ background: c.value }"
-                @click="accentColor = c.value"
                 :title="c.label"
-              ></div>
+                @click="accentColor = c.value"
+              />
             </div>
           </div>
 
@@ -169,11 +294,17 @@
             <h4>导航</h4>
             <div class="setting-item">
               <span>收起侧边栏</span>
-              <el-switch v-model="isCollapse" @change="savePreference"/>
+              <el-switch
+                v-model="isCollapse"
+                @change="savePreference"
+              />
             </div>
             <div class="setting-item">
               <span>显示标签页</span>
-              <el-switch v-model="showTabBar" @change="savePreference"/>
+              <el-switch
+                v-model="showTabBar"
+                @change="savePreference"
+              />
             </div>
           </div>
 
@@ -204,25 +335,45 @@
     </transition>
 
     <!-- 遮罩层 -->
-    <div class="panel-overlay" v-if="showSettings" @click="showSettings = false"></div>
+    <div
+      v-if="showSettings"
+      class="panel-overlay"
+      @click="showSettings = false"
+    />
 
     <!-- 用户菜单弹窗 -->
-    <el-dialog v-model="showUserMenu" title="用户信息" width="400" :append-to-body="true">
+    <el-dialog
+      v-model="showUserMenu"
+      title="用户信息"
+      width="400"
+      :append-to-body="true"
+    >
       <div class="user-menu-content">
         <div class="user-menu-header">
           <el-avatar :size="64">
-            <el-icon :size="32"><User /></el-icon>
+            <el-icon :size="32">
+              <User />
+            </el-icon>
           </el-avatar>
           <div class="user-menu-info">
             <h3>{{ username }}</h3>
             <p>{{ userRoleText }}</p>
           </div>
         </div>
-        <el-divider/>
+        <el-divider />
         <div class="user-menu-actions">
-          <el-button @click="goProfile"><el-icon><User /></el-icon> 个人中心</el-button>
-          <el-button @click="goSettings"><el-icon><Tools /></el-icon> 系统设置</el-button>
-          <el-button type="danger" @click="logout"><el-icon><SwitchButton /></el-icon> 退出登录</el-button>
+          <el-button @click="goProfile">
+            <el-icon><User /></el-icon> 个人中心
+          </el-button>
+          <el-button @click="goSettings">
+            <el-icon><Tools /></el-icon> 系统设置
+          </el-button>
+          <el-button
+            type="danger"
+            @click="logout"
+          >
+            <el-icon><SwitchButton /></el-icon> 退出登录
+          </el-button>
         </div>
       </div>
     </el-dialog>

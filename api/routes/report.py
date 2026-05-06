@@ -100,8 +100,6 @@ async def get_report_templates(
             },
         ],
         "total": 2,
-        "page": pagination.page,
-        "page_size": pagination.page_size,
     }
 
 
@@ -111,21 +109,21 @@ async def get_report_template(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """获取报表模板的详细信息"""
-    # TODO: 从数据库获取模板详情
+    """获取报表模板详情"""
+    # TODO: 从数据库查询
     return {
         "id": template_id,
         "name": "运维日报模板",
         "report_type": "daily",
         "description": "每日运维情况汇总",
+        "sections": ["summary", "alerts", "workorders", "incidents"],
         "config": {
             "title": "运维日报",
-            "sections": ["summary", "alerts", "workorders", "incidents"],
+            "show_logo": True,
             "show_charts": True,
         },
         "created_by": "admin",
         "created_at": datetime.now().isoformat(),
-        "updated_at": datetime.now().isoformat(),
     }
 
 
@@ -137,11 +135,11 @@ async def create_report_template(
 ):
     """创建新的报表模板"""
     # TODO: 保存到数据库
-    
     return {
-        "id": 1,
+        "id": 3,
         "name": template.name,
         "report_type": template.report_type,
+        "description": template.description,
         "created_by": current_user.username,
         "created_at": datetime.now().isoformat(),
     }
@@ -155,11 +153,13 @@ async def update_report_template(
     db: Session = Depends(get_db),
 ):
     """更新报表模板"""
-    # TODO: 更新数据库中的模板
-    
+    # TODO: 更新数据库
     return {
-        "status": "success",
-        "message": "Template updated successfully",
+        "id": template_id,
+        "name": template.name,
+        "report_type": template.report_type,
+        "description": template.description,
+        "updated_at": datetime.now().isoformat(),
     }
 
 
@@ -170,12 +170,8 @@ async def delete_report_template(
     db: Session = Depends(get_db),
 ):
     """删除报表模板"""
-    # TODO: 删除模板
-    
-    return {
-        "status": "success",
-        "message": "Template deleted successfully",
-    }
+    # TODO: 从数据库删除
+    return {"status": "success", "message": "Template deleted"}
 
 
 # ============== 报表生成接口 ==============
@@ -186,27 +182,14 @@ async def generate_report(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    生成报表
-    根据模板和时间范围生成报表
-    """
-    # TODO: 调用报表生成模块
-    # from modules.business.report_generator.generator import ReportGenerator
-    # generator = ReportGenerator()
-    # result = await generator.generate(request)
-    
-    # 生成报表编号
+    """生成报表"""
+    # TODO: 调用报表生成服务
     report_no = f"RPT-{datetime.now().strftime('%Y%m%d%H%M%S')}"
-    
     return {
         "id": 1,
         "report_no": report_no,
-        "name": request.name,
-        "report_type": request.report_type,
-        "format": request.format,
         "status": "generating",
-        "created_by": current_user.username,
-        "created_at": datetime.now().isoformat(),
+        "message": "Report generation started",
     }
 
 
@@ -216,42 +199,36 @@ async def generate_report_async(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    异步生成报表
-    报表将在后台生成，完成后会通知用户
-    """
-    # 生成任务ID
-    task_id = f"TASK-{datetime.now().strftime('%Y%m%d%H%M%S')}"
-    
-    # TODO: 创建异步任务
-    
+    """异步生成报表"""
+    # TODO: 放入队列异步处理
+    report_no = f"RPT-{datetime.now().strftime('%Y%m%d%H%M%S')}"
     return {
-        "task_id": task_id,
-        "status": "pending",
-        "message": "Report generation task has been queued",
+        "id": 1,
+        "report_no": report_no,
+        "status": "queued",
+        "message": "Report queued for generation",
     }
 
 
-# ============== 报表查询接口 ==============
+# ============== 报表列表接口 ==============
 
 @router.get("/", summary="获取报表列表")
 async def get_reports(
+    pagination: PaginationParams = Depends(PaginationParams),
     report_type: Optional[str] = Query(None, description="报表类型过滤"),
     status: Optional[str] = Query(None, description="状态过滤"),
-    start_date: Optional[datetime] = Query(None, description="开始日期过滤"),
-    end_date: Optional[datetime] = Query(None, description="结束日期过滤"),
-    keyword: Optional[str] = Query(None, description="关键词搜索"),
-    pagination: PaginationParams = Depends(PaginationParams),
+    start_date: Optional[datetime] = Query(None, description="开始日期"),
+    end_date: Optional[datetime] = Query(None, description="结束日期"),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """获取报表列表"""
-    # TODO: 从数据库查询报表
+    # TODO: 从数据库查询
     return {
         "items": [
             {
                 "id": 1,
-                "report_no": "RPT-20240101000000",
+                "report_no": "RPT-20240101000001",
                 "name": "运维日报 2024-01-01",
                 "report_type": "daily",
                 "format": "pdf",
@@ -259,15 +236,11 @@ async def get_reports(
                 "file_size": 1024000,
                 "created_by": "admin",
                 "created_at": datetime.now().isoformat(),
-            }
+            },
         ],
         "total": 1,
-        "page": pagination.page,
-        "page_size": pagination.page_size,
     }
 
-
-# ============== 报表统计接口 ==============
 
 @router.get("/stats", summary="获取报表统计")
 async def get_report_stats(
@@ -276,7 +249,6 @@ async def get_report_stats(
 ):
     """获取报表统计信息"""
     # TODO: 从数据库统计
-
     return {
         "total_reports": 100,
         "total_size": 1024 * 1024 * 100,  # 100MB
@@ -325,30 +297,24 @@ async def delete_report(
 ):
     """删除报表"""
     # TODO: 删除报表文件并更新数据库
-
     return {
         "status": "success",
         "message": "Report deleted successfully",
     }
 
 
-# ============== 报表下载接口 ==============
-
 @router.get("/{report_id}/download", summary="下载报表")
 async def download_report(
     report_id: int,
+    format: Optional[str] = Query(None, description="下载格式"),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    下载报表文件
-    返回文件流或预签名URL
-    """
-    # TODO: 获取报表文件路径或生成预签名URL
-    
+    """下载报表"""
+    # TODO: 返回报表文件
     return {
-        "url": "/api/v1/report/files/rpt-20240101000000.pdf",
-        "expires_at": (datetime.now() + timedelta(hours=1)).isoformat(),
+        "download_url": f"/api/v1/report/files/rpt-{report_id}.pdf",
+        "format": format or "pdf",
     }
 
 
@@ -357,64 +323,48 @@ async def get_report_file(
     filename: str,
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    """
-    获取报表文件
-    用于文件下载
-    """
-    # TODO: 返回文件响应
-    # return FileResponse(path, filename=filename)
-    
+    """获取报表文件"""
+    # TODO: 返回实际文件
     raise HTTPException(status_code=404, detail="File not found")
 
 
 # ============== 定时报表接口 ==============
 
 @router.get("/schedule", summary="获取定时报表列表")
-async def get_scheduled_reports(
+async def get_report_schedules(
+    pagination: PaginationParams = Depends(PaginationParams),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """获取已配置的定时报表"""
-    # TODO: 从数据库查询定时报表配置
+    """获取定时报表列表"""
+    # TODO: 从数据库查询
     return {
         "items": [
             {
                 "id": 1,
                 "name": "每日运维日报",
+                "cron_expression": "0 8 * * *",
                 "template_id": 1,
-                "schedule": "0 8 * * *",
-                "format": "pdf",
-                "recipients": ["admin@example.com"],
                 "enabled": True,
-                "last_run": datetime.now().isoformat(),
-                "next_run": (datetime.now() + timedelta(days=1)).isoformat(),
-            }
-        ]
+                "last_run_at": datetime.now().isoformat(),
+                "next_run_at": (datetime.now() + timedelta(days=1)).isoformat(),
+            },
+        ],
+        "total": 1,
     }
 
 
 @router.post("/schedule", summary="创建定时报表")
-async def create_scheduled_report(
-    name: str = Query(..., description="定时报表名称"),
-    template_id: int = Query(..., description="模板ID"),
-    schedule: str = Query(..., description="Cron表达式"),
-    format: str = Query("pdf", description="输出格式"),
-    recipients: List[str] = Query(..., description="接收人邮箱列表"),
-    enabled: bool = Query(True, description="是否启用"),
+async def create_report_schedule(
+    schedule: dict,
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """创建新的定时报表"""
-    # TODO: 保存定时报表配置
-    
+    """创建定时报表"""
+    # TODO: 保存到数据库
     return {
         "id": 1,
-        "name": name,
-        "template_id": template_id,
-        "schedule": schedule,
-        "enabled": enabled,
+        "name": schedule.get("name", "定时报表"),
+        "enabled": True,
         "created_at": datetime.now().isoformat(),
     }
-
-
-# ============== 定时报表接口 ==============

@@ -3,15 +3,25 @@
     <!-- 页面头部 -->
     <div class="page-header">
       <div class="page-header-left">
-        <h2 class="page-title">设备管理</h2>
-        <p class="page-subtitle">统一管理所有设备，支持多种采集方式</p>
+        <h2 class="page-title">
+          设备管理
+        </h2>
+        <p class="page-subtitle">
+          统一管理所有设备，支持多种采集方式
+        </p>
       </div>
       <div class="page-header-actions">
-        <el-button @click="handleExport" :loading="exportLoading">
+        <el-button
+          :loading="exportLoading"
+          @click="handleExport"
+        >
           <el-icon><Download /></el-icon>
           导出
         </el-button>
-        <el-button type="primary" @click="handleCreate">
+        <el-button
+          type="primary"
+          @click="handleCreate"
+        >
           <el-icon><Plus /></el-icon>
           添加设备
         </el-button>
@@ -26,14 +36,25 @@
         class="stat-card"
         :style="{ animationDelay: `${index * 0.08}s` }"
       >
-        <div class="stat-icon" :class="stat.key">
+        <div
+          class="stat-icon"
+          :class="stat.key"
+        >
           <el-icon><component :is="stat.icon" /></el-icon>
         </div>
         <div class="stat-content">
-          <div class="stat-value">{{ stat.value }}</div>
-          <div class="stat-title">{{ stat.title }}</div>
+          <div class="stat-value">
+            {{ stat.value }}
+          </div>
+          <div class="stat-title">
+            {{ stat.title }}
+          </div>
         </div>
-        <div class="stat-pulse" v-if="stat.key === 'online'" :class="{ active: stat.alert }"></div>
+        <div
+          v-if="stat.key === 'online'"
+          class="stat-pulse"
+          :class="{ active: stat.alert }"
+        />
       </div>
     </div>
 
@@ -53,57 +74,115 @@
           </template>
         </el-input>
 
-        <el-select v-model="typeFilter" placeholder="设备类型" style="width: 140px" clearable @change="handleFilterChange">
-          <el-option label="服务器" value="server">
+        <el-select
+          v-model="typeFilter"
+          placeholder="设备类型"
+          style="width: 140px"
+          clearable
+          @change="handleFilterChange"
+        >
+          <el-option
+            label="服务器"
+            value="server"
+          >
             <div class="level-option">
-              <span class="level-dot server"></span>
+              <span class="level-dot server" />
               <span>服务器</span>
             </div>
           </el-option>
-          <el-option label="网络设备" value="network">
+          <el-option
+            label="网络设备"
+            value="network"
+          >
             <div class="level-option">
-              <span class="level-dot network"></span>
+              <span class="level-dot network" />
               <span>网络设备</span>
             </div>
           </el-option>
-          <el-option label="安全设备" value="security">
+          <el-option
+            label="安全设备"
+            value="security"
+          >
             <div class="level-option">
-              <span class="level-dot security"></span>
+              <span class="level-dot security" />
               <span>安全设备</span>
             </div>
           </el-option>
         </el-select>
 
-        <el-select v-model="statusFilter" placeholder="运行状态" style="width: 130px" clearable @change="handleFilterChange">
-          <el-option label="在线" value="online">
-            <span class="status-dot online"></span>
+        <el-select
+          v-model="statusFilter"
+          placeholder="运行状态"
+          style="width: 130px"
+          clearable
+          @change="handleFilterChange"
+        >
+          <el-option
+            label="在线"
+            value="online"
+          >
+            <span class="status-dot online" />
             在线
           </el-option>
-          <el-option label="离线" value="offline">
-            <span class="status-dot offline"></span>
+          <el-option
+            label="离线"
+            value="offline"
+          >
+            <span class="status-dot offline" />
             离线
           </el-option>
-          <el-option label="维护中" value="maintenance">
-            <span class="status-dot maintenance"></span>
+          <el-option
+            label="维护中"
+            value="maintenance"
+          >
+            <span class="status-dot maintenance" />
             维护中
           </el-option>
         </el-select>
 
-        <el-select v-model="osFilter" placeholder="操作系统" style="width: 140px" clearable @change="handleFilterChange">
-          <el-option label="麒麟Linux" value="kylin" />
-          <el-option label="CentOS" value="centos" />
-          <el-option label="Ubuntu" value="ubuntu" />
-          <el-option label="Windows" value="windows" />
-          <el-option label="华为VRP" value="vrp" />
+        <el-select
+          v-model="osFilter"
+          placeholder="操作系统"
+          style="width: 140px"
+          clearable
+          @change="handleFilterChange"
+        >
+          <el-option
+            label="麒麟Linux"
+            value="kylin"
+          />
+          <el-option
+            label="CentOS"
+            value="centos"
+          />
+          <el-option
+            label="Ubuntu"
+            value="ubuntu"
+          />
+          <el-option
+            label="Windows"
+            value="windows"
+          />
+          <el-option
+            label="华为VRP"
+            value="vrp"
+          />
         </el-select>
       </div>
 
       <div class="filter-right">
-        <el-button text @click="handleRefresh" :loading="loading">
+        <el-button
+          text
+          :loading="loading"
+          @click="handleRefresh"
+        >
           <el-icon><Refresh /></el-icon>
           刷新
         </el-button>
-        <el-button text @click="handleBatchCollect">
+        <el-button
+          text
+          @click="handleBatchCollect"
+        >
           <el-icon><DataLine /></el-icon>
           批量采集
         </el-button>
@@ -120,12 +199,22 @@
         row-key="id"
         @selection-change="handleSelectionChange"
       >
-        <el-table-column type="selection" width="50" />
+        <el-table-column
+          type="selection"
+          width="50"
+        />
 
-        <el-table-column label="设备信息" min-width="220" show-overflow-tooltip>
+        <el-table-column
+          label="设备信息"
+          min-width="220"
+          show-overflow-tooltip
+        >
           <template #default="{ row }">
             <div class="device-info">
-              <div class="device-icon" :class="row.type">
+              <div
+                class="device-icon"
+                :class="row.type"
+              >
                 <el-icon><component :is="getTypeIcon(row.type)" /></el-icon>
               </div>
               <div class="device-details">
@@ -136,84 +225,166 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="类型" width="100">
+        <el-table-column
+          label="类型"
+          width="100"
+        >
           <template #default="{ row }">
-            <el-tag size="small" :type="getTypeTagType(row.type)">
+            <el-tag
+              size="small"
+              :type="getTypeTagType(row.type)"
+            >
               {{ getTypeText(row.type) }}
             </el-tag>
           </template>
         </el-table-column>
 
-        <el-table-column label="操作系统" width="120">
+        <el-table-column
+          label="操作系统"
+          width="120"
+        >
           <template #default="{ row }">
             <span class="os-text">{{ row.os }}</span>
           </template>
         </el-table-column>
 
-        <el-table-column label="状态" width="100">
+        <el-table-column
+          label="状态"
+          width="100"
+        >
           <template #default="{ row }">
             <div class="status-cell">
-              <span class="status-dot" :class="row.status"></span>
+              <span
+                class="status-dot"
+                :class="row.status"
+              />
               <span class="status-text">{{ getStatusText(row.status) }}</span>
             </div>
           </template>
         </el-table-column>
 
-        <el-table-column label="采集方式" width="100">
+        <el-table-column
+          label="采集方式"
+          width="100"
+        >
           <template #default="{ row }">
-            <el-tag size="small" type="info">{{ getCollectMethod(row.method) }}</el-tag>
+            <el-tag
+              size="small"
+              type="info"
+            >
+              {{ getCollectMethod(row.method) }}
+            </el-tag>
           </template>
         </el-table-column>
 
-        <el-table-column label="性能指标" min-width="200">
+        <el-table-column
+          label="性能指标"
+          min-width="200"
+        >
           <template #default="{ row }">
             <div class="metrics-cell">
               <div class="metric-item">
                 <span class="metric-label">CPU</span>
-                <el-progress :percentage="row.cpu" :stroke-width="6" :color="getMetricColor(row.cpu)" :show-text="false" size="small" />
+                <el-progress
+                  :percentage="row.cpu"
+                  :stroke-width="6"
+                  :color="getMetricColor(row.cpu)"
+                  :show-text="false"
+                  size="small"
+                />
                 <span class="metric-value">{{ row.cpu }}%</span>
               </div>
               <div class="metric-item">
                 <span class="metric-label">内存</span>
-                <el-progress :percentage="row.memory" :stroke-width="6" :color="getMetricColor(row.memory)" :show-text="false" size="small" />
+                <el-progress
+                  :percentage="row.memory"
+                  :stroke-width="6"
+                  :color="getMetricColor(row.memory)"
+                  :show-text="false"
+                  size="small"
+                />
                 <span class="metric-value">{{ row.memory }}%</span>
               </div>
               <div class="metric-item">
                 <span class="metric-label">磁盘</span>
-                <el-progress :percentage="row.disk" :stroke-width="6" :color="getMetricColor(row.disk)" :show-text="false" size="small" />
+                <el-progress
+                  :percentage="row.disk"
+                  :stroke-width="6"
+                  :color="getMetricColor(row.disk)"
+                  :show-text="false"
+                  size="small"
+                />
                 <span class="metric-value">{{ row.disk }}%</span>
               </div>
             </div>
           </template>
         </el-table-column>
 
-        <el-table-column label="最后采集" width="160">
+        <el-table-column
+          label="最后采集"
+          width="160"
+        >
           <template #default="{ row }">
             <span class="last-collect">{{ row.lastCollect }}</span>
           </template>
         </el-table-column>
 
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column
+          label="操作"
+          width="180"
+          fixed="right"
+        >
           <template #default="{ row }">
-            <el-button size="small" text type="primary" @click="handleView(row)">
+            <el-button
+              size="small"
+              text
+              type="primary"
+              @click="handleView(row)"
+            >
               <el-icon><View /></el-icon>
             </el-button>
-            <el-button size="small" text type="primary" @click="handleEdit(row)">
+            <el-button
+              size="small"
+              text
+              type="primary"
+              @click="handleEdit(row)"
+            >
               <el-icon><Edit /></el-icon>
             </el-button>
-            <el-button size="small" text @click="handleCollect(row)">
+            <el-button
+              size="small"
+              text
+              @click="handleCollect(row)"
+            >
               <el-icon><Refresh /></el-icon>
             </el-button>
-            <el-dropdown trigger="click" @command="(cmd) => handleCommand(cmd, row)">
-              <el-button size="small" text>
+            <el-dropdown
+              trigger="click"
+              @command="(cmd) => handleCommand(cmd, row)"
+            >
+              <el-button
+                size="small"
+                text
+              >
                 <el-icon><MoreFilled /></el-icon>
               </el-button>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item command="alarm">设置告警</el-dropdown-item>
-                  <el-dropdown-item command="ssh">远程连接</el-dropdown-item>
-                  <el-dropdown-item command="config">配置管理</el-dropdown-item>
-                  <el-dropdown-item command="delete" divided>删除设备</el-dropdown-item>
+                  <el-dropdown-item command="alarm">
+                    设置告警
+                  </el-dropdown-item>
+                  <el-dropdown-item command="ssh">
+                    远程连接
+                  </el-dropdown-item>
+                  <el-dropdown-item command="config">
+                    配置管理
+                  </el-dropdown-item>
+                  <el-dropdown-item
+                    command="delete"
+                    divided
+                  >
+                    删除设备
+                  </el-dropdown-item>
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
@@ -242,49 +413,148 @@
       width="600px"
       :append-to-body="true"
     >
-      <el-form ref="deviceFormRef" :model="deviceForm" :rules="deviceRules" label-width="100px">
-        <el-form-item label="设备名称" prop="name">
-          <el-input v-model="deviceForm.name" placeholder="请输入设备名称" />
+      <el-form
+        ref="deviceFormRef"
+        :model="deviceForm"
+        :rules="deviceRules"
+        label-width="100px"
+      >
+        <el-form-item
+          label="设备名称"
+          prop="name"
+        >
+          <el-input
+            v-model="deviceForm.name"
+            placeholder="请输入设备名称"
+          />
         </el-form-item>
-        <el-form-item label="设备IP" prop="ip">
-          <el-input v-model="deviceForm.ip" placeholder="如 192.168.1.100" />
+        <el-form-item
+          label="设备IP"
+          prop="ip"
+        >
+          <el-input
+            v-model="deviceForm.ip"
+            placeholder="如 192.168.1.100"
+          />
         </el-form-item>
-        <el-form-item label="设备类型" prop="type">
-          <el-select v-model="deviceForm.type" placeholder="请选择" style="width: 100%">
-            <el-option label="Windows服务器" value="windows" />
-            <el-option label="Linux服务器" value="linux" />
-            <el-option label="网络设备" value="network" />
-            <el-option label="安全设备" value="security" />
+        <el-form-item
+          label="设备类型"
+          prop="type"
+        >
+          <el-select
+            v-model="deviceForm.type"
+            placeholder="请选择"
+            style="width: 100%"
+          >
+            <el-option
+              label="Windows服务器"
+              value="windows"
+            />
+            <el-option
+              label="Linux服务器"
+              value="linux"
+            />
+            <el-option
+              label="网络设备"
+              value="network"
+            />
+            <el-option
+              label="安全设备"
+              value="security"
+            />
           </el-select>
         </el-form-item>
-        <el-form-item label="操作系统" prop="os">
-          <el-select v-model="deviceForm.os" placeholder="请选择" style="width: 100%">
-            <el-option label="Windows Server" value="Windows" />
-            <el-option label="麒麟Linux" value="Kylin" />
-            <el-option label="CentOS" value="CentOS" />
-            <el-option label="Ubuntu" value="Ubuntu" />
-            <el-option label="华为VRP" value="VRP" />
+        <el-form-item
+          label="操作系统"
+          prop="os"
+        >
+          <el-select
+            v-model="deviceForm.os"
+            placeholder="请选择"
+            style="width: 100%"
+          >
+            <el-option
+              label="Windows Server"
+              value="Windows"
+            />
+            <el-option
+              label="麒麟Linux"
+              value="Kylin"
+            />
+            <el-option
+              label="CentOS"
+              value="CentOS"
+            />
+            <el-option
+              label="Ubuntu"
+              value="Ubuntu"
+            />
+            <el-option
+              label="华为VRP"
+              value="VRP"
+            />
           </el-select>
         </el-form-item>
-        <el-form-item label="采集方式" prop="method">
-          <el-select v-model="deviceForm.method" placeholder="请选择" style="width: 100%">
-            <el-option label="SNMP" value="snmp" />
-            <el-option label="SSH" value="ssh" />
-            <el-option label="WMI" value="wmi" />
-            <el-option label="API" value="api" />
-            <el-option label="浏览器" value="browser" />
+        <el-form-item
+          label="采集方式"
+          prop="method"
+        >
+          <el-select
+            v-model="deviceForm.method"
+            placeholder="请选择"
+            style="width: 100%"
+          >
+            <el-option
+              label="SNMP"
+              value="snmp"
+            />
+            <el-option
+              label="SSH"
+              value="ssh"
+            />
+            <el-option
+              label="WMI"
+              value="wmi"
+            />
+            <el-option
+              label="API"
+              value="api"
+            />
+            <el-option
+              label="浏览器"
+              value="browser"
+            />
           </el-select>
         </el-form-item>
-        <el-form-item label="端口" prop="port">
-          <el-input-number v-model="deviceForm.port" :min="1" :max="65535" />
+        <el-form-item
+          label="端口"
+          prop="port"
+        >
+          <el-input-number
+            v-model="deviceForm.port"
+            :min="1"
+            :max="65535"
+          />
         </el-form-item>
         <el-form-item label="备注">
-          <el-input v-model="deviceForm.remark" type="textarea" :rows="3" placeholder="可选" />
+          <el-input
+            v-model="deviceForm.remark"
+            type="textarea"
+            :rows="3"
+            placeholder="可选"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="deviceDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSaveDevice">保存</el-button>
+        <el-button @click="deviceDialogVisible = false">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          @click="handleSaveDevice"
+        >
+          保存
+        </el-button>
       </template>
     </el-dialog>
   </div>

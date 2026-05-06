@@ -1,5 +1,8 @@
 <template>
-  <div class="page-header" :class="[`size-${size}`, { 'no-border': noBorder }]">
+  <div
+    class="page-header"
+    :class="[`size-${size}`, { 'no-border': noBorder }]"
+  >
     <!-- 左侧 -->
     <div class="header-left">
       <!-- 返回按钮 -->
@@ -9,22 +12,40 @@
         class="back-btn"
         @click="handleBack"
       >
-        <el-icon :size="18"><ArrowLeft /></el-icon>
+        <el-icon :size="18">
+          <ArrowLeft />
+        </el-icon>
       </el-button>
 
       <!-- 标题区 -->
       <div class="header-title-area">
         <div class="title-row">
           <!-- 图标 -->
-          <div class="title-icon" v-if="icon" :style="{ background: iconBg }">
-            <el-icon :size="iconSize" :color="iconColor"><component :is="icon"/></el-icon>
+          <div
+            v-if="icon"
+            class="title-icon"
+            :style="{ background: iconBg }"
+          >
+            <el-icon
+              :size="iconSize"
+              :color="iconColor"
+            >
+              <component :is="icon" />
+            </el-icon>
           </div>
           
           <!-- 标题 -->
-          <h1 class="page-title">{{ title }}</h1>
+          <h1 class="page-title">
+            {{ title }}
+          </h1>
           
           <!-- 状态标签 -->
-          <el-tag v-if="status" :type="statusType" size="small" effect="light">
+          <el-tag
+            v-if="status"
+            :type="statusType"
+            size="small"
+            effect="light"
+          >
             {{ status }}
           </el-tag>
 
@@ -38,14 +59,25 @@
         </div>
 
         <!-- 副标题 -->
-        <p class="page-subtitle" v-if="subtitle">{{ subtitle }}</p>
+        <p
+          v-if="subtitle"
+          class="page-subtitle"
+        >
+          {{ subtitle }}
+        </p>
       </div>
     </div>
 
     <!-- 右侧操作区 -->
-    <div class="header-right" v-if="$slots.actions || actions.length">
+    <div
+      v-if="$slots.actions || actions.length"
+      class="header-right"
+    >
       <slot name="actions">
-        <template v-for="(action, i) in actions" :key="i">
+        <template
+          v-for="(action, i) in actions"
+          :key="i"
+        >
           <el-button 
             v-if="!action.hidden"
             :type="action.type || 'default'"

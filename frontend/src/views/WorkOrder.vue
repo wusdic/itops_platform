@@ -3,15 +3,22 @@
     <!-- 页面头部 -->
     <div class="page-header">
       <div class="page-header-left">
-        <h2 class="page-title">工单管理</h2>
-        <p class="page-subtitle">IT运维工单全生命周期管理，支持创建、处理、跟踪和统计</p>
+        <h2 class="page-title">
+          工单管理
+        </h2>
+        <p class="page-subtitle">
+          IT运维工单全生命周期管理，支持创建、处理、跟踪和统计
+        </p>
       </div>
       <div class="page-header-actions">
         <el-button @click="handleExport">
           <el-icon><Download /></el-icon>
           导出
         </el-button>
-        <el-button type="primary" @click="showCreateDialog = true">
+        <el-button
+          type="primary"
+          @click="showCreateDialog = true"
+        >
           <el-icon><Plus /></el-icon>
           创建工单
         </el-button>
@@ -26,14 +33,25 @@
         class="stat-card"
         :style="{ animationDelay: `${index * 0.08}s` }"
       >
-        <div class="stat-icon" :class="stat.key">
+        <div
+          class="stat-icon"
+          :class="stat.key"
+        >
           <el-icon><component :is="stat.icon" /></el-icon>
         </div>
         <div class="stat-content">
-          <div class="stat-value">{{ stat.value }}</div>
-          <div class="stat-title">{{ stat.title }}</div>
+          <div class="stat-value">
+            {{ stat.value }}
+          </div>
+          <div class="stat-title">
+            {{ stat.title }}
+          </div>
         </div>
-        <div v-if="stat.growth" class="stat-growth" :class="stat.growth > 0 ? 'up' : 'down'">
+        <div
+          v-if="stat.growth"
+          class="stat-growth"
+          :class="stat.growth > 0 ? 'up' : 'down'"
+        >
           <el-icon><ArrowUp /></el-icon>
           {{ Math.abs(stat.growth) }}%
         </div>
@@ -59,36 +77,108 @@
           </template>
         </el-input>
 
-        <el-select v-model="categoryFilter" placeholder="工单分类" style="width: 130px" clearable @change="handleFilterChange">
-          <el-option label="故障报修" value="fault" />
-          <el-option label="变更申请" value="change" />
-          <el-option label="需求处理" value="requirement" />
-          <el-option label="咨询服务" value="consult" />
+        <el-select
+          v-model="categoryFilter"
+          placeholder="工单分类"
+          style="width: 130px"
+          clearable
+          @change="handleFilterChange"
+        >
+          <el-option
+            label="故障报修"
+            value="fault"
+          />
+          <el-option
+            label="变更申请"
+            value="change"
+          />
+          <el-option
+            label="需求处理"
+            value="requirement"
+          />
+          <el-option
+            label="咨询服务"
+            value="consult"
+          />
         </el-select>
 
-        <el-select v-model="priorityFilter" placeholder="优先级" style="width: 120px" clearable @change="handleFilterChange">
-          <el-option label="紧急" value="urgent" />
-          <el-option label="高" value="high" />
-          <el-option label="中" value="medium" />
-          <el-option label="低" value="low" />
+        <el-select
+          v-model="priorityFilter"
+          placeholder="优先级"
+          style="width: 120px"
+          clearable
+          @change="handleFilterChange"
+        >
+          <el-option
+            label="紧急"
+            value="urgent"
+          />
+          <el-option
+            label="高"
+            value="high"
+          />
+          <el-option
+            label="中"
+            value="medium"
+          />
+          <el-option
+            label="低"
+            value="low"
+          />
         </el-select>
 
-        <el-select v-model="statusFilter" placeholder="处理状态" style="width: 130px" clearable @change="handleFilterChange">
-          <el-option label="待处理" value="pending" />
-          <el-option label="处理中" value="processing" />
-          <el-option label="待验收" value="pending_approval" />
-          <el-option label="已完成" value="completed" />
-          <el-option label="已关闭" value="closed" />
+        <el-select
+          v-model="statusFilter"
+          placeholder="处理状态"
+          style="width: 130px"
+          clearable
+          @change="handleFilterChange"
+        >
+          <el-option
+            label="待处理"
+            value="pending"
+          />
+          <el-option
+            label="处理中"
+            value="processing"
+          />
+          <el-option
+            label="待验收"
+            value="pending_approval"
+          />
+          <el-option
+            label="已完成"
+            value="completed"
+          />
+          <el-option
+            label="已关闭"
+            value="closed"
+          />
         </el-select>
 
-        <el-select v-model="assignFilter" placeholder="处理人" style="width: 130px" clearable @change="handleFilterChange">
-          <el-option label="我" value="me" />
-          <el-option label="未分配" value="unassigned" />
+        <el-select
+          v-model="assignFilter"
+          placeholder="处理人"
+          style="width: 130px"
+          clearable
+          @change="handleFilterChange"
+        >
+          <el-option
+            label="我"
+            value="me"
+          />
+          <el-option
+            label="未分配"
+            value="unassigned"
+          />
         </el-select>
       </div>
 
       <div class="filter-right">
-        <el-radio-group v-model="viewMode" size="small">
+        <el-radio-group
+          v-model="viewMode"
+          size="small"
+        >
           <el-radio-button value="list">
             <el-icon><List /></el-icon>
           </el-radio-button>
@@ -97,18 +187,32 @@
           </el-radio-button>
         </el-radio-group>
         <el-divider direction="vertical" />
-        <el-button text @click="handleRefresh" :loading="loading">
+        <el-button
+          text
+          :loading="loading"
+          @click="handleRefresh"
+        >
           <el-icon><Refresh /></el-icon>
         </el-button>
       </div>
     </div>
 
     <!-- 看板视图 -->
-    <div class="kanban-board" v-if="viewMode === 'card'">
-      <div v-for="status in kanbanStatus" :key="status.key" class="kanban-column">
+    <div
+      v-if="viewMode === 'card'"
+      class="kanban-board"
+    >
+      <div
+        v-for="status in kanbanStatus"
+        :key="status.key"
+        class="kanban-column"
+      >
         <div class="kanban-header">
           <span class="kanban-title">{{ status.title }}</span>
-          <el-badge :value="getKanbanCount(status.key)" type="info" />
+          <el-badge
+            :value="getKanbanCount(status.key)"
+            type="info"
+          />
         </div>
         <div class="kanban-cards">
           <div 
@@ -119,15 +223,27 @@
             @click="handleViewDetail(order)"
           >
             <div class="card-header">
-              <el-tag size="small" :type="getCategoryTagType(order.category)" effect="light">
+              <el-tag
+                size="small"
+                :type="getCategoryTagType(order.category)"
+                effect="light"
+              >
                 {{ getCategoryText(order.category) }}
               </el-tag>
-              <el-tag size="small" :type="getPriorityTagType(order.priority)" effect="dark">
+              <el-tag
+                size="small"
+                :type="getPriorityTagType(order.priority)"
+                effect="dark"
+              >
                 {{ getPriorityText(order.priority) }}
               </el-tag>
             </div>
-            <div class="card-title">{{ order.title }}</div>
-            <div class="card-sn">工单号: {{ order.sn }}</div>
+            <div class="card-title">
+              {{ order.title }}
+            </div>
+            <div class="card-sn">
+              工单号: {{ order.sn }}
+            </div>
             <div class="card-meta">
               <span class="meta-item">
                 <el-icon><User /></el-icon>
@@ -144,7 +260,10 @@
     </div>
 
     <!-- 列表视图 -->
-    <div class="table-card" v-else>
+    <div
+      v-else
+      class="table-card"
+    >
       <el-table
         v-loading="loading"
         :data="ordersData"
@@ -153,13 +272,20 @@
         row-key="id"
         @row-click="handleRowClick"
       >
-        <el-table-column label="工单号" width="140">
+        <el-table-column
+          label="工单号"
+          width="140"
+        >
           <template #default="{ row }">
             <span class="order-sn">{{ row.sn }}</span>
           </template>
         </el-table-column>
 
-        <el-table-column label="标题" min-width="200" show-overflow-tooltip>
+        <el-table-column
+          label="标题"
+          min-width="200"
+          show-overflow-tooltip
+        >
           <template #default="{ row }">
             <div class="title-cell">
               <span class="order-title">{{ row.title }}</span>
@@ -167,87 +293,173 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="分类" width="100">
+        <el-table-column
+          label="分类"
+          width="100"
+        >
           <template #default="{ row }">
-            <el-tag size="small" :type="getCategoryTagType(row.category)" effect="light">
+            <el-tag
+              size="small"
+              :type="getCategoryTagType(row.category)"
+              effect="light"
+            >
               {{ getCategoryText(row.category) }}
             </el-tag>
           </template>
         </el-table-column>
 
-        <el-table-column label="优先级" width="90">
+        <el-table-column
+          label="优先级"
+          width="90"
+        >
           <template #default="{ row }">
-            <el-tag size="small" :type="getPriorityTagType(row.priority)" effect="dark">
+            <el-tag
+              size="small"
+              :type="getPriorityTagType(row.priority)"
+              effect="dark"
+            >
               {{ getPriorityText(row.priority) }}
             </el-tag>
           </template>
         </el-table-column>
 
-        <el-table-column label="状态" width="100">
+        <el-table-column
+          label="状态"
+          width="100"
+        >
           <template #default="{ row }">
             <div class="status-cell">
-              <span class="status-dot" :class="row.status"></span>
-              <el-tag size="small" :type="getStatusTagType(row.status)" effect="light">
+              <span
+                class="status-dot"
+                :class="row.status"
+              />
+              <el-tag
+                size="small"
+                :type="getStatusTagType(row.status)"
+                effect="light"
+              >
                 {{ getStatusText(row.status) }}
               </el-tag>
             </div>
           </template>
         </el-table-column>
 
-        <el-table-column label="处理人" width="110">
+        <el-table-column
+          label="处理人"
+          width="110"
+        >
           <template #default="{ row }">
             <span class="assignee-text">{{ row.assignee || '-' }}</span>
           </template>
         </el-table-column>
 
-        <el-table-column label="创建人" width="110">
+        <el-table-column
+          label="创建人"
+          width="110"
+        >
           <template #default="{ row }">
             <span class="creator-text">{{ row.creator }}</span>
           </template>
         </el-table-column>
 
-        <el-table-column label="创建时间" width="160" sortable>
+        <el-table-column
+          label="创建时间"
+          width="160"
+          sortable
+        >
           <template #default="{ row }">
             <span class="time-text">{{ row.createTime }}</span>
           </template>
         </el-table-column>
 
-        <el-table-column label="SLA" width="100">
+        <el-table-column
+          label="SLA"
+          width="100"
+        >
           <template #default="{ row }">
-            <span class="sla-text" :class="{ 'sla-warning': isSLAWarning(row) }">
+            <span
+              class="sla-text"
+              :class="{ 'sla-warning': isSLAWarning(row) }"
+            >
               {{ row.slaRemaining }}
             </span>
           </template>
         </el-table-column>
 
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column
+          label="操作"
+          width="180"
+          fixed="right"
+        >
           <template #default="{ row }">
             <div class="action-buttons">
-              <el-tooltip content="查看详情" placement="top">
-                <el-button text type="primary" size="small" @click.stop="handleViewDetail(row)">
+              <el-tooltip
+                content="查看详情"
+                placement="top"
+              >
+                <el-button
+                  text
+                  type="primary"
+                  size="small"
+                  @click.stop="handleViewDetail(row)"
+                >
                   <el-icon><View /></el-icon>
                 </el-button>
               </el-tooltip>
-              <el-tooltip content="处理工单" placement="top" v-if="row.status !== 'completed' && row.status !== 'closed'">
-                <el-button text type="primary" size="small" @click.stop="handleProcess(row)">
+              <el-tooltip
+                v-if="row.status !== 'completed' && row.status !== 'closed'"
+                content="处理工单"
+                placement="top"
+              >
+                <el-button
+                  text
+                  type="primary"
+                  size="small"
+                  @click.stop="handleProcess(row)"
+                >
                   <el-icon><Edit /></el-icon>
                 </el-button>
               </el-tooltip>
-              <el-tooltip content="添加评论" placement="top">
-                <el-button text size="small" @click.stop="handleComment(row)">
+              <el-tooltip
+                content="添加评论"
+                placement="top"
+              >
+                <el-button
+                  text
+                  size="small"
+                  @click.stop="handleComment(row)"
+                >
                   <el-icon><Comment /></el-icon>
                 </el-button>
               </el-tooltip>
-              <el-dropdown trigger="click" @command="(cmd) => handleOrderCommand(cmd, row)" @click.stop>
-                <el-button text size="small">
+              <el-dropdown
+                trigger="click"
+                @command="(cmd) => handleOrderCommand(cmd, row)"
+                @click.stop
+              >
+                <el-button
+                  text
+                  size="small"
+                >
                   <el-icon><MoreFilled /></el-icon>
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item command="edit">编辑</el-dropdown-item>
-                    <el-dropdown-item command="transfer">转移</el-dropdown-item>
-                    <el-dropdown-item command="close">关闭工单</el-dropdown-item>
-                    <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
+                    <el-dropdown-item command="edit">
+                      编辑
+                    </el-dropdown-item>
+                    <el-dropdown-item command="transfer">
+                      转移
+                    </el-dropdown-item>
+                    <el-dropdown-item command="close">
+                      关闭工单
+                    </el-dropdown-item>
+                    <el-dropdown-item
+                      command="delete"
+                      divided
+                    >
+                      删除
+                    </el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -280,30 +492,76 @@
       width="700px"
       :close-on-click-modal="false"
     >
-      <el-form :model="orderForm" label-width="100px" :rules="formRules" ref="orderFormRef">
-        <el-form-item label="工单标题" prop="title">
-          <el-input v-model="orderForm.title" placeholder="请输入工单标题" maxlength="100" show-word-limit />
+      <el-form
+        ref="orderFormRef"
+        :model="orderForm"
+        label-width="100px"
+        :rules="formRules"
+      >
+        <el-form-item
+          label="工单标题"
+          prop="title"
+        >
+          <el-input
+            v-model="orderForm.title"
+            placeholder="请输入工单标题"
+            maxlength="100"
+            show-word-limit
+          />
         </el-form-item>
         
-        <el-form-item label="工单分类" prop="category">
-          <el-select v-model="orderForm.category" placeholder="请选择工单分类" style="width: 100%">
-            <el-option label="故障报修" value="fault" />
-            <el-option label="变更申请" value="change" />
-            <el-option label="需求处理" value="requirement" />
-            <el-option label="咨询服务" value="consult" />
+        <el-form-item
+          label="工单分类"
+          prop="category"
+        >
+          <el-select
+            v-model="orderForm.category"
+            placeholder="请选择工单分类"
+            style="width: 100%"
+          >
+            <el-option
+              label="故障报修"
+              value="fault"
+            />
+            <el-option
+              label="变更申请"
+              value="change"
+            />
+            <el-option
+              label="需求处理"
+              value="requirement"
+            />
+            <el-option
+              label="咨询服务"
+              value="consult"
+            />
           </el-select>
         </el-form-item>
 
-        <el-form-item label="优先级" prop="priority">
+        <el-form-item
+          label="优先级"
+          prop="priority"
+        >
           <el-radio-group v-model="orderForm.priority">
-            <el-radio label="urgent">紧急</el-radio>
-            <el-radio label="high">高</el-radio>
-            <el-radio label="medium">中</el-radio>
-            <el-radio label="low">低</el-radio>
+            <el-radio label="urgent">
+              紧急
+            </el-radio>
+            <el-radio label="high">
+              高
+            </el-radio>
+            <el-radio label="medium">
+              中
+            </el-radio>
+            <el-radio label="low">
+              低
+            </el-radio>
           </el-radio-group>
         </el-form-item>
 
-        <el-form-item label="关联设备" prop="asset">
+        <el-form-item
+          label="关联设备"
+          prop="asset"
+        >
           <el-select 
             v-model="orderForm.asset" 
             placeholder="选择关联设备（可选）" 
@@ -320,15 +578,34 @@
           </el-select>
         </el-form-item>
 
-        <el-form-item label="处理人" prop="assignee">
-          <el-select v-model="orderForm.assignee" placeholder="选择处理人" style="width: 100%">
-            <el-option label="张三" value="张三" />
-            <el-option label="李四" value="李四" />
-            <el-option label="王五" value="王五" />
+        <el-form-item
+          label="处理人"
+          prop="assignee"
+        >
+          <el-select
+            v-model="orderForm.assignee"
+            placeholder="选择处理人"
+            style="width: 100%"
+          >
+            <el-option
+              label="张三"
+              value="张三"
+            />
+            <el-option
+              label="李四"
+              value="李四"
+            />
+            <el-option
+              label="王五"
+              value="王五"
+            />
           </el-select>
         </el-form-item>
 
-        <el-form-item label="工单描述" prop="description">
+        <el-form-item
+          label="工单描述"
+          prop="description"
+        >
           <el-input 
             v-model="orderForm.description" 
             type="textarea" 
@@ -347,59 +624,110 @@
             accept=".jpg,.png,.pdf,.doc,.docx"
           >
             <el-icon><UploadFilled /></el-icon>
-            <div class="el-upload__text">拖拽文件或点击上传</div>
+            <div class="el-upload__text">
+              拖拽文件或点击上传
+            </div>
             <template #tip>
-              <div class="el-upload__tip">支持 jpg/png/pdf/doc/docx 格式，单个文件不超过10MB</div>
+              <div class="el-upload__tip">
+                支持 jpg/png/pdf/doc/docx 格式，单个文件不超过10MB
+              </div>
             </template>
           </el-upload>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showCreateDialog = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmitOrder">提交工单</el-button>
+        <el-button @click="showCreateDialog = false">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          @click="handleSubmitOrder"
+        >
+          提交工单
+        </el-button>
       </template>
     </el-dialog>
 
     <!-- 工单详情抽屉 -->
-    <el-drawer v-model="showDetailDrawer" :title="`工单详情 - ${currentOrder?.sn}`" size="700px">
-      <div class="order-detail" v-if="currentOrder">
+    <el-drawer
+      v-model="showDetailDrawer"
+      :title="`工单详情 - ${currentOrder?.sn}`"
+      size="700px"
+    >
+      <div
+        v-if="currentOrder"
+        class="order-detail"
+      >
         <div class="detail-header">
           <div class="detail-badges">
-            <el-tag :type="getCategoryTagType(currentOrder.category)" size="large">
+            <el-tag
+              :type="getCategoryTagType(currentOrder.category)"
+              size="large"
+            >
               {{ getCategoryText(currentOrder.category) }}
             </el-tag>
-            <el-tag :type="getPriorityTagType(currentOrder.priority)" size="large" effect="dark">
+            <el-tag
+              :type="getPriorityTagType(currentOrder.priority)"
+              size="large"
+              effect="dark"
+            >
               {{ getPriorityText(currentOrder.priority) }}
             </el-tag>
-            <el-tag :type="getStatusTagType(currentOrder.status)" size="large">
+            <el-tag
+              :type="getStatusTagType(currentOrder.status)"
+              size="large"
+            >
               {{ getStatusText(currentOrder.status) }}
             </el-tag>
           </div>
-          <h3 class="detail-title">{{ currentOrder.title }}</h3>
+          <h3 class="detail-title">
+            {{ currentOrder.title }}
+          </h3>
         </div>
 
-        <el-descriptions :column="2" border class="detail-descriptions">
-          <el-descriptions-item label="工单编号">{{ currentOrder.sn }}</el-descriptions-item>
+        <el-descriptions
+          :column="2"
+          border
+          class="detail-descriptions"
+        >
+          <el-descriptions-item label="工单编号">
+            {{ currentOrder.sn }}
+          </el-descriptions-item>
           <el-descriptions-item label="SLA剩余时间">
             <span :class="{ 'sla-warning': isSLAWarning(currentOrder) }">
               {{ currentOrder.slaRemaining }}
             </span>
           </el-descriptions-item>
-          <el-descriptions-item label="创建人">{{ currentOrder.creator }}</el-descriptions-item>
-          <el-descriptions-item label="处理人">{{ currentOrder.assignee || '未分配' }}</el-descriptions-item>
-          <el-descriptions-item label="创建时间">{{ currentOrder.createTime }}</el-descriptions-item>
-          <el-descriptions-item label="更新时间">{{ currentOrder.updateTime }}</el-descriptions-item>
-          <el-descriptions-item label="关联资产" :span="2">
+          <el-descriptions-item label="创建人">
+            {{ currentOrder.creator }}
+          </el-descriptions-item>
+          <el-descriptions-item label="处理人">
+            {{ currentOrder.assignee || '未分配' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="创建时间">
+            {{ currentOrder.createTime }}
+          </el-descriptions-item>
+          <el-descriptions-item label="更新时间">
+            {{ currentOrder.updateTime }}
+          </el-descriptions-item>
+          <el-descriptions-item
+            label="关联资产"
+            :span="2"
+          >
             {{ currentOrder.assetName || '无' }}
           </el-descriptions-item>
         </el-descriptions>
 
-        <el-divider content-position="left">工单描述</el-divider>
+        <el-divider content-position="left">
+          工单描述
+        </el-divider>
         <div class="detail-description">
           {{ currentOrder.description }}
         </div>
 
-        <el-divider content-position="left">处理记录</el-divider>
+        <el-divider content-position="left">
+          处理记录
+        </el-divider>
         <el-timeline>
           <el-timeline-item
             v-for="(item, index) in currentOrder.processes"
@@ -408,30 +736,52 @@
             :type="item.type"
           >
             <div class="process-item">
-              <p class="process-action">{{ item.action }}</p>
-              <p class="process-detail">{{ item.detail }}</p>
-              <p class="process-operator">{{ item.operator }}</p>
+              <p class="process-action">
+                {{ item.action }}
+              </p>
+              <p class="process-detail">
+                {{ item.detail }}
+              </p>
+              <p class="process-operator">
+                {{ item.operator }}
+              </p>
             </div>
           </el-timeline-item>
         </el-timeline>
 
-        <el-divider content-position="left">评论</el-divider>
+        <el-divider content-position="left">
+          评论
+        </el-divider>
         <div class="comments-section">
           <div v-if="currentOrder.comments && currentOrder.comments.length > 0">
-            <div v-for="(comment, index) in currentOrder.comments" :key="index" class="comment-item">
+            <div
+              v-for="(comment, index) in currentOrder.comments"
+              :key="index"
+              class="comment-item"
+            >
               <div class="comment-avatar">
-                <el-avatar :size="32" :icon="UserFilled" />
+                <el-avatar
+                  :size="32"
+                  :icon="UserFilled"
+                />
               </div>
               <div class="comment-content">
                 <div class="comment-header">
                   <span class="comment-author">{{ comment.author }}</span>
                   <span class="comment-time">{{ comment.time }}</span>
                 </div>
-                <div class="comment-text">{{ comment.text }}</div>
+                <div class="comment-text">
+                  {{ comment.text }}
+                </div>
               </div>
             </div>
           </div>
-          <div v-else class="no-comments">暂无评论</div>
+          <div
+            v-else
+            class="no-comments"
+          >
+            暂无评论
+          </div>
         </div>
 
         <div class="comment-input-section">
@@ -441,33 +791,64 @@
             :rows="3"
             placeholder="添加评论..."
           />
-          <el-button type="primary" @click="handleAddComment" style="margin-top: 10px;">
+          <el-button
+            type="primary"
+            style="margin-top: 10px;"
+            @click="handleAddComment"
+          >
             发表评论
           </el-button>
         </div>
 
-        <el-divider content-position="left">操作</el-divider>
+        <el-divider content-position="left">
+          操作
+        </el-divider>
         <div class="detail-actions">
-          <el-button type="primary" @click="handleProcess(currentOrder)" v-if="currentOrder.status !== 'completed' && currentOrder.status !== 'closed'">
+          <el-button
+            v-if="currentOrder.status !== 'completed' && currentOrder.status !== 'closed'"
+            type="primary"
+            @click="handleProcess(currentOrder)"
+          >
             处理工单
           </el-button>
-          <el-button @click="handleTransfer(currentOrder)">转移工单</el-button>
-          <el-button type="success" @click="handleComplete(currentOrder)" v-if="currentOrder.status !== 'completed' && currentOrder.status !== 'closed'">
+          <el-button @click="handleTransfer(currentOrder)">
+            转移工单
+          </el-button>
+          <el-button
+            v-if="currentOrder.status !== 'completed' && currentOrder.status !== 'closed'"
+            type="success"
+            @click="handleComplete(currentOrder)"
+          >
             完成工单
           </el-button>
-          <el-button @click="handleClose(currentOrder)">关闭工单</el-button>
+          <el-button @click="handleClose(currentOrder)">
+            关闭工单
+          </el-button>
         </div>
       </div>
     </el-drawer>
 
     <!-- 处理工单对话框 -->
-    <el-dialog v-model="showProcessDialog" title="处理工单" width="600px">
-      <el-form :model="processForm" label-width="100px">
+    <el-dialog
+      v-model="showProcessDialog"
+      title="处理工单"
+      width="600px"
+    >
+      <el-form
+        :model="processForm"
+        label-width="100px"
+      >
         <el-form-item label="处理结果">
           <el-radio-group v-model="processForm.result">
-            <el-radio label="resolved">已解决</el-radio>
-            <el-radio label="in_progress">进行中</el-radio>
-            <el-radio label="need_info">需要更多信息</el-radio>
+            <el-radio label="resolved">
+              已解决
+            </el-radio>
+            <el-radio label="in_progress">
+              进行中
+            </el-radio>
+            <el-radio label="need_info">
+              需要更多信息
+            </el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="处理说明">
@@ -479,16 +860,37 @@
           />
         </el-form-item>
         <el-form-item label="转交处理人">
-          <el-select v-model="processForm.assignee" placeholder="选择处理人" style="width: 100%" clearable>
-            <el-option label="张三" value="张三" />
-            <el-option label="李四" value="李四" />
-            <el-option label="王五" value="王五" />
+          <el-select
+            v-model="processForm.assignee"
+            placeholder="选择处理人"
+            style="width: 100%"
+            clearable
+          >
+            <el-option
+              label="张三"
+              value="张三"
+            />
+            <el-option
+              label="李四"
+              value="李四"
+            />
+            <el-option
+              label="王五"
+              value="王五"
+            />
           </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showProcessDialog = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmitProcess">提交处理</el-button>
+        <el-button @click="showProcessDialog = false">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          @click="handleSubmitProcess"
+        >
+          提交处理
+        </el-button>
       </template>
     </el-dialog>
   </div>

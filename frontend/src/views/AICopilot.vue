@@ -2,25 +2,45 @@
   <div class="ai-copilot-page">
     <div class="copilot-container">
       <!-- 左侧边栏 -->
-      <aside class="sidebar" :class="{ collapsed: sidebarCollapsed }">
+      <aside
+        class="sidebar"
+        :class="{ collapsed: sidebarCollapsed }"
+      >
         <div class="sidebar-header">
-          <div class="logo" v-if="!sidebarCollapsed">
-            <el-icon :size="24"><MagicStick /></el-icon>
+          <div
+            v-if="!sidebarCollapsed"
+            class="logo"
+          >
+            <el-icon :size="24">
+              <MagicStick />
+            </el-icon>
             <span>AI 助手</span>
           </div>
-          <el-button text @click="sidebarCollapsed = !sidebarCollapsed">
+          <el-button
+            text
+            @click="sidebarCollapsed = !sidebarCollapsed"
+          >
             <el-icon><component :is="sidebarCollapsed ? 'Expand' : 'Fold'" /></el-icon>
           </el-button>
         </div>
 
-        <div class="sidebar-content" v-if="!sidebarCollapsed">
-          <el-button type="primary" class="new-chat-btn" @click="startNewChat">
+        <div
+          v-if="!sidebarCollapsed"
+          class="sidebar-content"
+        >
+          <el-button
+            type="primary"
+            class="new-chat-btn"
+            @click="startNewChat"
+          >
             <el-icon><Plus /></el-icon>
             新建对话
           </el-button>
 
           <div class="chat-history">
-            <div class="history-label">历史对话</div>
+            <div class="history-label">
+              历史对话
+            </div>
             <div class="history-list">
               <div 
                 v-for="chat in chatHistory" 
@@ -31,14 +51,29 @@
               >
                 <el-icon><ChatLineSquare /></el-icon>
                 <span class="history-title">{{ chat.title }}</span>
-                <el-dropdown trigger="click" @command="(cmd) => handleHistoryCommand(cmd, chat)" @click.stop>
-                  <el-button text size="small" class="history-menu">
+                <el-dropdown
+                  trigger="click"
+                  @command="(cmd) => handleHistoryCommand(cmd, chat)"
+                  @click.stop
+                >
+                  <el-button
+                    text
+                    size="small"
+                    class="history-menu"
+                  >
                     <el-icon><MoreFilled /></el-icon>
                   </el-button>
                   <template #dropdown>
                     <el-dropdown-menu>
-                      <el-dropdown-item command="rename">重命名</el-dropdown-item>
-                      <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
+                      <el-dropdown-item command="rename">
+                        重命名
+                      </el-dropdown-item>
+                      <el-dropdown-item
+                        command="delete"
+                        divided
+                      >
+                        删除
+                      </el-dropdown-item>
                     </el-dropdown-menu>
                   </template>
                 </el-dropdown>
@@ -47,14 +82,28 @@
           </div>
         </div>
 
-        <div class="sidebar-footer" v-if="!sidebarCollapsed">
+        <div
+          v-if="!sidebarCollapsed"
+          class="sidebar-footer"
+        >
           <div class="model-status">
-            <div class="model-indicator" :class="modelStatus"></div>
+            <div
+              class="model-indicator"
+              :class="modelStatus"
+            />
             <div class="model-info">
-              <div class="model-name">{{ currentModel }}</div>
-              <div class="model-status-text">{{ modelStatusText }}</div>
+              <div class="model-name">
+                {{ currentModel }}
+              </div>
+              <div class="model-status-text">
+                {{ modelStatusText }}
+              </div>
             </div>
-            <el-button text size="small" @click="showModelSelector = true">
+            <el-button
+              text
+              size="small"
+              @click="showModelSelector = true"
+            >
               <el-icon><Setting /></el-icon>
             </el-button>
           </div>
@@ -66,7 +115,9 @@
         <!-- 聊天头部 -->
         <header class="chat-header">
           <div class="header-info">
-            <h2 class="chat-title">{{ currentChatTitle }}</h2>
+            <h2 class="chat-title">
+              {{ currentChatTitle }}
+            </h2>
             <div class="chat-meta">
               <span class="meta-item">
                 <el-icon><Clock /></el-icon>
@@ -80,25 +131,40 @@
           </div>
           <div class="header-actions">
             <el-tooltip content="导出对话">
-              <el-button text @click="exportChat">
+              <el-button
+                text
+                @click="exportChat"
+              >
                 <el-icon><Download /></el-icon>
               </el-button>
             </el-tooltip>
             <el-tooltip content="清空对话">
-              <el-button text @click="clearHistory">
+              <el-button
+                text
+                @click="clearHistory"
+              >
                 <el-icon><Delete /></el-icon>
               </el-button>
             </el-tooltip>
-            <el-button text @click="showSettingsDrawer = true">
+            <el-button
+              text
+              @click="showSettingsDrawer = true"
+            >
               <el-icon><Setting /></el-icon>
             </el-button>
           </div>
         </header>
 
         <!-- 消息区域 -->
-        <div class="chat-messages" ref="messagesContainer">
+        <div
+          ref="messagesContainer"
+          class="chat-messages"
+        >
           <!-- 空状态：使用新的EmptyState组件 -->
-          <div v-if="messages.length === 0" class="empty-state">
+          <div
+            v-if="messages.length === 0"
+            class="empty-state"
+          >
             <EmptyState
               type="search"
               :title="welcomeTitle"
@@ -117,10 +183,15 @@
                     class="prompt-card"
                     @click="usePrompt(prompt)"
                   >
-                    <div class="prompt-icon" :style="{ background: prompt.bgColor }">
+                    <div
+                      class="prompt-icon"
+                      :style="{ background: prompt.bgColor }"
+                    >
                       <el-icon><component :is="prompt.icon" /></el-icon>
                     </div>
-                    <div class="prompt-text">{{ prompt.title }}</div>
+                    <div class="prompt-text">
+                      {{ prompt.title }}
+                    </div>
                   </div>
                 </div>
               </template>
@@ -141,7 +212,10 @@
           </div>
 
           <!-- 消息列表 -->
-          <div v-else class="messages-list">
+          <div
+            v-else
+            class="messages-list"
+          >
             <div 
               v-for="(msg, index) in messages" 
               :key="index"
@@ -149,24 +223,53 @@
               :class="msg.role"
             >
               <div class="message-avatar">
-                <div class="avatar-circle" :class="msg.role">
-                  <el-icon v-if="msg.role === 'user'" :size="20"><User /></el-icon>
-                  <el-icon v-else :size="20"><MagicStick /></el-icon>
+                <div
+                  class="avatar-circle"
+                  :class="msg.role"
+                >
+                  <el-icon
+                    v-if="msg.role === 'user'"
+                    :size="20"
+                  >
+                    <User />
+                  </el-icon>
+                  <el-icon
+                    v-else
+                    :size="20"
+                  >
+                    <MagicStick />
+                  </el-icon>
                 </div>
               </div>
 
               <div class="message-bubble">
-                <div class="message-content" v-html="formatMessage(msg.content)"></div>
+                <div
+                  class="message-content"
+                  v-html="formatMessage(msg.content)"
+                />
                 <div class="message-footer">
-                  <div class="message-time">{{ msg.time }}</div>
-                  <div class="message-actions" v-if="msg.role === 'assistant'">
+                  <div class="message-time">
+                    {{ msg.time }}
+                  </div>
+                  <div
+                    v-if="msg.role === 'assistant'"
+                    class="message-actions"
+                  >
                     <el-tooltip content="复制">
-                      <el-button text size="small" @click="copyMessage(msg.content)">
+                      <el-button
+                        text
+                        size="small"
+                        @click="copyMessage(msg.content)"
+                      >
                         <el-icon><CopyDocument /></el-icon>
                       </el-button>
                     </el-tooltip>
                     <el-tooltip content="重新生成">
-                      <el-button text size="small" @click="regenerateMessage(index)">
+                      <el-button
+                        text
+                        size="small"
+                        @click="regenerateMessage(index)"
+                      >
                         <el-icon><RefreshLeft /></el-icon>
                       </el-button>
                     </el-tooltip>
@@ -176,17 +279,22 @@
             </div>
 
             <!-- 正在输入指示器 -->
-            <div v-if="isTyping" class="message-wrapper assistant">
+            <div
+              v-if="isTyping"
+              class="message-wrapper assistant"
+            >
               <div class="message-avatar">
                 <div class="avatar-circle assistant">
-                  <el-icon :size="20"><MagicStick /></el-icon>
+                  <el-icon :size="20">
+                    <MagicStick />
+                  </el-icon>
                 </div>
               </div>
               <div class="message-bubble typing">
                 <div class="typing-indicator">
-                  <span class="dot"></span>
-                  <span class="dot"></span>
-                  <span class="dot"></span>
+                  <span class="dot" />
+                  <span class="dot" />
+                  <span class="dot" />
                 </div>
                 <span class="typing-text">AI 正在思考...</span>
               </div>
@@ -195,7 +303,10 @@
         </div>
 
         <!-- 快捷操作栏 -->
-        <div class="quick-actions-bar" v-if="messages.length > 0">
+        <div
+          v-if="messages.length > 0"
+          class="quick-actions-bar"
+        >
           <div class="quick-actions-scroll">
             <div 
               v-for="action in quickActions" 
@@ -212,23 +323,30 @@
         <!-- 输入区域 -->
         <footer class="chat-footer">
           <div class="input-container">
-            <div class="input-wrapper" :class="{ focused: inputFocused }">
+            <div
+              class="input-wrapper"
+              :class="{ focused: inputFocused }"
+            >
               <el-input
                 v-model="inputMessage"
                 type="textarea"
                 :rows="1"
                 :autosize="{ minRows: 1, maxRows: 4 }"
                 placeholder="输入您的问题，AI 助手将为您解答..."
+                :disabled="isTyping"
+                class="message-input"
                 @keydown.enter.exact.prevent="sendMessage"
                 @focus="inputFocused = true"
                 @blur="inputFocused = false"
-                :disabled="isTyping"
-                class="message-input"
               />
               <div class="input-actions">
                 <div class="attachment-btn">
                   <el-tooltip content="上传附件">
-                    <el-button text size="small" :disabled="isTyping">
+                    <el-button
+                      text
+                      size="small"
+                      :disabled="isTyping"
+                    >
                       <el-icon><Paperclip /></el-icon>
                     </el-button>
                   </el-tooltip>
@@ -253,10 +371,16 @@
       </main>
 
       <!-- 右侧功能面板 -->
-      <aside class="features-panel" v-if="!featuresCollapsed">
+      <aside
+        v-if="!featuresCollapsed"
+        class="features-panel"
+      >
         <div class="panel-header">
           <h3>功能说明</h3>
-          <el-button text @click="featuresCollapsed = true">
+          <el-button
+            text
+            @click="featuresCollapsed = true"
+          >
             <el-icon><Close /></el-icon>
           </el-button>
         </div>
@@ -267,12 +391,19 @@
             :key="cap.title"
             class="capability-card"
           >
-            <div class="cap-icon" :style="{ background: cap.bgColor }">
+            <div
+              class="cap-icon"
+              :style="{ background: cap.bgColor }"
+            >
               <el-icon><component :is="cap.icon" /></el-icon>
             </div>
             <div class="cap-info">
-              <div class="cap-title">{{ cap.title }}</div>
-              <div class="cap-desc">{{ cap.description }}</div>
+              <div class="cap-title">
+                {{ cap.title }}
+              </div>
+              <div class="cap-desc">
+                {{ cap.description }}
+              </div>
             </div>
           </div>
         </div>
@@ -283,13 +414,27 @@
             当前上下文
           </div>
           <div class="context-tags">
-            <el-tag v-if="currentContext.server" size="small" closable @close="removeContext('server')">
+            <el-tag
+              v-if="currentContext.server"
+              size="small"
+              closable
+              @close="removeContext('server')"
+            >
               服务器: {{ currentContext.server }}
             </el-tag>
-            <el-tag v-if="currentContext.service" size="small" closable @close="removeContext('service')">
+            <el-tag
+              v-if="currentContext.service"
+              size="small"
+              closable
+              @close="removeContext('service')"
+            >
               服务: {{ currentContext.service }}
             </el-tag>
-            <el-tag v-if="!currentContext.server && !currentContext.service" type="info" size="small">
+            <el-tag
+              v-if="!currentContext.server && !currentContext.service"
+              type="info"
+              size="small"
+            >
               无上下文
             </el-tag>
           </div>
@@ -317,13 +462,21 @@
         </div>
       </aside>
 
-      <button class="features-toggle" @click="featuresCollapsed = false" v-if="featuresCollapsed">
+      <button
+        v-if="featuresCollapsed"
+        class="features-toggle"
+        @click="featuresCollapsed = false"
+      >
         <el-icon><ArrowLeft /></el-icon>
       </button>
     </div>
 
     <!-- 模型选择器对话框 -->
-    <el-dialog v-model="showModelSelector" title="选择 AI 模型" width="500px">
+    <el-dialog
+      v-model="showModelSelector"
+      title="选择 AI 模型"
+      width="500px"
+    >
       <div class="model-selector">
         <div class="model-list">
           <div 
@@ -337,11 +490,23 @@
               <el-icon><component :is="model.icon" /></el-icon>
             </div>
             <div class="model-details">
-              <div class="model-name">{{ model.name }}</div>
-              <div class="model-desc">{{ model.description }}</div>
+              <div class="model-name">
+                {{ model.name }}
+              </div>
+              <div class="model-desc">
+                {{ model.description }}
+              </div>
             </div>
-            <div class="model-badge" v-if="model.recommended">
-              <el-tag size="small" type="success">推荐</el-tag>
+            <div
+              v-if="model.recommended"
+              class="model-badge"
+            >
+              <el-tag
+                size="small"
+                type="success"
+              >
+                推荐
+              </el-tag>
             </div>
           </div>
         </div>
@@ -349,17 +514,36 @@
     </el-dialog>
 
     <!-- 设置抽屉 -->
-    <el-drawer v-model="showSettingsDrawer" title="对话设置" size="400px">
+    <el-drawer
+      v-model="showSettingsDrawer"
+      title="对话设置"
+      size="400px"
+    >
       <div class="settings-content">
         <el-form label-position="top">
           <el-form-item label="Temperature（创造性）">
-            <el-slider v-model="settings.temperature" :min="0" :max="2" :step="0.1" :marks="tempMarks" />
+            <el-slider
+              v-model="settings.temperature"
+              :min="0"
+              :max="2"
+              :step="0.1"
+              :marks="tempMarks"
+            />
           </el-form-item>
           <el-form-item label="Max Tokens（最大回复长度）">
-            <el-input-number v-model="settings.maxTokens" :min="100" :max="4000" :step="100" />
+            <el-input-number
+              v-model="settings.maxTokens"
+              :min="100"
+              :max="4000"
+              :step="100"
+            />
           </el-form-item>
           <el-form-item label="上下文轮次">
-            <el-input-number v-model="settings.contextTurns" :min="1" :max="20" />
+            <el-input-number
+              v-model="settings.contextTurns"
+              :min="1"
+              :max="20"
+            />
           </el-form-item>
           <el-form-item label="启用上下文记忆">
             <el-switch v-model="settings.enableMemory" />

@@ -3,15 +3,22 @@
     <!-- 页面头部 -->
     <div class="page-header">
       <div class="page-header-left">
-        <h2 class="page-title">任务调度中心</h2>
-        <p class="page-subtitle">自动化任务编排与管理，支持Cron表达式定时执行</p>
+        <h2 class="page-title">
+          任务调度中心
+        </h2>
+        <p class="page-subtitle">
+          自动化任务编排与管理，支持Cron表达式定时执行
+        </p>
       </div>
       <div class="page-header-actions">
         <el-button @click="showSchedulerDialog = true">
           <el-icon><Setting /></el-icon>
           调度配置
         </el-button>
-        <el-button type="primary" @click="handleCreateTask">
+        <el-button
+          type="primary"
+          @click="handleCreateTask"
+        >
           <el-icon><Plus /></el-icon>
           创建任务
         </el-button>
@@ -26,69 +33,115 @@
         class="stat-card"
         :style="{ animationDelay: `${index * 0.08}s` }"
       >
-        <div class="stat-icon" :class="stat.key">
+        <div
+          class="stat-icon"
+          :class="stat.key"
+        >
           <el-icon><component :is="stat.icon" /></el-icon>
         </div>
         <div class="stat-content">
-          <div class="stat-value">{{ stat.value }}</div>
-          <div class="stat-title">{{ stat.title }}</div>
+          <div class="stat-value">
+            {{ stat.value }}
+          </div>
+          <div class="stat-title">
+            {{ stat.title }}
+          </div>
         </div>
-        <div v-if="stat.key === 'running'" class="stat-pulse"></div>
+        <div
+          v-if="stat.key === 'running'"
+          class="stat-pulse"
+        />
       </div>
     </div>
 
     <!-- 筛选工具栏 -->
     <div class="filter-bar">
       <div class="filter-left">
-        <el-select v-model="typeFilter" placeholder="任务类型" style="width: 130px" clearable @change="handleFilterChange">
-          <el-option label="数据采集" value="collection">
+        <el-select
+          v-model="typeFilter"
+          placeholder="任务类型"
+          style="width: 130px"
+          clearable
+          @change="handleFilterChange"
+        >
+          <el-option
+            label="数据采集"
+            value="collection"
+          >
             <div class="type-option">
-              <span class="type-dot collection"></span>
+              <span class="type-dot collection" />
               <span>数据采集</span>
             </div>
           </el-option>
-          <el-option label="报告生成" value="report">
+          <el-option
+            label="报告生成"
+            value="report"
+          >
             <div class="type-option">
-              <span class="type-dot report"></span>
+              <span class="type-dot report" />
               <span>报告生成</span>
             </div>
           </el-option>
-          <el-option label="告警检查" value="alert_check">
+          <el-option
+            label="告警检查"
+            value="alert_check"
+          >
             <div class="type-option">
-              <span class="type-dot alert_check"></span>
+              <span class="type-dot alert_check" />
               <span>告警检查</span>
             </div>
           </el-option>
-          <el-option label="备份任务" value="backup">
+          <el-option
+            label="备份任务"
+            value="backup"
+          >
             <div class="type-option">
-              <span class="type-dot backup"></span>
+              <span class="type-dot backup" />
               <span>备份任务</span>
             </div>
           </el-option>
         </el-select>
 
-        <el-select v-model="statusFilter" placeholder="任务状态" style="width: 130px" clearable @change="handleFilterChange">
-          <el-option label="运行中" value="running">
+        <el-select
+          v-model="statusFilter"
+          placeholder="任务状态"
+          style="width: 130px"
+          clearable
+          @change="handleFilterChange"
+        >
+          <el-option
+            label="运行中"
+            value="running"
+          >
             <div class="status-option">
-              <span class="status-dot running"></span>
+              <span class="status-dot running" />
               <span>运行中</span>
             </div>
           </el-option>
-          <el-option label="已暂停" value="paused">
+          <el-option
+            label="已暂停"
+            value="paused"
+          >
             <div class="status-option">
-              <span class="status-dot paused"></span>
+              <span class="status-dot paused" />
               <span>已暂停</span>
             </div>
           </el-option>
-          <el-option label="已完成" value="completed">
+          <el-option
+            label="已完成"
+            value="completed"
+          >
             <div class="status-option">
-              <span class="status-dot completed"></span>
+              <span class="status-dot completed" />
               <span>已完成</span>
             </div>
           </el-option>
-          <el-option label="执行失败" value="failed">
+          <el-option
+            label="执行失败"
+            value="failed"
+          >
             <div class="status-option">
-              <span class="status-dot failed"></span>
+              <span class="status-dot failed" />
               <span>执行失败</span>
             </div>
           </el-option>
@@ -109,7 +162,11 @@
       </div>
 
       <div class="filter-right">
-        <el-button text @click="handleRefresh" :loading="loading">
+        <el-button
+          text
+          :loading="loading"
+          @click="handleRefresh"
+        >
           <el-icon><Refresh /></el-icon>
         </el-button>
       </div>
@@ -124,34 +181,61 @@
         class="tasks-table"
         row-key="id"
       >
-        <el-table-column label="任务信息" min-width="220">
+        <el-table-column
+          label="任务信息"
+          min-width="220"
+        >
           <template #default="{ row }">
             <div class="task-info-cell">
-              <div class="task-icon" :class="row.type">
+              <div
+                class="task-icon"
+                :class="row.type"
+              >
                 <el-icon><component :is="getTypeIcon(row.type)" /></el-icon>
               </div>
               <div class="task-text">
-                <div class="task-name">{{ row.name }}</div>
-                <div class="task-desc">{{ row.description }}</div>
+                <div class="task-name">
+                  {{ row.name }}
+                </div>
+                <div class="task-desc">
+                  {{ row.description }}
+                </div>
               </div>
             </div>
           </template>
         </el-table-column>
 
-        <el-table-column label="任务类型" width="110">
+        <el-table-column
+          label="任务类型"
+          width="110"
+        >
           <template #default="{ row }">
-            <el-tag size="small" :type="getTypeTagType(row.type)" effect="light">
+            <el-tag
+              size="small"
+              :type="getTypeTagType(row.type)"
+              effect="light"
+            >
               {{ getTypeText(row.type) }}
             </el-tag>
           </template>
         </el-table-column>
 
-        <el-table-column label="调度规则" width="160">
+        <el-table-column
+          label="调度规则"
+          width="160"
+        >
           <template #default="{ row }">
             <div class="cron-cell">
               <span class="cron-text">{{ row.cron }}</span>
-              <el-tooltip content="查看调度说明" placement="top">
-                <el-button text size="small" @click="showCronHelp(row.cron)">
+              <el-tooltip
+                content="查看调度说明"
+                placement="top"
+              >
+                <el-button
+                  text
+                  size="small"
+                  @click="showCronHelp(row.cron)"
+                >
                   <el-icon><QuestionFilled /></el-icon>
                 </el-button>
               </el-tooltip>
@@ -159,77 +243,176 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="下次执行" width="160">
+        <el-table-column
+          label="下次执行"
+          width="160"
+        >
           <template #default="{ row }">
-            <span class="next-run-text" :class="{ 'soon': isSoon(row.nextRun) }">
+            <span
+              class="next-run-text"
+              :class="{ 'soon': isSoon(row.nextRun) }"
+            >
               {{ row.nextRun }}
             </span>
           </template>
         </el-table-column>
 
-        <el-table-column label="上次执行" width="160">
+        <el-table-column
+          label="上次执行"
+          width="160"
+        >
           <template #default="{ row }">
             <span class="last-run-text">{{ row.lastRun }}</span>
           </template>
         </el-table-column>
 
-        <el-table-column label="执行耗时" width="100">
+        <el-table-column
+          label="执行耗时"
+          width="100"
+        >
           <template #default="{ row }">
-            <span class="duration-text" v-if="row.duration">{{ row.duration }}</span>
-            <span class="duration-text muted" v-else>-</span>
+            <span
+              v-if="row.duration"
+              class="duration-text"
+            >{{ row.duration }}</span>
+            <span
+              v-else
+              class="duration-text muted"
+            >-</span>
           </template>
         </el-table-column>
 
-        <el-table-column label="状态" width="100">
+        <el-table-column
+          label="状态"
+          width="100"
+        >
           <template #default="{ row }">
             <div class="status-cell">
-              <span class="status-indicator" :class="row.status"></span>
-              <el-tag size="small" :type="getStatusTagType(row.status)" effect="light">
+              <span
+                class="status-indicator"
+                :class="row.status"
+              />
+              <el-tag
+                size="small"
+                :type="getStatusTagType(row.status)"
+                effect="light"
+              >
                 {{ getStatusText(row.status) }}
               </el-tag>
             </div>
           </template>
         </el-table-column>
 
-        <el-table-column label="操作" width="220" fixed="right">
+        <el-table-column
+          label="操作"
+          width="220"
+          fixed="right"
+        >
           <template #default="{ row }">
             <div class="action-buttons">
-              <el-tooltip content="立即执行" placement="top" v-if="row.status !== 'running'">
-                <el-button text type="success" size="small" @click="handleRunNow(row)">
+              <el-tooltip
+                v-if="row.status !== 'running'"
+                content="立即执行"
+                placement="top"
+              >
+                <el-button
+                  text
+                  type="success"
+                  size="small"
+                  @click="handleRunNow(row)"
+                >
                   <el-icon><VideoPlay /></el-icon>
                 </el-button>
               </el-tooltip>
-              <el-tooltip content="暂停任务" placement="top" v-if="row.status === 'running'">
-                <el-button text type="warning" size="small" @click="handlePause(row)">
+              <el-tooltip
+                v-if="row.status === 'running'"
+                content="暂停任务"
+                placement="top"
+              >
+                <el-button
+                  text
+                  type="warning"
+                  size="small"
+                  @click="handlePause(row)"
+                >
                   <el-icon><VideoPause /></el-icon>
                 </el-button>
               </el-tooltip>
-              <el-tooltip content="恢复任务" placement="top" v-if="row.status === 'paused'">
-                <el-button text type="success" size="small" @click="handleResume(row)">
+              <el-tooltip
+                v-if="row.status === 'paused'"
+                content="恢复任务"
+                placement="top"
+              >
+                <el-button
+                  text
+                  type="success"
+                  size="small"
+                  @click="handleResume(row)"
+                >
                   <el-icon><VideoPlay /></el-icon>
                 </el-button>
               </el-tooltip>
-              <el-tooltip content="执行日志" placement="top">
-                <el-button text type="primary" size="small" @click="handleViewLogs(row)">
+              <el-tooltip
+                content="执行日志"
+                placement="top"
+              >
+                <el-button
+                  text
+                  type="primary"
+                  size="small"
+                  @click="handleViewLogs(row)"
+                >
                   <el-icon><List /></el-icon>
                 </el-button>
               </el-tooltip>
-              <el-tooltip content="编辑任务" placement="top">
-                <el-button text size="small" @click="handleEditTask(row)">
+              <el-tooltip
+                content="编辑任务"
+                placement="top"
+              >
+                <el-button
+                  text
+                  size="small"
+                  @click="handleEditTask(row)"
+                >
                   <el-icon><Edit /></el-icon>
                 </el-button>
               </el-tooltip>
-              <el-dropdown trigger="click" @command="(cmd) => handleTaskCommand(cmd, row)">
-                <el-button text size="small">
+              <el-dropdown
+                trigger="click"
+                @command="(cmd) => handleTaskCommand(cmd, row)"
+              >
+                <el-button
+                  text
+                  size="small"
+                >
                   <el-icon><MoreFilled /></el-icon>
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item command="run">立即执行</el-dropdown-item>
-                    <el-dropdown-item command="enable" v-if="!row.enabled">启用任务</el-dropdown-item>
-                    <el-dropdown-item command="disable" v-if="row.enabled">禁用任务</el-dropdown-item>
-                    <el-dropdown-item command="logs" divided>查看日志</el-dropdown-item>
-                    <el-dropdown-item command="delete">删除任务</el-dropdown-item>
+                    <el-dropdown-item command="run">
+                      立即执行
+                    </el-dropdown-item>
+                    <el-dropdown-item
+                      v-if="!row.enabled"
+                      command="enable"
+                    >
+                      启用任务
+                    </el-dropdown-item>
+                    <el-dropdown-item
+                      v-if="row.enabled"
+                      command="disable"
+                    >
+                      禁用任务
+                    </el-dropdown-item>
+                    <el-dropdown-item
+                      command="logs"
+                      divided
+                    >
+                      查看日志
+                    </el-dropdown-item>
+                    <el-dropdown-item command="delete">
+                      删除任务
+                    </el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -262,77 +445,143 @@
       width="650px"
       :close-on-click-modal="false"
     >
-      <el-form :model="taskForm" label-width="100px" :rules="formRules" ref="taskFormRef">
-        <el-form-item label="任务名称" prop="name">
-          <el-input v-model="taskForm.name" placeholder="请输入任务名称" maxlength="50" />
+      <el-form
+        ref="taskFormRef"
+        :model="taskForm"
+        label-width="100px"
+        :rules="formRules"
+      >
+        <el-form-item
+          label="任务名称"
+          prop="name"
+        >
+          <el-input
+            v-model="taskForm.name"
+            placeholder="请输入任务名称"
+            maxlength="50"
+          />
         </el-form-item>
 
-        <el-form-item label="任务类型" prop="type">
-          <el-select v-model="taskForm.type" placeholder="选择任务类型" style="width: 100%">
-            <el-option label="数据采集" value="collection">
+        <el-form-item
+          label="任务类型"
+          prop="type"
+        >
+          <el-select
+            v-model="taskForm.type"
+            placeholder="选择任务类型"
+            style="width: 100%"
+          >
+            <el-option
+              label="数据采集"
+              value="collection"
+            >
               <div class="type-option">
-                <span class="type-dot collection"></span>
+                <span class="type-dot collection" />
                 <span>数据采集</span>
               </div>
             </el-option>
-            <el-option label="报告生成" value="report">
+            <el-option
+              label="报告生成"
+              value="report"
+            >
               <div class="type-option">
-                <span class="type-dot report"></span>
+                <span class="type-dot report" />
                 <span>报告生成</span>
               </div>
             </el-option>
-            <el-option label="告警检查" value="alert_check">
+            <el-option
+              label="告警检查"
+              value="alert_check"
+            >
               <div class="type-option">
-                <span class="type-dot alert_check"></span>
+                <span class="type-dot alert_check" />
                 <span>告警检查</span>
               </div>
             </el-option>
-            <el-option label="备份任务" value="backup">
+            <el-option
+              label="备份任务"
+              value="backup"
+            >
               <div class="type-option">
-                <span class="type-dot backup"></span>
+                <span class="type-dot backup" />
                 <span>备份任务</span>
               </div>
             </el-option>
           </el-select>
         </el-form-item>
 
-        <el-form-item label="调度规则" prop="cron">
+        <el-form-item
+          label="调度规则"
+          prop="cron"
+        >
           <div class="cron-input-group">
-            <el-input v-model="taskForm.cron" placeholder="* * * * *" style="width: 180px" />
+            <el-input
+              v-model="taskForm.cron"
+              placeholder="* * * * *"
+              style="width: 180px"
+            />
             <span class="cron-hint">分 时 日 月 周</span>
-            <el-popover placement="bottom" :width="360" trigger="hover">
+            <el-popover
+              placement="bottom"
+              :width="360"
+              trigger="hover"
+            >
               <template #reference>
-                <el-button type="primary" link>
+                <el-button
+                  type="primary"
+                  link
+                >
                   <el-icon><QuestionFilled /></el-icon>
                   常用规则
                 </el-button>
               </template>
               <div class="cron-presets">
-                <div class="preset-item" @click="taskForm.cron = '*/5 * * * *'">
+                <div
+                  class="preset-item"
+                  @click="taskForm.cron = '*/5 * * * *'"
+                >
                   <span class="preset-cron">*/5 * * * *</span>
                   <span class="preset-desc">每5分钟</span>
                 </div>
-                <div class="preset-item" @click="taskForm.cron = '0 * * * *'">
+                <div
+                  class="preset-item"
+                  @click="taskForm.cron = '0 * * * *'"
+                >
                   <span class="preset-cron">0 * * * *</span>
                   <span class="preset-desc">每小时整点</span>
                 </div>
-                <div class="preset-item" @click="taskForm.cron = '0 0 * * *'">
+                <div
+                  class="preset-item"
+                  @click="taskForm.cron = '0 0 * * *'"
+                >
                   <span class="preset-cron">0 0 * * *</span>
                   <span class="preset-desc">每天零点</span>
                 </div>
-                <div class="preset-item" @click="taskForm.cron = '0 8 * * *'">
+                <div
+                  class="preset-item"
+                  @click="taskForm.cron = '0 8 * * *'"
+                >
                   <span class="preset-cron">0 8 * * *</span>
                   <span class="preset-desc">每天早上8点</span>
                 </div>
-                <div class="preset-item" @click="taskForm.cron = '0 0 * * 0'">
+                <div
+                  class="preset-item"
+                  @click="taskForm.cron = '0 0 * * 0'"
+                >
                   <span class="preset-cron">0 0 * * 0</span>
                   <span class="preset-desc">每周一零点</span>
                 </div>
-                <div class="preset-item" @click="taskForm.cron = '0 0 1 * *'">
+                <div
+                  class="preset-item"
+                  @click="taskForm.cron = '0 0 1 * *'"
+                >
                   <span class="preset-cron">0 0 1 * *</span>
                   <span class="preset-desc">每月1号零点</span>
                 </div>
-                <div class="preset-item" @click="taskForm.cron = '0 */2 * * *'">
+                <div
+                  class="preset-item"
+                  @click="taskForm.cron = '0 */2 * * *'"
+                >
                   <span class="preset-cron">0 */2 * * *</span>
                   <span class="preset-desc">每2小时</span>
                 </div>
@@ -341,16 +590,34 @@
           </div>
         </el-form-item>
 
-        <el-form-item label="执行命令" prop="command">
-          <el-input v-model="taskForm.command" type="textarea" :rows="3" placeholder="请输入要执行的命令或脚本路径" />
+        <el-form-item
+          label="执行命令"
+          prop="command"
+        >
+          <el-input
+            v-model="taskForm.command"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入要执行的命令或脚本路径"
+          />
         </el-form-item>
 
         <el-form-item label="任务描述">
-          <el-input v-model="taskForm.description" type="textarea" :rows="2" placeholder="任务描述（可选）" />
+          <el-input
+            v-model="taskForm.description"
+            type="textarea"
+            :rows="2"
+            placeholder="任务描述（可选）"
+          />
         </el-form-item>
 
         <el-form-item label="执行超时">
-          <el-input-number v-model="taskForm.timeout" :min="0" :max="86400" placeholder="0表示不限制" />
+          <el-input-number
+            v-model="taskForm.timeout"
+            :min="0"
+            :max="86400"
+            placeholder="0表示不限制"
+          />
           <span class="unit-label">秒</span>
         </el-form-item>
 
@@ -360,33 +627,77 @@
         </el-form-item>
 
         <el-form-item label="失败重试">
-          <el-input-number v-model="taskForm.retry" :min="0" :max="10" />
+          <el-input-number
+            v-model="taskForm.retry"
+            :min="0"
+            :max="10"
+          />
           <span class="unit-label">次</span>
           <span class="retry-hint">执行失败后自动重试的次数</span>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showTaskDialog = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmitTask">确定</el-button>
+        <el-button @click="showTaskDialog = false">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          @click="handleSubmitTask"
+        >
+          确定
+        </el-button>
       </template>
     </el-dialog>
 
     <!-- 执行日志抽屉 -->
-    <el-drawer v-model="showLogsDrawer" :title="`执行日志 - ${currentTask?.name}`" size="800px">
-      <div class="logs-container" v-if="currentTask">
+    <el-drawer
+      v-model="showLogsDrawer"
+      :title="`执行日志 - ${currentTask?.name}`"
+      size="800px"
+    >
+      <div
+        v-if="currentTask"
+        class="logs-container"
+      >
         <div class="logs-toolbar">
           <div class="logs-info">
-            <el-tag :type="getTypeTagType(currentTask.type)">{{ getTypeText(currentTask.type) }}</el-tag>
-            <el-tag :type="getStatusTagType(currentTask.status)">{{ getStatusText(currentTask.status) }}</el-tag>
+            <el-tag :type="getTypeTagType(currentTask.type)">
+              {{ getTypeText(currentTask.type) }}
+            </el-tag>
+            <el-tag :type="getStatusTagType(currentTask.status)">
+              {{ getStatusText(currentTask.status) }}
+            </el-tag>
           </div>
           <div class="logs-actions">
-            <el-select v-model="logLevelFilter" placeholder="日志级别" style="width: 120px" clearable>
-              <el-option label="全部" value="" />
-              <el-option label="INFO" value="info" />
-              <el-option label="WARNING" value="warning" />
-              <el-option label="ERROR" value="error" />
+            <el-select
+              v-model="logLevelFilter"
+              placeholder="日志级别"
+              style="width: 120px"
+              clearable
+            >
+              <el-option
+                label="全部"
+                value=""
+              />
+              <el-option
+                label="INFO"
+                value="info"
+              />
+              <el-option
+                label="WARNING"
+                value="warning"
+              />
+              <el-option
+                label="ERROR"
+                value="error"
+              />
             </el-select>
-            <el-button @click="handleClearLogs" size="small">清空日志</el-button>
+            <el-button
+              size="small"
+              @click="handleClearLogs"
+            >
+              清空日志
+            </el-button>
           </div>
         </div>
 
@@ -407,18 +718,26 @@
 
         <div class="logs-terminal">
           <div class="terminal-header">
-            <span class="terminal-dot error"></span>
-            <span class="terminal-dot warning"></span>
-            <span class="terminal-dot success"></span>
+            <span class="terminal-dot error" />
+            <span class="terminal-dot warning" />
+            <span class="terminal-dot success" />
             <span class="terminal-title">{{ currentTask.name }} - 执行日志</span>
           </div>
           <div class="terminal-content">
-            <div v-for="(log, index) in filteredLogs" :key="index" class="log-line" :class="'log-' + log.level">
+            <div
+              v-for="(log, index) in filteredLogs"
+              :key="index"
+              class="log-line"
+              :class="'log-' + log.level"
+            >
               <span class="log-time">[{{ log.time }}]</span>
               <span class="log-level">[{{ log.level.toUpperCase() }}]</span>
               <span class="log-message">{{ log.message }}</span>
             </div>
-            <div v-if="filteredLogs.length === 0" class="no-logs">
+            <div
+              v-if="filteredLogs.length === 0"
+              class="no-logs"
+            >
               暂无执行日志
             </div>
           </div>
@@ -427,31 +746,59 @@
     </el-drawer>
 
     <!-- 调度配置对话框 -->
-    <el-dialog v-model="showSchedulerDialog" title="调度服务配置" width="500px">
+    <el-dialog
+      v-model="showSchedulerDialog"
+      title="调度服务配置"
+      width="500px"
+    >
       <el-form label-width="120px">
         <el-form-item label="调度服务状态">
           <el-tag :type="schedulerStatus === 'running' ? 'success' : 'info'">
             {{ schedulerStatus === 'running' ? '运行中' : '已停止' }}
           </el-tag>
-          <el-button type="primary" size="small" @click="toggleScheduler" style="margin-left: 10px;">
+          <el-button
+            type="primary"
+            size="small"
+            style="margin-left: 10px;"
+            @click="toggleScheduler"
+          >
             {{ schedulerStatus === 'running' ? '停止' : '启动' }}
           </el-button>
         </el-form-item>
         <el-form-item label="调度线程数">
-          <el-input-number v-model="schedulerConfig.threads" :min="1" :max="20" />
+          <el-input-number
+            v-model="schedulerConfig.threads"
+            :min="1"
+            :max="20"
+          />
         </el-form-item>
         <el-form-item label="任务超时时间">
-          <el-input-number v-model="schedulerConfig.taskTimeout" :min="0" :max="3600" />
+          <el-input-number
+            v-model="schedulerConfig.taskTimeout"
+            :min="0"
+            :max="3600"
+          />
           <span style="margin-left: 8px; color: #909399;">秒</span>
         </el-form-item>
         <el-form-item label="日志保留天数">
-          <el-input-number v-model="schedulerConfig.logRetention" :min="1" :max="365" />
+          <el-input-number
+            v-model="schedulerConfig.logRetention"
+            :min="1"
+            :max="365"
+          />
           <span style="margin-left: 8px; color: #909399;">天</span>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showSchedulerDialog = false">关闭</el-button>
-        <el-button type="primary" @click="saveSchedulerConfig">保存配置</el-button>
+        <el-button @click="showSchedulerDialog = false">
+          关闭
+        </el-button>
+        <el-button
+          type="primary"
+          @click="saveSchedulerConfig"
+        >
+          保存配置
+        </el-button>
       </template>
     </el-dialog>
   </div>
@@ -527,11 +874,11 @@ const runningCount = computed(() => {
 })
 
 const successCount = computed(() => {
-  return taskLogs.filter(l => l.level === 'info' && l.message.includes('成功')).length
+  return taskLogs.value.filter(l => l.level === 'info' && l.message.includes('成功')).length
 })
 
 const errorCount = computed(() => {
-  return taskLogs.filter(l => l.level === 'error').length
+  return taskLogs.value.filter(l => l.level === 'error').length
 })
 
 // 日志

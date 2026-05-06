@@ -1,29 +1,54 @@
 <template>
-  <div class="chart-card" :class="{ 'has-header': $slots.header || title }">
+  <div
+    class="chart-card"
+    :class="{ 'has-header': $slots.header || title }"
+  >
     <!-- 卡片头部 -->
-    <div class="chart-header" v-if="$slots.header || title">
+    <div
+      v-if="$slots.header || title"
+      class="chart-header"
+    >
       <slot name="header">
         <div class="header-content">
-          <h3 class="chart-title">{{ title }}</h3>
-          <p class="chart-subtitle" v-if="subtitle">{{ subtitle }}</p>
+          <h3 class="chart-title">
+            {{ title }}
+          </h3>
+          <p
+            v-if="subtitle"
+            class="chart-subtitle"
+          >
+            {{ subtitle }}
+          </p>
         </div>
         <div class="header-actions">
-          <slot name="actions"></slot>
+          <slot name="actions" />
         </div>
       </slot>
     </div>
 
     <!-- 图表内容 -->
     <div class="chart-body">
-      <div ref="chartRef" class="chart-container" :style="{ height: height }"></div>
-      <div v-if="loading" class="chart-loading">
-        <el-icon class="is-loading"><Loading /></el-icon>
+      <div
+        ref="chartRef"
+        class="chart-container"
+        :style="{ height: height }"
+      />
+      <div
+        v-if="loading"
+        class="chart-loading"
+      >
+        <el-icon class="is-loading">
+          <Loading />
+        </el-icon>
       </div>
     </div>
 
     <!-- 卡片底部 -->
-    <div class="chart-footer" v-if="$slots.footer">
-      <slot name="footer"></slot>
+    <div
+      v-if="$slots.footer"
+      class="chart-footer"
+    >
+      <slot name="footer" />
     </div>
   </div>
 </template>
