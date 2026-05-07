@@ -160,13 +160,15 @@ cd frontend
 npm install
 cd ..
 
-# 复制并编辑配置
-cp config/templates/dev.yaml config/dev.yaml
-# 编辑 config/dev.yaml
+# 复制并编辑配置（如果 config/dev.yaml 不存在）
+if [ ! -f config/dev.yaml ] && [ -f config/templates/dev.yaml ]; then
+    cp config/templates/dev.yaml config/dev.yaml
+fi
+# 编辑 config/dev.yaml 配置数据库、Redis等
 
 # 启动后端 (Linux/Mac)
-chmod +x run.sh
-./run.sh
+chmod +x start.sh
+./start.sh
 
 # 启动前端 (新终端)
 cd frontend
@@ -246,53 +248,67 @@ itops_platform/
 │   ├── main.py             # FastAPI入口
 │   ├── dependencies.py      # 依赖注入
 │   ├── middleware/          # 中间件
-│   └── routes/            # API路由
+│   └── routes/              # API路由
 ├── modules/                 # 核心模块
-│   ├── foundation/        # 基础层
-│   │   ├── config_manager/
-│   │   ├── log_manager/
-│   │   ├── db_models/
-│   │   └── auth_manager/
-│   ├── collection/        # 采集层
-│   │   ├── snmp_collector/
-│   │   ├── ssh_collector/
-│   │   ├── api_collector/
-│   │   ├── log_collector/
-│   │   └── browser_automation/
-│   ├── storage/           # 存储层
-│   │   ├── tdengine/
-│   │   ├── influxdb/
-│   │   ├── qdrant/
-│   │   ├── redis_client/
-│   │   └── minio/
-│   ├── business/         # 业务层
-│   │   ├── monitoring/
-│   │   ├── workorder/
-│   │   ├── knowledge_base/
-│   │   ├── report_generator/
-│   │   ├── ai_copilot/
-│   │   └── asset_management/
-│   └── automation/        # 自动化层
-│       ├── task_scheduler/
-│       ├── self_healing/
-│       └── script_executor/
-├── frontend/              # 前端界面
-│   └── src/
-│       ├── views/
-│       ├── components/
-│       ├── api/
-│       └── stores/
-├── config/                 # 配置文件
-│   ├── dev.yaml
-│   ├── prod.yaml
-│   └── templates/
-├── tests/                 # 测试
-├── docs/                  # 文档
-├── requirements.txt       # Python依赖
+│   ├── foundation/           # 基础层
+│   │   ├── config_manager/  # 配置管理
+│   │   ├── log_manager/     # 日志管理
+│   │   ├── db_models/       # 数据库模型
+│   │   └── auth_manager/    # 权限管理 (RBAC/LDAP)
+│   ├── collection/           # 采集层
+│   │   ├── snmp_collector/  # SNMP采集
+│   │   ├── ssh_collector/   # SSH采集
+│   │   ├── api_collector/   # API采集
+│   │   ├── log_collector/   # 日志采集
+│   │   ├── ipmi_collector/  # IPMI采集
+│   │   └── browser_automation/  # 浏览器自动化
+│   ├── storage/             # 存储层
+│   │   ├── tdengine/       # TDengine客户端
+│   │   ├── influxdb/        # InfluxDB客户端
+│   │   ├── qdrant/          # Qdrant向量库
+│   │   ├── redis_client/    # Redis客户端
+│   │   └── minio/           # MinIO文件存储
+│   ├── business/            # 业务层
+│   │   ├── monitoring/      # 监控告警
+│   │   ├── workorder/       # 工单管理
+│   │   ├── knowledge_base/  # 知识库
+│   │   ├── report_generator/ # 报告生成
+│   │   ├── ai_copilot/      # AI助手
+│   │   ├── asset_management/ # 资产管理
+│   │   ├── notification/    # 通知服务
+│   │   └── scheduler/        # 任务调度
+│   └── automation/          # 自动化层
+│       ├── task_scheduler/   # 任务调度
+│       ├── self_healing/    # 告警自愈
+│       └── script_executor/  # 脚本执行
+├── frontend/                # 前端界面
+│   ├── src/
+│   │   ├── views/           # 页面视图
+│   │   ├── components/       # 组件
+│   │   ├── api/              # API调用
+│   │   ├── stores/           # 状态管理
+│   │   └── router/           # 路由
+│   └── dist/                 # 构建产物
+├── config/                   # 配置文件
+│   ├── dev.yaml              # 开发环境配置
+│   ├── prod.yaml             # 生产环境配置
+│   └── templates/            # 配置模板
+├── core/                     # 核心基础设施
+│   ├── config/              # 统一配置
+│   ├── log/                 # 统一日志
+│   ├── protocols.py         # 协议类型定义
+│   └── storage/             # 存储客户端基类
+├── tests/                    # 测试
+│   ├── unit/                # 单元测试
+│   ├── integration/         # 集成测试
+│   └── simulation/           # 模拟测试
+├── docs/                     # 文档
+├── requirements.txt          # Python依赖
 ├── Dockerfile
 ├── docker-compose.yml
-├── run.sh
-└── run.bat
+├── start.sh                  # 后端启动脚本
+├── run.sh                    # 带依赖安装的启动脚本
+└── run.bat                   # Windows启动脚本
 ```
 
 ## 测试
