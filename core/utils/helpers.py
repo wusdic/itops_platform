@@ -3,6 +3,7 @@
 ITOps Platform - 通用工具模块
 单例装饰器、重试装饰器、验证器等
 """
+import os
 import time
 import functools
 import threading
