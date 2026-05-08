@@ -3,7 +3,7 @@
 
 app:
   host: 0.0.0.0
-  port: 8080
+  port: 8000  # 与 docker-compose.yml 和 Dockerfile EXPOSE 保持一致
   debug: true
   secret_key: dev-secret-key-change-in-production
   cors_origins:
@@ -63,8 +63,8 @@ storage:
 
 # AI配置
 ai:
-  provider: ollama
-  base_url: http://localhost:11434
+  provider: ollama  # ollama 或 openai
+  base_url: http://host.docker.internal:11434  # Docker 环境下使用 host.docker.internal
   model: qwen2.5:7b
   temperature: 0.7
   max_tokens: 4096
@@ -72,7 +72,7 @@ ai:
 # 嵌入模型配置
 embedding:
   provider: ollama
-  base_url: http://localhost:11434
+  base_url: http://host.docker.internal:11434  # Docker 环境下使用 host.docker.internal
   model: nomic-embed-text
   timeout: 30
 

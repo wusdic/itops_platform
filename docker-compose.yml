@@ -21,6 +21,8 @@ services:
       - CONFIG_FILE=/app/config/prod.yaml
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=INFO
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./config:/app/config:ro
       - ./logs:/app/logs
@@ -30,11 +32,13 @@ services:
       mysql:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
       tdengine:
-        condition: service_started
+        condition: service_healthy
       qdrant:
-        condition: service_started
+        condition: service_healthy
+      minio:
+        condition: service_healthy
     networks:
       - itops-network
     healthcheck:
@@ -179,7 +183,7 @@ services:
     networks:
       - itops-network
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live"]
       interval: 30s
       timeout: 20s
       retries: 3
