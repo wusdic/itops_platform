@@ -5,14 +5,17 @@
 
 from typing import Optional, List
 from datetime import datetime, timedelta
+import json
 
 from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 
 from api.dependencies import get_db, get_current_user, CurrentUser, PaginationParams
 from modules.foundation.db_models.alert import Alert, AlertLevel, AlertStatus, AlertCategory
+from modules.foundation.db_models.monitoring import PerformanceMetric
+from modules.foundation.db_models.device import Device
 
 
 router = APIRouter()
@@ -98,48 +101,216 @@ def _alert_to_dict(alert: Alert) -> dict:
 @router.get("/metrics", summary="查询监控指标")
 async def query_metrics(
     metric_name: Optional[str] = Query(None, description="指标名称，不传则返回指标列表"),
-    host: Optional[str] = Query(None, description="主机过滤"),
+    device_id: Optional[int] = Query(None, description="设备ID"),
+    host: Optional[str] = Query(None, description="主机名/IP"),
     start: Optional[datetime] = Query(None, description="开始时间"),
     end: Optional[datetime] = Query(None, description="结束时间"),
     step: int = Query(60, description="采样间隔(秒)"),
     limit: int = Query(1000, le=10000, description="返回点数限制"),
     current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """
-    查询监控指标数据
-    
-    支持Prometheus查询语法，返回时序数据点列表
-    注意：此接口需要连接到真实的监控系统（Prometheus/Zabbix）
-    当前返回空数据，实际使用需要集成监控系统
+    从数据库查询监控指标数据
+    返回时序数据点列表
     """
-    # TODO: 调用监控模块获取数据
-    # 实际实现需要连接到 Prometheus/Zabbix 等监控系统
+    # 如果没有指定时间范围，默认查询最近24小时
+    if not end:
+        end = datetime.now()
+    if not start:
+        start = end - timedelta(hours=24)
+    
+    # 构建查询
+    query = db.query(PerformanceMetric).filter(
+        PerformanceMetric.timestamp >= start,
+        PerformanceMetric.timestamp <= end
+    )
+    
+    if metric_name:
+        query = query.filter(PerformanceMetric.metric_name == metric_name)
+    
+    if device_id:
+        query = query.filter(PerformanceMetric.device_id == device_id)
+    
+    if host:
+        query = query.filter(
+            or_(
+                PerformanceMetric.device_name.ilike(f"%{host}%"),
+                PerformanceMetric.device_ip == host
+            )
+        )
+    
+    # 按时间和设备分组，取最近的数据点
+    query = query.order_by(PerformanceMetric.timestamp.desc())
+    
+    metrics = query.limit(limit).all()
+    
+    # 按设备和指标分组返回
+    result = {}
+    for m in metrics:
+        key = f"{m.device_name}:{m.metric_name}"
+        if key not in result:
+            result[key] = {
+                'metric': m.metric_name,
+                'host': m.device_name,
+                'device_ip': m.device_ip,
+                'category': m.metric_category,
+                'unit': m.metric_unit,
+                'points': []
+            }
+        result[key]['points'].append({
+            'timestamp': m.timestamp.isoformat(),
+            'value': m.value
+        })
+    
     return {
-        "metric": metric_name,
-        "host": host,
-        "points": [],
-        "count": 0
+        'metrics': list(result.values()),
+        'count': len(result),
+        'start': start.isoformat(),
+        'end': end.isoformat()
     }
 
 
-@router.get("/metrics/hosts", summary="获取主机列表")
-async def get_hosts(
+@router.post("/metrics/collect", summary="手动采集设备指标")
+async def collect_device_metrics(
+    device_id: int = Query(..., description="设备ID"),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """获取已监控的主机列表"""
-    # 从告警表中获取已监控的主机
+    """
+    手动触发设备指标采集
+    使用DeviceManager进行实时采集，数据存入数据库
+    """
+    # 获取设备信息
+    device = db.query(Device).filter(Device.id == device_id).first()
+    if not device:
+        raise HTTPException(status_code=404, detail="设备不存在")
+    
+    try:
+        # 使用DeviceManager采集数据
+        from modules.collection.device_manager import DeviceManager
+        
+        manager = DeviceManager()
+        result = await manager.collect_device(device.hostname or device.name)
+        
+        if result and result.status.value == 'online':
+            # 将采集的数据存入数据库
+            stored_count = 0
+            metrics_data = result.metrics
+            
+            # 存储CPU指标
+            if 'cpu' in metrics_data:
+                cpu_data = metrics_data['cpu']
+                if 'usage' in cpu_data:
+                    metric = PerformanceMetric(
+                        device_id=device.id,
+                        device_name=device.name,
+                        device_ip=device.ip_address,
+                        device_type=device.device_type.value if device.device_type else None,
+                        metric_category='cpu',
+                        metric_name='cpu_usage',
+                        metric_unit='%',
+                        value=cpu_data['usage'],
+                        timestamp=datetime.now(),
+                        collected_by=current_user.username,
+                        source='ssh'
+                    )
+                    db.add(metric)
+                    stored_count += 1
+            
+            # 存储内存指标
+            if 'memory' in metrics_data:
+                mem_data = metrics_data['memory']
+                for key in ['total_mb', 'used_mb', 'available_mb', 'usage_percent']:
+                    if key in mem_data:
+                        metric = PerformanceMetric(
+                            device_id=device.id,
+                            device_name=device.name,
+                            device_ip=device.ip_address,
+                            device_type=device.device_type.value if device.device_type else None,
+                            metric_category='memory',
+                            metric_name=key,
+                            metric_unit='MB' if 'mb' in key else '%',
+                            value=mem_data[key],
+                            timestamp=datetime.now(),
+                            collected_by=current_user.username,
+                            source='ssh'
+                        )
+                        db.add(metric)
+                        stored_count += 1
+            
+            # 存储磁盘指标
+            if 'disks' in metrics_data:
+                for disk in metrics_data['disks']:
+                    if 'usage_percent' in disk:
+                        metric = PerformanceMetric(
+                            device_id=device.id,
+                            device_name=device.name,
+                            device_ip=device.ip_address,
+                            device_type=device.device_type.value if device.device_type else None,
+                            metric_category='disk',
+                            metric_name='disk_usage',
+                            metric_unit='%',
+                            value=float(disk['usage_percent']),
+                            tags=json.dumps({'mount_point': disk.get('mounted_on', ''), 'filesystem': disk.get('filesystem', '')}),
+                            timestamp=datetime.now(),
+                            collected_by=current_user.username,
+                            source='ssh'
+                        )
+                        db.add(metric)
+                        stored_count += 1
+            
+            db.commit()
+            
+            return {
+                'status': 'success',
+                'device_id': device_id,
+                'device_name': device.name,
+                'metrics_collected': stored_count,
+                'message': f'成功采集{stored_count}条指标数据'
+            }
+        else:
+            return {
+                'status': 'error',
+                'device_id': device_id,
+                'message': f'设备采集失败: {result.error if result else "未知错误"}'
+            }
+            
+    except Exception as e:
+        return {
+            'status': 'error',
+            'device_id': device_id,
+            'message': f'采集异常: {str(e)}'
+        }
+
+
+@router.get("/metrics/hosts", summary="获取已监控主机列表")
+async def get_monitored_hosts(
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """获取已采集过指标的主机列表"""
+    # 从指标表中获取有数据的主机
     hosts = db.query(
-        Alert.device_name,
-        Alert.device_ip
-    ).filter(
-        Alert.device_name.isnot(None)
-    ).distinct().all()
+        PerformanceMetric.device_name,
+        PerformanceMetric.device_ip,
+        PerformanceMetric.device_type,
+        func.max(PerformanceMetric.timestamp).label('last_collect')
+    ).group_by(
+        PerformanceMetric.device_name,
+        PerformanceMetric.device_ip,
+        PerformanceMetric.device_type
+    ).all()
     
     return {
         "hosts": [
-            {"host": h.device_name, "ip": h.device_ip, "status": "up"}
-            for h in hosts if h.device_name
+            {
+                "name": h.device_name,
+                "ip": h.device_ip,
+                "type": h.device_type,
+                "last_collect": h.last_collect.isoformat() if h.last_collect else None
+            }
+            for h in hosts
         ]
     }
 
@@ -147,37 +318,72 @@ async def get_hosts(
 @router.get("/metrics/available", summary="获取可用指标列表")
 async def get_available_metrics(
     current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    """获取系统中可用的指标列表"""
-    # 预定义常用指标，实际应从监控系统获取
+    """获取系统中已采集过的指标类型列表"""
+    metrics = db.query(
+        PerformanceMetric.metric_category,
+        PerformanceMetric.metric_name,
+        PerformanceMetric.metric_unit
+    ).distinct().all()
+    
+    # 按类别分组
+    categories = {}
+    for m in metrics:
+        if m.metric_category not in categories:
+            categories[m.metric_category] = []
+        categories[m.metric_category].append({
+            'name': m.metric_name,
+            'unit': m.metric_unit
+        })
+    
     return {
-        "metrics": [
-            "cpu_usage",
-            "memory_usage",
-            "disk_usage",
-            "disk_inodes_usage",
-            "network_in",
-            "network_out",
-            "tcp_connections",
-            "load_average",
-            "process_count",
+        "categories": [
+            {'category': cat, 'metrics': items}
+            for cat, items in categories.items()
         ]
     }
 
 
-@router.post("/metrics/query", summary="PromQL查询")
+@router.post("/metrics/query", summary="PromQL风格查询")
 async def promql_query(
     query: MetricQuery,
     current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """
-    使用PromQL查询指标
-    
-    支持Prometheus查询语法
-    注意：需要连接到真实的Prometheus实例
+    PromQL风格的指标查询
+    简化实现，支持基本的指标和时间范围查询
     """
-    # TODO: 调用Prometheus查询接口
-    return {"status": "success", "data": []}
+    if not query.start_time:
+        query.start_time = datetime.now() - timedelta(hours=24)
+    if not query.end_time:
+        query.end_time = datetime.now()
+    
+    query_db = db.query(PerformanceMetric).filter(
+        PerformanceMetric.metric_name == query.metric_name,
+        PerformanceMetric.timestamp >= query.start_time,
+        PerformanceMetric.timestamp <= query.end_time
+    )
+    
+    if query.host:
+        query_db = query_db.filter(
+            or_(
+                PerformanceMetric.device_name.ilike(f"%{query.host}%"),
+                PerformanceMetric.device_ip == query.host
+            )
+        )
+    
+    metrics = query_db.order_by(PerformanceMetric.timestamp.desc()).limit(1000).all()
+    
+    return {
+        "status": "success",
+        "metric": query.metric_name,
+        "points": [
+            {"timestamp": m.timestamp.isoformat(), "value": m.value, "host": m.device_name}
+            for m in metrics
+        ]
+    }
 
 
 # ============== 告警接口 ==============
@@ -191,10 +397,7 @@ async def get_alerts(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    获取告警列表
-    支持分页和过滤
-    """
+    """获取告警列表"""
     query = db.query(Alert)
     
     if status_filter:
@@ -236,10 +439,7 @@ async def create_alert(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    创建告警记录
-    通常由监控系统自动创建，也可手动创建
-    """
+    """创建告警记录"""
     try:
         level_enum = AlertLevel(alert.severity)
     except ValueError:
@@ -293,7 +493,7 @@ async def acknowledge_alert(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """确认告警，表示已知悉该告警"""
+    """确认告警"""
     alert = db.query(Alert).filter(Alert.id == alert_id).first()
     
     if not alert:
@@ -354,39 +554,29 @@ async def delete_alert(
 @router.get("/rules", summary="获取告警规则列表")
 async def get_alert_rules(
     current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    """获取所有告警规则"""
-    # 预定义告警规则，实际应从配置文件或数据库获取
+    """获取告警规则列表"""
+    from modules.foundation.db_models.alert import AlertRule
+    rules = db.query(AlertRule).all()
+    
     return {
         "items": [
             {
-                "id": 1,
-                "name": "CPU过高告警",
-                "metric": "cpu_usage",
-                "condition": "> 80",
-                "severity": "high",
-                "duration": "5m",
-                "enabled": True,
-            },
-            {
-                "id": 2,
-                "name": "内存过高告警",
-                "metric": "memory_usage",
-                "condition": "> 85",
-                "severity": "medium",
-                "duration": "5m",
-                "enabled": True,
-            },
-            {
-                "id": 3,
-                "name": "磁盘空间不足告警",
-                "metric": "disk_usage",
-                "condition": "> 90",
-                "severity": "critical",
-                "duration": "1m",
-                "enabled": True,
-            },
-        ]
+                "id": r.id,
+                "name": r.name,
+                "description": r.description,
+                "metric_name": r.metric_name,
+                "expression": r.expression,
+                "threshold_value": r.threshold_value,
+                "comparison": r.comparison,
+                "level": r.level.value if r.level else 'medium',
+                "enabled": r.enabled,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in rules
+        ],
+        "total": len(rules)
     }
 
 
@@ -394,19 +584,28 @@ async def get_alert_rules(
 async def get_alert_rule(
     rule_id: int,
     current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    """获取指定告警规则的详细信息"""
-    # 预定义告警规则
-    rules = {
-        1: {"id": 1, "name": "CPU过高告警", "metric": "cpu_usage", "condition": "> 80", "severity": "high", "duration": "5m", "enabled": True},
-        2: {"id": 2, "name": "内存过高告警", "metric": "memory_usage", "condition": "> 85", "severity": "medium", "duration": "5m", "enabled": True},
-        3: {"id": 3, "name": "磁盘空间不足告警", "metric": "disk_usage", "condition": "> 90", "severity": "critical", "duration": "1m", "enabled": True},
-    }
+    """获取告警规则详情"""
+    from modules.foundation.db_models.alert import AlertRule
+    rule = db.query(AlertRule).filter(AlertRule.id == rule_id).first()
     
-    if rule_id not in rules:
+    if not rule:
         raise HTTPException(status_code=404, detail="告警规则不存在")
     
-    return rules[rule_id]
+    return {
+        "id": rule.id,
+        "name": rule.name,
+        "description": rule.description,
+        "category": rule.category.value if rule.category else None,
+        "expression": rule.expression,
+        "level": rule.level.value if rule.level else 'medium',
+        "enabled": rule.enabled,
+        "threshold_value": rule.threshold_value,
+        "comparison": rule.comparison,
+        "duration_seconds": rule.duration_seconds,
+        "created_at": rule.created_at.isoformat() if rule.created_at else None,
+    }
 
 
 # ============== 监控视图接口 ==============
@@ -414,30 +613,73 @@ async def get_alert_rule(
 @router.get("/dashboards", summary="获取监控仪表盘列表")
 async def get_dashboards(
     current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    """获取预定义的监控仪表盘"""
-    return {
-        "items": [
-            {"id": 1, "name": "系统概览", "type": "overview"},
-            {"id": 2, "name": "网络监控", "type": "network"},
-            {"id": 3, "name": "应用监控", "type": "application"},
-        ]
-    }
+    """获取监控仪表盘列表"""
+    # 从数据库获取有数据的主机作为仪表盘
+    hosts = db.query(
+        PerformanceMetric.device_name,
+        PerformanceMetric.device_ip,
+        func.count(PerformanceMetric.id).label('metric_count'),
+        func.max(PerformanceMetric.timestamp).label('last_update')
+    ).group_by(
+        PerformanceMetric.device_name,
+        PerformanceMetric.device_ip
+    ).all()
+    
+    dashboards = [
+        {
+            "id": idx + 1,
+            "name": f"{h.device_name} 概览",
+            "type": "device",
+            "host": h.device_name,
+            "ip": h.device_ip,
+            "metric_count": h.metric_count,
+            "last_update": h.last_update.isoformat() if h.last_update else None
+        }
+        for idx, h in enumerate(hosts)
+    ]
+    
+    return {"items": dashboards}
 
 
 @router.get("/dashboards/{dashboard_id}", summary="获取仪表盘配置")
 async def get_dashboard(
     dashboard_id: int,
     current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """获取仪表盘的配置信息"""
-    dashboards = {
-        1: {"id": 1, "name": "系统概览", "panels": []},
-        2: {"id": 2, "name": "网络监控", "panels": []},
-        3: {"id": 3, "name": "应用监控", "panels": []},
-    }
+    # 获取该仪表盘关联主机的最新指标
+    hosts = db.query(
+        PerformanceMetric.device_name,
+        PerformanceMetric.device_ip
+    ).distinct().offset(dashboard_id - 1).limit(1).first()
     
-    if dashboard_id not in dashboards:
+    if not hosts:
         raise HTTPException(status_code=404, detail="仪表盘不存在")
     
-    return dashboards[dashboard_id]
+    # 获取最新指标
+    latest_metrics = db.query(PerformanceMetric).filter(
+        PerformanceMetric.device_name == hosts.device_name
+    ).order_by(PerformanceMetric.timestamp.desc()).limit(20).all()
+    
+    # 按类别分组
+    panels = {}
+    for m in latest_metrics:
+        if m.metric_category not in panels:
+            panels[m.metric_category] = []
+        panels[m.metric_category].append({
+            'name': m.metric_name,
+            'value': m.value,
+            'unit': m.metric_unit,
+            'timestamp': m.timestamp.isoformat()
+        })
+    
+    return {
+        "id": dashboard_id,
+        "name": f"{hosts.device_name} 概览",
+        "host": hosts.device_name,
+        "ip": hosts.device_ip,
+        "panels": panels
+    }

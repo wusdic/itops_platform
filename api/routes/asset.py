@@ -406,6 +406,12 @@ class ConfigItemCreate(BaseModel):
     description: Optional[str] = Field(None, description="描述")
 
 
+class ConfigSnapshotRequest(BaseModel):
+    """创建设备配置快照请求"""
+    device_id: int = Field(..., description="设备ID")
+    description: Optional[str] = Field(None, description="快照描述")
+
+
 @router.get("/config", summary="获取配置项列表")
 async def get_config_items(
     category: Optional[str] = Query(None, description="分类过滤"),
@@ -426,23 +432,45 @@ async def get_config_items(
     }
 
 
-@router.post("/config", summary="创建配置项")
-async def create_config_item(
-    config: ConfigItemCreate,
+@router.post("/config/snapshot", summary="创建设备配置快照")
+async def create_config_snapshot(
+    request: ConfigSnapshotRequest,
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """创建配置项"""
-    # TODO: 创建独立配置项表后实现
-    return {
-        "id": 1,
-        "key": config.key,
-        "value": config.value,
-        "category": config.category,
-        "device_id": config.device_id,
-        "description": config.description,
-        "created_at": datetime.now().isoformat(),
-    }
+    """创建设备配置快照 - 使用DeviceManager采集设备当前状态"""
+    device = db.query(Device).filter(Device.id == request.device_id).first()
+    if not device:
+        raise HTTPException(status_code=404, detail="设备不存在")
+
+    # 使用DeviceManager采集当前配置
+    from modules.collection.device_manager import DeviceManager
+
+    try:
+        manager = DeviceManager()
+        result = await manager.collect_device(device.hostname or device.name)
+
+        if result and result.status.value == 'online':
+            return {
+                "id": request.device_id,
+                "device_id": request.device_id,
+                "device_name": device.name,
+                "key": f"config_snapshot_{device.name}_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                "value": json.dumps({
+                    "hostname": result.hostname,
+                    "os_type": result.os_type,
+                    "os_version": result.os_version,
+                    "uptime": result.uptime,
+                    "metrics": result.metrics
+                }, ensure_ascii=False),
+                "description": request.description or f"{device.name} 配置快照",
+                "created_at": datetime.now().isoformat(),
+                "created_by": current_user.username,
+            }
+        else:
+            raise HTTPException(status_code=500, detail=f"设备采集失败: {result.error if result else '未知错误'}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"配置采集异常: {str(e)}")
 
 
 @router.put("/config/{config_id}", summary="更新配置项")
@@ -478,18 +506,59 @@ async def sync_device_config(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """同步设备配置"""
+    """同步设备配置 - 使用DeviceManager采集设备当前状态"""
+    from modules.collection.device_manager import DeviceManager
+
     device = db.query(Device).filter(Device.id == device_id).first()
-    
+
     if not device:
         raise HTTPException(status_code=404, detail="设备不存在")
-    
-    # TODO: 实现真实的配置同步逻辑
-    return {
-        "status": "success",
-        "message": f"设备 {device.hostname} 配置同步成功",
-        "synced_at": datetime.now().isoformat(),
-    }
+
+    try:
+        manager = DeviceManager()
+        result = await manager.collect_device(device.hostname or device.name)
+
+        if result and result.status.value == 'online':
+            # 返回采集到的配置信息
+            config_snapshot = {
+                "status": "success",
+                "device_id": device_id,
+                "device_name": device.name,
+                "synced_at": datetime.now().isoformat(),
+                "config_data": {
+                    "hostname": result.hostname,
+                    "os_type": result.os_type,
+                    "os_version": result.os_version,
+                    "uptime": result.uptime,
+                    "cpu": result.metrics.get('cpu', {}),
+                    "memory": result.metrics.get('memory', {}),
+                    "disks": result.metrics.get('disks', []),
+                    "network": result.metrics.get('network', []),
+                    "processes": result.metrics.get('processes', [])[:10],  # 只取前10个
+                },
+                "message": f"设备 {device.name} 配置同步成功"
+            }
+        else:
+            config_snapshot = {
+                "status": "error",
+                "device_id": device_id,
+                "device_name": device.name,
+                "synced_at": datetime.now().isoformat(),
+                "error": result.error if result else "采集失败",
+                "message": f"设备 {device.name} 配置同步失败"
+            }
+
+        return config_snapshot
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "device_id": device_id,
+            "device_name": device.name,
+            "synced_at": datetime.now().isoformat(),
+            "error": str(e),
+            "message": f"设备 {device.name} 配置同步异常"
+        }
 
 
 # ============== 业务系统接口 ==============

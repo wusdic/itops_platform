@@ -15,7 +15,9 @@ ITOps Intelligence Platform - Foundation Layer
 
 from .base import Base, db_session, init_db, close_db, get_engine
 from .device import Device, DeviceType, DeviceStatus
-from .alert import Alert, AlertLevel, AlertStatus
+from .alert import Alert, AlertLevel, AlertStatus, AlertCategory, AlertRule
+from .monitoring import PerformanceMetric
+from .system import OperationLog, BackupRecord
 from .workorder import WorkOrder, WorkOrderType, WorkOrderStatus
 from .report_template import ReportTemplate, ReportTemplateType, ReportFormat, Report, ReportSchedule
 
@@ -31,6 +33,11 @@ __all__ = [
     'Alert',
     'AlertLevel',
     'AlertStatus',
+    'AlertCategory',
+    'AlertRule',
+    'PerformanceMetric',
+    'OperationLog',
+    'BackupRecord',
     'WorkOrder',
     'WorkOrderType',
     'WorkOrderStatus',
