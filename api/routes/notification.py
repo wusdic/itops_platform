@@ -313,6 +313,10 @@ async def test_channel(channel_id: str):
 
 # ============== 通知历史接口 ==============
 
+# 通知历史记录（内存存储，生产环境应存入数据库）
+_notification_history = []
+
+
 @router.get("/history", summary="获取通知历史")
 async def get_notification_history(
     page: int = Query(1, ge=1, description="页码"),
@@ -324,31 +328,29 @@ async def get_notification_history(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """获取通知发送历史记录"""
-    # TODO: 从数据库查询通知历史
+    # 从内存存储获取历史记录
+    items = _notification_history.copy()
+    
+    # 过滤
+    if channel:
+        items = [h for h in items if h.get("channel") == channel]
+    if notification_type:
+        items = [h for h in items if h.get("type") == notification_type]
+    if start_date:
+        items = [h for h in items if h.get("sent_at") and h["sent_at"] >= start_date]
+    if end_date:
+        items = [h for h in items if h.get("sent_at") and h["sent_at"] <= end_date]
+    
+    total = len(items)
+    
+    # 分页
+    start = (page - 1) * page_size
+    end = start + page_size
+    page_items = items[start:end]
+    
     return {
-        "items": [
-            {
-                "id": 1,
-                "type": "email",
-                "channel": "email",
-                "title": "服务器告警通知",
-                "content": "CPU使用率超过80%",
-                "recipients": "admin@example.com",
-                "status": "sent",
-                "sent_at": datetime.now().isoformat(),
-            },
-            {
-                "id": 2,
-                "type": "dingtalk",
-                "channel": "dingtalk",
-                "title": "工单处理通知",
-                "content": "工单WO-202401010001已处理",
-                "recipients": "运维群",
-                "status": "sent",
-                "sent_at": datetime.now().isoformat(),
-            },
-        ],
-        "total": 50,
+        "items": page_items,
+        "total": total,
         "page": page,
         "page_size": page_size,
     }

@@ -6,11 +6,17 @@
 from typing import Optional, List
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Query, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+from sqlalchemy import or_
 
 from api.dependencies import get_db, get_current_user, CurrentUser, PaginationParams
-from sqlalchemy.orm import Session
+from modules.business.knowledge_base.models import (
+    SOPDocument, FaultCase, Category, Tag,
+    DocumentStatus, FaultLevel, FaultStatus, ReviewStatus
+)
+
 
 router = APIRouter()
 
@@ -48,6 +54,19 @@ class FaultCaseCreate(BaseModel):
     category_id: Optional[int] = Field(None, description="分类ID")
 
 
+class FaultCaseUpdate(BaseModel):
+    """更新故障案例请求"""
+    title: Optional[str] = Field(None, max_length=200)
+    fault_level: Optional[str] = None
+    fault_status: Optional[str] = None
+    fault_category: Optional[str] = None
+    symptom: Optional[str] = None
+    root_cause: Optional[str] = None
+    solution: Optional[str] = None
+    prevention: Optional[str] = None
+    tags: Optional[str] = None
+
+
 class CategoryCreate(BaseModel):
     """创建分类请求"""
     name: str = Field(..., max_length=100, description="分类名称")
@@ -55,6 +74,86 @@ class CategoryCreate(BaseModel):
     code: Optional[str] = Field(None, max_length=50, description="分类编码")
     doc_type: Optional[str] = Field(None, description="文档类型")
     description: Optional[str] = Field(None, description="描述")
+
+
+def _sop_to_dict(sop: SOPDocument) -> dict:
+    """SOP文档转字典"""
+    return {
+        'id': sop.id,
+        'doc_no': sop.doc_no,
+        'title': sop.title,
+        'content': sop.content,
+        'category_id': sop.category_id,
+        'tags': sop.tags.split(',') if sop.tags else [],
+        'version': sop.version,
+        'status': sop.status.value if sop.status else 'draft',
+        'author': sop.author,
+        'reviewer': sop.reviewer,
+        'approver': sop.approver,
+        'review_status': sop.review_status.value if sop.review_status else None,
+        'effective_date': sop.effective_date.isoformat() if sop.effective_date else None,
+        'view_count': sop.view_count,
+        'like_count': sop.like_count,
+        'created_at': sop.created_at.isoformat() if sop.created_at else None,
+        'updated_at': sop.updated_at.isoformat() if sop.updated_at else None,
+    }
+
+
+def _case_to_dict(case: FaultCase) -> dict:
+    """故障案例转字典"""
+    return {
+        'id': case.id,
+        'case_no': case.case_no,
+        'title': case.title,
+        'fault_level': case.fault_level.value if case.fault_level else None,
+        'fault_status': case.fault_status.value if case.fault_status else None,
+        'fault_category': case.fault_category,
+        'symptom': case.symptom,
+        'root_cause': case.root_cause,
+        'solution': case.solution,
+        'prevention': case.prevention,
+        'affected_systems': case.affected_systems or [],
+        'user_impact': case.user_impact,
+        'business_impact': case.business_impact,
+        'duration': case.duration,
+        'tags': case.tags.split(',') if case.tags else [],
+        'occurrence_time': case.occurrence_time.isoformat() if case.occurrence_time else None,
+        'resolution_time': case.resolution_time.isoformat() if case.resolution_time else None,
+        'author': case.author,
+        'view_count': case.view_count,
+        'created_at': case.created_at.isoformat() if case.created_at else None,
+        'updated_at': case.updated_at.isoformat() if case.updated_at else None,
+    }
+
+
+def _category_to_dict(cat: Category, include_children: bool = False) -> dict:
+    """分类转字典"""
+    result = {
+        'id': cat.id,
+        'name': cat.name,
+        'parent_id': cat.parent_id,
+        'code': cat.code,
+        'doc_type': cat.doc_type.value if cat.doc_type else None,
+        'description': cat.description,
+        'sort_order': cat.sort_order,
+        'icon': cat.icon,
+        'is_active': cat.is_active,
+    }
+    if include_children:
+        result['children'] = [_category_to_dict(c, True) for c in cat.children if c.is_active]
+    return result
+
+
+def _tag_to_dict(tag: Tag) -> dict:
+    """标签转字典"""
+    return {
+        'id': tag.id,
+        'name': tag.name,
+        'color': tag.color,
+        'category_id': tag.category_id,
+        'description': tag.description,
+        'usage_count': tag.usage_count,
+    }
 
 
 # ============== 搜索接口 ==============
@@ -69,35 +168,72 @@ async def search_knowledge(
     tags: Optional[str] = Query(None, description="标签过滤"),
     limit: int = Query(20, le=100, description="返回数量限制"),
     current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """
     知识库全文/向量搜索
     支持关键词搜索和语义搜索
     """
-    # TODO: 调用知识库搜索引擎
-    # from modules.business.knowledge_base.search_engine import search
-    # results = await search(query, search_type=search_type, ...)
+    search_query = keyword or query or ""
+    
+    if not search_query:
+        return {"query": "", "items": [], "total": 0}
+    
+    results = []
+    
+    # 搜索SOP文档
+    if not doc_type or doc_type == "sop":
+        sop_query = db.query(SOPDocument).filter(
+            SOPDocument.is_deleted == False,
+            SOPDocument.status == DocumentStatus.APPROVED
+        )
+        if search_query:
+            sop_query = sop_query.filter(
+                or_(
+                    SOPDocument.title.ilike(f"%{search_query}%"),
+                    SOPDocument.content.ilike(f"%{search_query}%"),
+                )
+            )
+        if category_id:
+            sop_query = sop_query.filter(SOPDocument.category_id == category_id)
+        sops = sop_query.limit(limit).all()
+        for sop in sops:
+            results.append({
+                "id": sop.id,
+                "type": "sop",
+                "title": sop.title,
+                "snippet": (sop.content[:200] + "...") if sop.content and len(sop.content) > 200 else (sop.content or ""),
+                "score": 1.0,
+            })
+    
+    # 搜索故障案例
+    if not doc_type or doc_type == "fault_case":
+        case_query = db.query(FaultCase).filter(FaultCase.is_deleted == False)
+        if search_query:
+            case_query = case_query.filter(
+                or_(
+                    FaultCase.title.ilike(f"%{search_query}%"),
+                    FaultCase.symptom.ilike(f"%{search_query}%"),
+                    FaultCase.root_cause.ilike(f"%{search_query}%"),
+                )
+            )
+        if category_id:
+            case_query = case_query.filter(FaultCase.category_id == category_id)
+        cases = case_query.limit(limit).all()
+        for case in cases:
+            results.append({
+                "id": case.id,
+                "type": "fault_case",
+                "title": case.title,
+                "snippet": (case.symptom[:200] + "...") if case.symptom and len(case.symptom) > 200 else (case.symptom or ""),
+                "score": 1.0,
+            })
     
     return {
-        "query": keyword or query or "",
+        "query": search_query,
         "search_type": search_type,
-        "items": [
-            {
-                "id": 1,
-                "type": "sop",
-                "title": "服务器故障处理流程",
-                "snippet": "...相关故障处理流程...",
-                "score": 0.95,
-            },
-            {
-                "id": 2,
-                "type": "fault_case",
-                "title": "网络不通故障案例",
-                "snippet": "...网络故障排查过程...",
-                "score": 0.88,
-            },
-        ],
-        "total": 2,
+        "items": results[:limit],
+        "total": len(results),
     }
 
 
@@ -114,22 +250,37 @@ async def get_sop_documents(
     db: Session = Depends(get_db),
 ):
     """获取SOP文档列表"""
-    # TODO: 从数据库查询SOP文档
+    query = db.query(SOPDocument).filter(SOPDocument.is_deleted == False)
+    
+    if status:
+        try:
+            status_enum = DocumentStatus(status)
+            query = query.filter(SOPDocument.status == status_enum)
+        except ValueError:
+            pass
+    
+    if category_id:
+        query = query.filter(SOPDocument.category_id == category_id)
+    
+    if tags:
+        tag_list = [t.strip() for t in tags.split(',')]
+        for tag in tag_list:
+            query = query.filter(SOPDocument.tags.ilike(f"%{tag}%"))
+    
+    if keyword:
+        query = query.filter(
+            or_(
+                SOPDocument.title.ilike(f"%{keyword}%"),
+                SOPDocument.content.ilike(f"%{keyword}%"),
+            )
+        )
+    
+    total = query.count()
+    sops = query.order_by(SOPDocument.updated_at.desc()).offset(pagination.offset).limit(pagination.limit).all()
+    
     return {
-        "items": [
-            {
-                "id": 1,
-                "doc_no": "SOP-2024-0001",
-                "title": "服务器故障处理流程",
-                "version": "1.0.0",
-                "status": "approved",
-                "category_id": 1,
-                "author": "admin",
-                "view_count": 100,
-                "created_at": datetime.now().isoformat(),
-            }
-        ],
-        "total": 1,
+        "items": [_sop_to_dict(s) for s in sops],
+        "total": total,
         "page": pagination.page,
         "page_size": pagination.page_size,
     }
@@ -142,19 +293,23 @@ async def create_sop_document(
     db: Session = Depends(get_db),
 ):
     """创建新的SOP文档"""
-    # 生成文档编号
     doc_no = f"SOP-{datetime.now().strftime('%Y')}-{datetime.now().strftime('%m%d%H%M%S')}"
     
-    # TODO: 保存到数据库
-    return {
-        "id": 1,
-        "doc_no": doc_no,
-        "title": document.title,
-        "version": "1.0.0",
-        "status": "draft",
-        "author": current_user.username,
-        "created_at": datetime.now().isoformat(),
-    }
+    db_sop = SOPDocument(
+        doc_no=doc_no,
+        title=document.title,
+        content=document.content,
+        category_id=document.category_id,
+        tags=document.tags,
+        author=document.author or current_user.username,
+        status=DocumentStatus.DRAFT,
+    )
+    
+    db.add(db_sop)
+    db.commit()
+    db.refresh(db_sop)
+    
+    return _sop_to_dict(db_sop)
 
 
 @router.get("/sop/{doc_id}", summary="获取SOP文档详情")
@@ -164,19 +319,16 @@ async def get_sop_document(
     db: Session = Depends(get_db),
 ):
     """获取SOP文档的详细信息"""
-    # TODO: 从数据库获取文档详情
-    return {
-        "id": doc_id,
-        "doc_no": "SOP-2024-0001",
-        "title": "服务器故障处理流程",
-        "content": "# 服务器故障处理流程\n\n## 1. 故障发现\n\n## 2. 故障确认\n\n## 3. 故障处理",
-        "content_html": "<h1>服务器故障处理流程</h1>...",
-        "version": "1.0.0",
-        "status": "approved",
-        "author": "admin",
-        "view_count": 100,
-        "created_at": datetime.now().isoformat(),
-    }
+    sop = db.query(SOPDocument).filter(SOPDocument.id == doc_id, SOPDocument.is_deleted == False).first()
+    
+    if not sop:
+        raise HTTPException(status_code=404, detail="文档不存在")
+    
+    # 增加查看次数
+    sop.view_count += 1
+    db.commit()
+    
+    return _sop_to_dict(sop)
 
 
 @router.put("/sop/{doc_id}", summary="更新SOP文档")
@@ -187,12 +339,23 @@ async def update_sop_document(
     db: Session = Depends(get_db),
 ):
     """更新SOP文档"""
-    # TODO: 更新数据库中的文档
+    sop = db.query(SOPDocument).filter(SOPDocument.id == doc_id, SOPDocument.is_deleted == False).first()
     
-    return {
-        "status": "success",
-        "message": "Document updated successfully",
-    }
+    if not sop:
+        raise HTTPException(status_code=404, detail="文档不存在")
+    
+    update_data = document.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        if key == 'status' and value:
+            setattr(sop, key, DocumentStatus(value))
+        else:
+            setattr(sop, key, value)
+    
+    sop.updated_at = datetime.now()
+    db.commit()
+    db.refresh(sop)
+    
+    return _sop_to_dict(sop)
 
 
 @router.delete("/sop/{doc_id}", summary="删除SOP文档")
@@ -202,12 +365,16 @@ async def delete_sop_document(
     db: Session = Depends(get_db),
 ):
     """删除SOP文档（软删除）"""
-    # TODO: 软删除文档
+    sop = db.query(SOPDocument).filter(SOPDocument.id == doc_id, SOPDocument.is_deleted == False).first()
     
-    return {
-        "status": "success",
-        "message": "Document deleted successfully",
-    }
+    if not sop:
+        raise HTTPException(status_code=404, detail="文档不存在")
+    
+    sop.is_deleted = True
+    sop.updated_at = datetime.now()
+    db.commit()
+    
+    return {"status": "success", "message": "Document deleted successfully"}
 
 
 @router.post("/sop/{doc_id}/review", summary="提交SOP文档审核")
@@ -217,12 +384,17 @@ async def submit_sop_review(
     db: Session = Depends(get_db),
 ):
     """提交SOP文档进行审核"""
-    # TODO: 更新文档状态为待审核
+    sop = db.query(SOPDocument).filter(SOPDocument.id == doc_id, SOPDocument.is_deleted == False).first()
     
-    return {
-        "status": "success",
-        "message": "Document submitted for review",
-    }
+    if not sop:
+        raise HTTPException(status_code=404, detail="文档不存在")
+    
+    sop.status = DocumentStatus.PENDING_REVIEW
+    sop.review_status = ReviewStatus.PENDING
+    sop.updated_at = datetime.now()
+    db.commit()
+    
+    return {"status": "success", "message": "Document submitted for review"}
 
 
 @router.post("/sop/{doc_id}/approve", summary="批准SOP文档")
@@ -233,12 +405,21 @@ async def approve_sop_document(
     db: Session = Depends(get_db),
 ):
     """批准SOP文档"""
-    # TODO: 更新文档状态为已批准
+    sop = db.query(SOPDocument).filter(SOPDocument.id == doc_id, SOPDocument.is_deleted == False).first()
     
-    return {
-        "status": "success",
-        "message": "Document approved",
-    }
+    if not sop:
+        raise HTTPException(status_code=404, detail="文档不存在")
+    
+    sop.status = DocumentStatus.APPROVED
+    sop.review_status = ReviewStatus.APPROVED
+    sop.review_comment = comment
+    sop.approver = current_user.username
+    sop.approval_date = datetime.now()
+    sop.effective_date = datetime.now()
+    sop.updated_at = datetime.now()
+    db.commit()
+    
+    return {"status": "success", "message": "Document approved"}
 
 
 # ============== 故障案例接口 ==============
@@ -254,22 +435,40 @@ async def get_fault_cases(
     db: Session = Depends(get_db),
 ):
     """获取故障案例列表"""
-    # TODO: 从数据库查询故障案例
+    query = db.query(FaultCase).filter(FaultCase.is_deleted == False)
+    
+    if fault_level:
+        try:
+            level_enum = FaultLevel(fault_level.lower())
+            query = query.filter(FaultCase.fault_level == level_enum)
+        except ValueError:
+            pass
+    
+    if fault_status:
+        try:
+            status_enum = FaultStatus(fault_status)
+            query = query.filter(FaultCase.fault_status == status_enum)
+        except ValueError:
+            pass
+    
+    if fault_category:
+        query = query.filter(FaultCase.fault_category == fault_category)
+    
+    if keyword:
+        query = query.filter(
+            or_(
+                FaultCase.title.ilike(f"%{keyword}%"),
+                FaultCase.symptom.ilike(f"%{keyword}%"),
+                FaultCase.root_cause.ilike(f"%{keyword}%"),
+            )
+        )
+    
+    total = query.count()
+    cases = query.order_by(FaultCase.updated_at.desc()).offset(pagination.offset).limit(pagination.limit).all()
+    
     return {
-        "items": [
-            {
-                "id": 1,
-                "case_no": "CASE-2024-0001",
-                "title": "数据库连接池耗尽故障",
-                "fault_level": "P2",
-                "fault_status": "closed",
-                "fault_category": "database",
-                "occurrence_time": datetime.now().isoformat(),
-                "author": "admin",
-                "view_count": 50,
-            }
-        ],
-        "total": 1,
+        "items": [_case_to_dict(c) for c in cases],
+        "total": total,
         "page": pagination.page,
         "page_size": pagination.page_size,
     }
@@ -282,19 +481,33 @@ async def create_fault_case(
     db: Session = Depends(get_db),
 ):
     """创建新的故障案例"""
-    # 生成案例编号
     case_no = f"CASE-{datetime.now().strftime('%Y')}-{datetime.now().strftime('%m%d%H%M%S')}"
     
-    # TODO: 保存到数据库
-    return {
-        "id": 1,
-        "case_no": case_no,
-        "title": case.title,
-        "fault_level": case.fault_level,
-        "fault_status": "open",
-        "author": current_user.username,
-        "created_at": datetime.now().isoformat(),
-    }
+    try:
+        level_enum = FaultLevel(case.fault_level.lower())
+    except ValueError:
+        level_enum = FaultLevel.P3
+    
+    db_case = FaultCase(
+        case_no=case_no,
+        title=case.title,
+        fault_level=level_enum,
+        fault_status=FaultStatus.OPEN,
+        fault_category=case.fault_category,
+        symptom=case.symptom,
+        root_cause=case.root_cause,
+        solution=case.solution,
+        prevention=case.prevention,
+        tags=case.tags,
+        category_id=case.category_id,
+        author=current_user.username,
+    )
+    
+    db.add(db_case)
+    db.commit()
+    db.refresh(db_case)
+    
+    return _case_to_dict(db_case)
 
 
 @router.get("/fault-case/{case_id}", summary="获取故障案例详情")
@@ -304,37 +517,51 @@ async def get_fault_case(
     db: Session = Depends(get_db),
 ):
     """获取故障案例的详细信息"""
-    # TODO: 从数据库获取案例详情
-    return {
-        "id": case_id,
-        "case_no": "CASE-2024-0001",
-        "title": "数据库连接池耗尽故障",
-        "fault_level": "P2",
-        "fault_status": "closed",
-        "fault_category": "database",
-        "symptom": "应用响应缓慢，数据库连接报错",
-        "root_cause": "连接池配置过小，高并发下耗尽",
-        "solution": "增大连接池配置...",
-        "prevention": "添加连接池监控...",
-        "author": "admin",
-        "created_at": datetime.now().isoformat(),
-    }
+    case = db.query(FaultCase).filter(FaultCase.id == case_id, FaultCase.is_deleted == False).first()
+    
+    if not case:
+        raise HTTPException(status_code=404, detail="案例不存在")
+    
+    # 增加查看次数
+    case.view_count += 1
+    db.commit()
+    
+    return _case_to_dict(case)
 
 
 @router.put("/fault-case/{case_id}", summary="更新故障案例")
 async def update_fault_case(
     case_id: int,
-    case: FaultCaseCreate,
+    case: FaultCaseUpdate,
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """更新故障案例"""
-    # TODO: 更新数据库中的案例
+    db_case = db.query(FaultCase).filter(FaultCase.id == case_id, FaultCase.is_deleted == False).first()
     
-    return {
-        "status": "success",
-        "message": "Fault case updated successfully",
-    }
+    if not db_case:
+        raise HTTPException(status_code=404, detail="案例不存在")
+    
+    update_data = case.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        if key == 'fault_level' and value:
+            try:
+                setattr(db_case, key, FaultLevel(value.lower()))
+            except ValueError:
+                pass
+        elif key == 'fault_status' and value:
+            try:
+                setattr(db_case, key, FaultStatus(value))
+            except ValueError:
+                pass
+        else:
+            setattr(db_case, key, value)
+    
+    db_case.updated_at = datetime.now()
+    db.commit()
+    db.refresh(db_case)
+    
+    return _case_to_dict(db_case)
 
 
 # ============== 分类接口 ==============
@@ -348,21 +575,18 @@ async def get_categories(
     db: Session = Depends(get_db),
 ):
     """获取文档分类列表"""
-    # TODO: 从数据库查询分类
+    query = db.query(Category).filter(Category.is_active == True)
+    
+    if parent_id is not None:
+        query = query.filter(Category.parent_id == parent_id)
+    else:
+        query = query.filter(Category.parent_id == None)
+    
+    categories = query.all()
+    
     return {
-        "items": [
-            {
-                "id": 1,
-                "name": "服务器运维",
-                "code": "server",
-                "parent_id": None,
-                "doc_type": "sop",
-                "children": [
-                    {"id": 2, "name": "Linux服务器", "code": "linux"},
-                    {"id": 3, "name": "Windows服务器", "code": "windows"},
-                ],
-            }
-        ]
+        "items": [_category_to_dict(c, include_children) for c in categories],
+        "total": len(categories),
     }
 
 
@@ -373,15 +597,18 @@ async def create_category(
     db: Session = Depends(get_db),
 ):
     """创建新的分类"""
-    # TODO: 保存到数据库
+    db_category = Category(
+        name=category.name,
+        parent_id=category.parent_id,
+        code=category.code,
+        description=category.description,
+    )
     
-    return {
-        "id": 1,
-        "name": category.name,
-        "code": category.code,
-        "parent_id": category.parent_id,
-        "created_at": datetime.now().isoformat(),
-    }
+    db.add(db_category)
+    db.commit()
+    db.refresh(db_category)
+    
+    return _category_to_dict(db_category)
 
 
 # ============== 标签接口 ==============
@@ -395,12 +622,19 @@ async def get_tags(
     db: Session = Depends(get_db),
 ):
     """获取标签列表"""
-    # TODO: 从数据库查询标签
+    query = db.query(Tag)
+    
+    if category_id:
+        query = query.filter(Tag.category_id == category_id)
+    
+    if keyword:
+        query = query.filter(Tag.name.ilike(f"%{keyword}%"))
+    
+    tags = query.order_by(Tag.usage_count.desc()).limit(limit).all()
+    
     return {
-        "items": [
-            {"id": 1, "name": "Linux", "color": "#1989fa", "usage_count": 100},
-            {"id": 2, "name": "网络", "color": "#07c160", "usage_count": 80},
-        ]
+        "items": [_tag_to_dict(t) for t in tags],
+        "total": len(tags),
     }
 
 
@@ -412,17 +646,26 @@ async def get_knowledge_stats(
     db: Session = Depends(get_db),
 ):
     """获取知识库统计信息"""
-    # TODO: 从数据库统计
+    total_sops = db.query(SOPDocument).filter(SOPDocument.is_deleted == False).count()
+    approved_sops = db.query(SOPDocument).filter(
+        SOPDocument.is_deleted == False,
+        SOPDocument.status == DocumentStatus.APPROVED
+    ).count()
+    
+    total_cases = db.query(FaultCase).filter(FaultCase.is_deleted == False).count()
+    
+    total_categories = db.query(Category).filter(Category.is_active == True).count()
+    total_tags = db.query(Tag).count()
+    
+    # 获取查看次数最高的标签
+    top_tags = db.query(Tag).order_by(Tag.usage_count.desc()).limit(10).all()
     
     return {
-        "total_documents": 500,
-        "sop_count": 200,
-        "fault_case_count": 150,
-        "category_count": 50,
-        "tag_count": 300,
-        "total_views": 10000,
-        "top_tags": [
-            {"name": "Linux", "count": 100},
-            {"name": "网络", "count": 80},
-        ],
+        "total_documents": total_sops + total_cases,
+        "sop_count": total_sops,
+        "approved_sop_count": approved_sops,
+        "fault_case_count": total_cases,
+        "category_count": total_categories,
+        "tag_count": total_tags,
+        "top_tags": [{"name": t.name, "count": t.usage_count} for t in top_tags],
     }
