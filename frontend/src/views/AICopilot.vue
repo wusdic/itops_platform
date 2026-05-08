@@ -562,7 +562,7 @@ import {
   MagicStick, Plus, ChatLineSquare, MoreFilled, User, Clock, ChatDotRound,
   Download, Delete, Setting, CopyDocument, RefreshLeft, Fold, Expand, Close,
   Promotion, Paperclip, Connection, DataAnalysis, ArrowLeft, VideoPlay, Document,
-  DataLine, Warning, Odometer, Search, Operation, Star, Sparkles, Histogram, Bell
+  DataLine, Warning, Odometer, Search, Operation, Star, Histogram, Bell
 } from '@element-plus/icons-vue'
 import EmptyState from '@/components/EmptyState.vue'
 
@@ -609,7 +609,7 @@ const chatHistory = ref([
 ])
 
 const availableModels = [
-  { id: 'Qwen3.5-8B', name: 'Qwen 3.5 8B', description: '平衡性能与速度', icon: 'Sparkles', recommended: true },
+  { id: 'Qwen3.5-8B', name: 'Qwen 3.5 8B', description: '平衡性能与速度', icon: 'Star', recommended: true },
   { id: 'Qwen3.5-14B', name: 'Qwen 3.5 14B', description: '更高精度，资源占用中等', icon: 'Star', recommended: false },
   { id: 'Qwen3.5-32B', name: 'Qwen 3.5 32B', description: '高精度，适合复杂任务', icon: 'Histogram', recommended: false }
 ]

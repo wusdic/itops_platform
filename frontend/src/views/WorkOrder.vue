@@ -901,7 +901,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Search, Refresh, Download, Plus, List, Grid, View, Edit, Comment, MoreFilled,
-  UploadFilled, Clock, User, UserFilled, ArrowUp, Ticket, Timer, CheckCircle, Warning
+  UploadFilled, Clock, User, UserFilled, ArrowUp, Ticket, Timer, CircleCheck, Warning
 } from '@element-plus/icons-vue'
 
 // 状态
@@ -971,7 +971,7 @@ const kanbanStatus = [
 const statsData = reactive([
   { key: 'pending', title: '待处理', value: 0, icon: 'Ticket', growth: 0 },
   { key: 'processing', title: '处理中', value: 0, icon: 'Clock', growth: 12 },
-  { key: 'completed', title: '本月完成', value: 0, icon: 'CheckCircle', growth: 8 },
+  { key: 'completed', title: '本月完成', value: 0, icon: 'CircleCheck', growth: 8 },
   { key: 'overdue', title: '逾期工单', value: 0, icon: 'Warning', growth: -5 }
 ])
 

@@ -752,7 +752,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Search, Plus, Refresh, Download, Upload, View, Edit, Delete, MoreFilled,
-  TrendCharts, DataLine, Tools, UploadFilled, InfoFilled, Server, Connection,
+  TrendCharts, DataLine, Tools, UploadFilled, InfoFilled, Monitor, Connection,
   Box, Lock, Cpu
 } from '@element-plus/icons-vue'
 import { assets } from '@/api'
@@ -823,7 +823,7 @@ const getTypeText = (type) => {
 
 const getTypeIcon = (type) => {
   const icons = { server: 'Cpu', network: 'Connection', storage: 'Box', security: 'Lock' }
-  return icons[type] || 'Server'
+  return icons[type] || 'Monitor'
 }
 
 const getTypeTagType = (type) => {

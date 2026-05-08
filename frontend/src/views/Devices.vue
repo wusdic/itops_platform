@@ -565,7 +565,7 @@ import { ref, reactive, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Search, Refresh, Plus, Download, Edit, View, MoreFilled, DataLine,
-  Server, Monitor, Connection, Bell, Laptop, SetUp
+  Monitor, Connection, Bell, SetUp
 } from '@element-plus/icons-vue'
 
 const loading = ref(false)
@@ -581,7 +581,7 @@ const selectedRows = ref([])
 
 // 统计卡片数据
 const statsData = reactive([
-  { key: 'total', title: '设备总数', value: 50, icon: 'Server' },
+  { key: 'total', title: '设备总数', value: 50, icon: 'Monitor' },
   { key: 'online', title: '在线设备', value: 45, icon: 'CircleCheck', alert: false },
   { key: 'offline', title: '离线设备', value: 3, icon: 'CircleClose', alert: true },
   { key: 'maintenance', title: '维护中', value: 2, icon: 'Setting', alert: false }
@@ -622,11 +622,11 @@ const deviceRules = {
 const getTypeIcon = (type) => {
   const map = {
     windows: 'Monitor',
-    linux: 'Laptop',
+    linux: 'Monitor',
     network: 'Connection',
     security: 'Bell'
   }
-  return map[type] || 'Server'
+  return map[type] || 'Monitor'
 }
 
 const getTypeText = (type) => {

@@ -687,7 +687,7 @@
           <div class="section-header">
             <div class="header-info">
               <h3 class="section-title">
-                <el-icon><Cloud /></el-icon>
+                <el-icon><Cloudy /></el-icon>
                 环境配置
               </h3>
               <p class="section-desc">
@@ -1683,7 +1683,7 @@ import {
   InfoFilled, Picture, Upload, OfficeBuilding, Message, Monitor,
   DataLine, Link, Connection, Histogram, Warning, User, Lock, Key,
   Bell, Postcard, Clock, Timer, List, Star, ArrowUp, TrendCharts, CircleCheck,
-  Cloud
+  Cloudy
 } from '@element-plus/icons-vue'
 
 // 状态

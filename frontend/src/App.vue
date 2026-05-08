@@ -385,7 +385,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
-  Fold, Expand, Odometer, Monitor, Server, Bell, Document, Reading, Folder,
+  Fold, Expand, Odometer, Monitor, Bell, Document, Reading, Folder,
   Setting, ChatDotRound, Tools, Timer, DataLine, Message, Search, Sunny, Moon,
   FullScreen, User, ArrowRight, Edit, Download, MagicStick, Close,
   MoreFilled, SwitchButton, Connection, Operation, Memo, TrendCharts, EditPen
@@ -451,7 +451,7 @@ const navGroups = [
     key: 'monitor',
     label: '监控管理',
     items: [
-      { path: '/devices', label: '设备列表', icon: 'Server', badge: 50 },
+      { path: '/devices', label: '设备列表', icon: 'Monitor', badge: 50 },
       { path: '/alerts', label: '告警中心', icon: 'Bell', badge: 3 },
       { path: '/assets', label: '资产管理', icon: 'Connection' }
     ]
