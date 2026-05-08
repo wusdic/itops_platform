@@ -8,9 +8,13 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
 from api.dependencies import get_db, get_current_user, CurrentUser, PaginationParams
-from sqlalchemy.orm import Session
+from modules.foundation.db_models.workorder import (
+    WorkOrder, WorkOrderFlow, WorkOrderType, WorkOrderStatus, WorkOrderPriority
+)
+from modules.business.workorder.workorder import WorkOrderCore
 
 router = APIRouter()
 
@@ -21,7 +25,7 @@ class WorkOrderCreate(BaseModel):
     """创建工单请求"""
     order_type: str = Field(..., description="工单类型: fault, change, inspection, security, demand, question")
     title: str = Field(..., max_length=256, description="工单标题")
-    description: str = Field(None, description="工单描述")
+    description: Optional[str] = Field(None, description="工单描述")
     priority: str = Field("P3", description="优先级: P1, P2, P3, P4")
     device_id: Optional[int] = Field(None, description="关联设备ID")
     device_name: Optional[str] = Field(None, description="关联设备名称")
@@ -71,6 +75,71 @@ class WorkOrderResponse(BaseModel):
     updated_at: datetime
 
 
+def _build_workorder_core(db: Session) -> WorkOrderCore:
+    """构建工单核心实例"""
+    return WorkOrderCore(db)
+
+
+def _map_order_type(order_type: str) -> WorkOrderType:
+    """映射工单类型字符串到枚举"""
+    mapping = {
+        'fault': WorkOrderType.FAULT,
+        'change': WorkOrderType.CHANGE,
+        'inspection': WorkOrderType.INSPECTION,
+        'security': WorkOrderType.SECURITY,
+        'demand': WorkOrderType.DEMAND,
+        'question': WorkOrderType.QUESTION,
+        'other': WorkOrderType.OTHER,
+    }
+    return mapping.get(order_type, WorkOrderType.OTHER)
+
+
+def _map_priority(priority: str) -> WorkOrderPriority:
+    """映射优先级字符串到枚举"""
+    mapping = {
+        'P1': WorkOrderPriority.P1,
+        'P2': WorkOrderPriority.P2,
+        'P3': WorkOrderPriority.P3,
+        'P4': WorkOrderPriority.P4,
+    }
+    return mapping.get(priority, WorkOrderPriority.P3)
+
+
+def _map_status(status: str) -> WorkOrderStatus:
+    """映射状态字符串到枚举"""
+    mapping = {
+        'pending': WorkOrderStatus.PENDING,
+        'processing': WorkOrderStatus.PROCESSING,
+        'pending_approval': WorkOrderStatus.PENDING_APPROVAL,
+        'approved': WorkOrderStatus.APPROVED,
+        'rejected': WorkOrderStatus.REJECTED,
+        'resolved': WorkOrderStatus.RESOLVED,
+        'closed': WorkOrderStatus.CLOSED,
+        'cancelled': WorkOrderStatus.CANCELLED,
+    }
+    return mapping.get(status, WorkOrderStatus.PENDING)
+
+
+def _workorder_to_dict(wo: WorkOrder) -> dict:
+    """工单模型转字典"""
+    return {
+        'id': wo.id,
+        'order_no': wo.order_no,
+        'order_type': wo.order_type.value if wo.order_type else None,
+        'priority': wo.priority.value if wo.priority else None,
+        'title': wo.title,
+        'description': wo.description,
+        'status': wo.status.value if wo.status else None,
+        'device_id': wo.device_id,
+        'device_name': wo.device_name,
+        'device_ip': wo.device_ip,
+        'creator': wo.creator,
+        'assignee': wo.assignee,
+        'created_at': wo.created_at.isoformat() if wo.created_at else None,
+        'updated_at': wo.updated_at.isoformat() if wo.updated_at else None,
+    }
+
+
 # ============== 工单接口 ==============
 
 @router.get("/", summary="获取工单列表")
@@ -92,29 +161,29 @@ async def get_workorders(
     获取工单列表
     支持多条件过滤和分页
     """
-    # TODO: 构建查询条件并查询数据库
-    # from modules.foundation.db_models.workorder import WorkOrder
-    # query = db.query(WorkOrder)
-    # ...
+    core = _build_workorder_core(db)
+    
+    # 映射过滤参数
+    status_enum = _map_status(status_filter) if status_filter else None
+    type_enum = _map_order_type(order_type) if order_type else None
+    priority_enum = _map_priority(priority) if priority else None
+    
+    # 查询工单列表
+    workorders, total = core.list(
+        status=status_enum,
+        order_type=type_enum,
+        priority=priority_enum,
+        creator=creator,
+        assignee=assignee,
+        start_time=start_date,
+        end_time=end_date,
+        page=pagination.page,
+        page_size=pagination.page_size
+    )
     
     return {
-        "items": [
-            {
-                "id": 1,
-                "order_no": "WO-20240101-0001",
-                "order_type": "fault",
-                "priority": "P2",
-                "title": "服务器无法连接",
-                "status": "processing",
-                "device_name": "server-01",
-                "device_ip": "192.168.1.101",
-                "creator": "zhangsan",
-                "assignee": "lisi",
-                "created_at": datetime.now().isoformat(),
-                "updated_at": datetime.now().isoformat(),
-            }
-        ],
-        "total": 1,
+        "items": [_workorder_to_dict(wo) for wo in workorders],
+        "total": total,
         "page": pagination.page,
         "page_size": pagination.page_size,
     }
@@ -130,29 +199,26 @@ async def create_workorder(
     创建新的工单
     自动生成工单编号
     """
-    # 生成工单编号
-    order_no = f"WO-{datetime.now().strftime('%Y%m%d')}-{datetime.now().strftime('%H%M%S')}"
-
-    # TODO: 保存到数据库
-    # from modules.foundation.db_models.workorder import WorkOrder
-    # db_workorder = WorkOrder(
-    #     order_no=order_no,
-    #     order_type=workorder.order_type,
-    #     ...
-    # )
-    # db.add(db_workorder)
-    # db.commit()
-
-    return {
-        "id": 1,
-        "order_no": order_no,
-        "order_type": workorder.order_type,
-        "title": workorder.title,
-        "status": "pending",
-        "priority": workorder.priority,
-        "creator": current_user.username,
-        "created_at": datetime.now().isoformat(),
-    }
+    core = _build_workorder_core(db)
+    
+    # 创建工单
+    wo = core.create(
+        title=workorder.title,
+        order_type=_map_order_type(workorder.order_type),
+        creator=current_user.username,
+        description=workorder.description,
+        priority=_map_priority(workorder.priority),
+        device_id=workorder.device_id,
+        device_name=workorder.device_name,
+        device_ip=workorder.device_ip,
+        assignee=workorder.assignee,
+        expected_end=workorder.expected_end,
+        impact=workorder.impact,
+        tags=workorder.tags.split(',') if workorder.tags else None,
+        attachments=workorder.attachments,
+    )
+    
+    return _workorder_to_dict(wo)
 
 
 # ============== 工单辅助接口（必须在 /{workorder_id} 之前定义）==============
@@ -164,11 +230,11 @@ async def get_workorder_categories(
     """获取工单分类列表"""
     return {
         "items": [
-            {"id": 1, "name": "故障处理", "code": "fault", "count": 45},
-            {"id": 2, "name": "变更申请", "code": "change", "count": 30},
-            {"id": 3, "name": "数据处理", "code": "data", "count": 20},
-            {"id": 4, "name": "权限申请", "code": "permission", "count": 15},
-            {"id": 5, "name": "其他", "code": "other", "count": 10},
+            {"id": 1, "name": "故障处理", "code": "fault", "count": 0},
+            {"id": 2, "name": "变更申请", "code": "change", "count": 0},
+            {"id": 3, "name": "数据处理", "code": "data", "count": 0},
+            {"id": 4, "name": "权限申请", "code": "permission", "count": 0},
+            {"id": 5, "name": "其他", "code": "other", "count": 0},
         ]
     }
 
@@ -196,27 +262,38 @@ async def get_workorder_stats(
     db: Session = Depends(get_db),
 ):
     """获取工单统计摘要"""
-    # TODO: 从数据库统计工单数据
-
-    return {
-        "total": 100,
-        "pending": 10,
-        "processing": 20,
-        "resolved": 60,
-        "closed": 10,
-        "by_priority": {
-            "P1": 5,
-            "P2": 15,
-            "P3": 60,
-            "P4": 20,
-        },
-        "by_type": {
-            "fault": 40,
-            "change": 30,
-            "data": 20,
-            "permission": 10,
-        },
+    core = _build_workorder_core(db)
+    
+    # 统计各状态工单数量
+    workorders, total = core.list(page=1, page_size=10000)
+    
+    stats = {
+        'total': total,
+        'pending': 0,
+        'processing': 0,
+        'resolved': 0,
+        'closed': 0,
+        'by_priority': {'P1': 0, 'P2': 0, 'P3': 0, 'P4': 0},
+        'by_type': {'fault': 0, 'change': 0, 'inspection': 0, 'security': 0, 'demand': 0, 'question': 0, 'other': 0},
     }
+    
+    for wo in workorders:
+        if wo.status == WorkOrderStatus.PENDING:
+            stats['pending'] += 1
+        elif wo.status == WorkOrderStatus.PROCESSING:
+            stats['processing'] += 1
+        elif wo.status == WorkOrderStatus.RESOLVED:
+            stats['resolved'] += 1
+        elif wo.status == WorkOrderStatus.CLOSED:
+            stats['closed'] += 1
+            
+        if wo.priority:
+            stats['by_priority'][wo.priority.value] = stats['by_priority'].get(wo.priority.value, 0) + 1
+        
+        if wo.order_type:
+            stats['by_type'][wo.order_type.value] = stats['by_type'].get(wo.order_type.value, 0) + 1
+    
+    return stats
 
 
 @router.get("/stats/trend", summary="获取工单趋势")
@@ -226,11 +303,41 @@ async def get_workorder_trend(
     db: Session = Depends(get_db),
 ):
     """获取工单趋势数据"""
-    # TODO: 从数据库统计工单趋势
+    from datetime import timedelta
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=days)
+    
+    core = _build_workorder_core(db)
+    workorders, _ = core.list(start_time=start_date, end_time=end_date, page=1, page_size=10000)
+    
+    # 按日期分组
+    dates_set = set()
+    created_dict = {}
+    resolved_dict = {}
+    
+    for wo in workorders:
+        if wo.created_at:
+            date_str = wo.created_at.strftime('%Y-%m-%d')
+            dates_set.add(date_str)
+            created_dict[date_str] = created_dict.get(date_str, 0) + 1
+        
+        if wo.status == WorkOrderStatus.RESOLVED and wo.updated_at:
+            date_str = wo.updated_at.strftime('%Y-%m-%d')
+            dates_set.add(date_str)
+            resolved_dict[date_str] = resolved_dict.get(date_str, 0) + 1
+        elif wo.status == WorkOrderStatus.CLOSED and wo.updated_at:
+            date_str = wo.updated_at.strftime('%Y-%m-%d')
+            dates_set.add(date_str)
+            resolved_dict[date_str] = resolved_dict.get(date_str, 0) + 1
+    
+    dates = sorted(list(dates_set))
+    created = [created_dict.get(d, 0) for d in dates]
+    resolved = [resolved_dict.get(d, 0) for d in dates]
+    
     return {
-        "dates": ["2024-01-01", "2024-01-02", "2024-01-03"],
-        "created": [10, 15, 8],
-        "resolved": [8, 12, 10],
+        "dates": dates,
+        "created": created,
+        "resolved": resolved,
     }
 
 
@@ -243,23 +350,13 @@ async def get_workorder(
     db: Session = Depends(get_db),
 ):
     """获取工单的详细信息"""
-    # TODO: 从数据库获取工单详情
-    return {
-        "id": workorder_id,
-        "order_no": "WO-20240101-0001",
-        "order_type": "fault",
-        "priority": "P2",
-        "title": "服务器无法连接",
-        "description": "服务器192.168.1.101无法Ping通",
-        "status": "processing",
-        "device_id": 1,
-        "device_name": "server-01",
-        "device_ip": "192.168.1.101",
-        "creator": "zhangsan",
-        "assignee": "lisi",
-        "created_at": datetime.now().isoformat(),
-        "updated_at": datetime.now().isoformat(),
-    }
+    core = _build_workorder_core(db)
+    wo = core.get_by_id(workorder_id)
+    
+    if not wo:
+        raise HTTPException(status_code=404, detail="工单不存在")
+    
+    return _workorder_to_dict(wo)
 
 
 @router.put("/{workorder_id}", summary="更新工单")
@@ -270,12 +367,40 @@ async def update_workorder(
     db: Session = Depends(get_db),
 ):
     """更新工单信息"""
-    # TODO: 更新数据库中的工单
+    core = _build_workorder_core(db)
     
-    return {
-        "status": "success",
-        "message": "WorkOrder updated successfully",
-    }
+    # 构建更新数据
+    update_data = {}
+    if workorder.title is not None:
+        update_data['title'] = workorder.title
+    if workorder.description is not None:
+        update_data['description'] = workorder.description
+    if workorder.priority is not None:
+        update_data['priority'] = _map_priority(workorder.priority)
+    if workorder.status is not None:
+        update_data['status'] = _map_status(workorder.status)
+    if workorder.assignee is not None:
+        update_data['assignee'] = workorder.assignee
+    if workorder.expected_end is not None:
+        update_data['expected_end'] = workorder.expected_end
+    if workorder.tags is not None:
+        update_data['tags'] = workorder.tags
+    if workorder.resolution is not None:
+        update_data['resolution'] = workorder.resolution
+    if workorder.root_cause is not None:
+        update_data['root_cause'] = workorder.root_cause
+    if workorder.improvement is not None:
+        update_data['improvement'] = workorder.improvement
+    
+    if not update_data:
+        raise HTTPException(status_code=400, detail="没有需要更新的字段")
+    
+    success = core.update(workorder_id, **update_data)
+    
+    if not success:
+        raise HTTPException(status_code=404, detail="工单不存在")
+    
+    return {"status": "success", "message": "工单更新成功"}
 
 
 @router.delete("/{workorder_id}", summary="删除工单")
@@ -288,11 +413,23 @@ async def delete_workorder(
     删除工单（软删除）
     仅管理员或创建人可以删除
     """
-    # TODO: 软删除工单
-    return {
-        "status": "success",
-        "message": "WorkOrder deleted successfully",
-    }
+    core = _build_workorder_core(db)
+    
+    # 获取工单检查权限
+    wo = core.get_by_id(workorder_id)
+    if not wo:
+        raise HTTPException(status_code=404, detail="工单不存在")
+    
+    # 只有管理员或创建人可以删除
+    if not current_user.is_admin() and wo.creator != current_user.username:
+        raise HTTPException(status_code=403, detail="无权限删除此工单")
+    
+    success = core.delete(workorder_id)
+    
+    if not success:
+        raise HTTPException(status_code=404, detail="工单不存在")
+    
+    return {"status": "success", "message": "工单删除成功"}
 
 
 # ============== 工单流程接口 ==============
@@ -304,29 +441,23 @@ async def get_workorder_flows(
     db: Session = Depends(get_db),
 ):
     """获取工单的处理流程历史"""
-    # TODO: 从数据库获取流程历史
+    flows = db.query(WorkOrderFlow).filter(
+        WorkOrderFlow.work_order_id == workorder_id
+    ).order_by(WorkOrderFlow.created_at.asc()).all()
+    
     return {
         "items": [
             {
-                "id": 1,
-                "step_name": "创建工单",
-                "action": "create",
-                "from_status": None,
-                "to_status": "pending",
-                "operator": "zhangsan",
-                "comment": None,
-                "created_at": datetime.now().isoformat(),
-            },
-            {
-                "id": 2,
-                "step_name": "分配处理人",
-                "action": "assign",
-                "from_status": "pending",
-                "to_status": "processing",
-                "operator": "admin",
-                "comment": "分配给运维人员处理",
-                "created_at": datetime.now().isoformat(),
-            },
+                "id": f.id,
+                "step_name": f.step_name,
+                "action": f.action,
+                "from_status": f.from_status,
+                "to_status": f.to_status,
+                "operator": f.operator,
+                "comment": f.comment,
+                "created_at": f.created_at.isoformat() if f.created_at else None,
+            }
+            for f in flows
         ]
     }
 
@@ -342,15 +473,64 @@ async def create_workorder_flow(
     添加工单流程记录
     包括状态变更、审批、操作等
     """
-    # TODO: 保存流程记录到数据库
+    # 验证工单存在
+    core = _build_workorder_core(db)
+    wo = core.get_by_id(workorder_id)
+    if not wo:
+        raise HTTPException(status_code=404, detail="工单不存在")
+    
+    # 映射action到状态
+    action_to_status = {
+        'assign': WorkOrderStatus.PROCESSING,
+        'approve': WorkOrderStatus.APPROVED,
+        'reject': WorkOrderStatus.REJECTED,
+        'resolve': WorkOrderStatus.RESOLVED,
+        'close': WorkOrderStatus.CLOSED,
+        'cancel': WorkOrderStatus.CANCELLED,
+    }
+    
+    new_status = action_to_status.get(flow.action, flow.to_status)
+    
+    # 创建流程记录
+    wo_flow = WorkOrderFlow(
+        work_order_id=workorder_id,
+        step_name=_get_step_name(flow.action),
+        action=flow.action,
+        from_status=wo.status.value if wo.status else None,
+        to_status=new_status.value if isinstance(new_status, WorkOrderStatus) else new_status,
+        operator=current_user.username,
+        comment=flow.comment,
+    )
+    
+    db.add(wo_flow)
+    
+    # 更新工单状态
+    if new_status:
+        wo.status = new_status if isinstance(new_status, WorkOrderStatus) else _map_status(new_status)
+    
+    db.commit()
     
     return {
-        "id": 3,
+        "id": wo_flow.id,
         "workorder_id": workorder_id,
         "action": flow.action,
         "operator": current_user.username,
-        "created_at": datetime.now().isoformat(),
+        "created_at": wo_flow.created_at.isoformat() if wo_flow.created_at else None,
     }
+
+
+def _get_step_name(action: str) -> str:
+    """获取步骤名称"""
+    names = {
+        'create': '创建工单',
+        'assign': '分配处理人',
+        'approve': '审批通过',
+        'reject': '审批拒绝',
+        'resolve': '解决工单',
+        'close': '关闭工单',
+        'cancel': '取消工单',
+    }
+    return names.get(action, action)
 
 
 # ============== 工单操作接口 ==============
@@ -364,12 +544,13 @@ async def assign_workorder(
     db: Session = Depends(get_db),
 ):
     """分配工单给指定处理人"""
-    # TODO: 更新工单分配信息
+    core = _build_workorder_core(db)
+    success = core.assign(workorder_id, assignee, current_user.username, comment)
     
-    return {
-        "status": "success",
-        "message": f"WorkOrder assigned to {assignee}",
-    }
+    if not success:
+        raise HTTPException(status_code=404, detail="工单不存在")
+    
+    return {"status": "success", "message": f"工单已分配给 {assignee}"}
 
 
 @router.post("/{workorder_id}/approve", summary="审批工单")
@@ -381,13 +562,18 @@ async def approve_workorder(
     db: Session = Depends(get_db),
 ):
     """审批工单"""
-    # TODO: 更新工单审批状态
+    core = _build_workorder_core(db)
     
-    action = "approved" if approved else "rejected"
-    return {
-        "status": "success",
-        "message": f"WorkOrder {action}",
-    }
+    if approved:
+        success = core.approve(workorder_id, current_user.username, comment)
+    else:
+        success = core.reject(workorder_id, current_user.username, comment)
+    
+    if not success:
+        raise HTTPException(status_code=404, detail="工单不存在")
+    
+    action = "审批通过" if approved else "审批拒绝"
+    return {"status": "success", "message": f"工单{action}"}
 
 
 @router.post("/{workorder_id}/resolve", summary="解决工单")
@@ -400,12 +586,13 @@ async def resolve_workorder(
     db: Session = Depends(get_db),
 ):
     """解决工单"""
-    # TODO: 更新工单状态为已解决
+    core = _build_workorder_core(db)
+    success = core.resolve(workorder_id, resolution, current_user.username, root_cause, improvement)
     
-    return {
-        "status": "success",
-        "message": "WorkOrder resolved",
-    }
+    if not success:
+        raise HTTPException(status_code=404, detail="工单不存在")
+    
+    return {"status": "success", "message": "工单已解决"}
 
 
 @router.post("/{workorder_id}/close", summary="关闭工单")
@@ -417,12 +604,13 @@ async def close_workorder(
     db: Session = Depends(get_db),
 ):
     """关闭工单"""
-    # TODO: 更新工单状态为已关闭
+    core = _build_workorder_core(db)
+    success = core.close(workorder_id, current_user.username, satisfaction, feedback)
     
-    return {
-        "status": "success",
-        "message": "WorkOrder closed",
-    }
+    if not success:
+        raise HTTPException(status_code=404, detail="工单不存在")
+    
+    return {"status": "success", "message": "工单已关闭"}
 
 
 @router.post("/{workorder_id}/cancel", summary="取消工单")
@@ -433,27 +621,10 @@ async def cancel_workorder(
     db: Session = Depends(get_db),
 ):
     """取消工单"""
-    # TODO: 更新工单状态为已取消
+    core = _build_workorder_core(db)
+    success = core.cancel(workorder_id, reason, current_user.username)
     
-    return {
-        "status": "success",
-        "message": "WorkOrder cancelled",
-    }
-
-
-# 原有工单流程接口保持不变
-@router.post("/{workorder_id}/flows", summary="添加工单流程记录")
-async def add_workorder_flow(
-    workorder_id: int,
-    flow: WorkOrderFlowCreate,
-    current_user: CurrentUser = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """添加工单流程记录"""
-    return {
-        "id": 1,
-        "workorder_id": workorder_id,
-        "action": flow.action,
-        "operator": current_user.username,
-        "created_at": datetime.now().isoformat(),
-    }
+    if not success:
+        raise HTTPException(status_code=404, detail="工单不存在")
+    
+    return {"status": "success", "message": "工单已取消"}

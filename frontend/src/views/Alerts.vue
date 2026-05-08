@@ -742,6 +742,7 @@ import {
   Search, Refresh, Download, Setting, Check, View, Clock, MoreFilled,
   Document, Guide, CircleCheck, WarningFilled, Bell, InfoFilled, CircleCheckFilled
 } from '@element-plus/icons-vue'
+import { alerts } from '@/api'
 
 // 状态
 const loading = ref(false)
@@ -791,38 +792,6 @@ const ruleForm = reactive({
   notifyChannels: ['email']
 })
 
-// 模拟告警数据
-const mockAlerts = [
-  { id: 1, level: 'critical', status: 'active', host: 'web-01', metric: 'CPU使用率', value: '95%', threshold: '90%', time: '2024-05-04 10:30:00', duration: '2小时15分', message: 'CPU使用率超过90%，当前值为95%', history: [
-    { time: '2024-05-04 10:30:00', action: '触发告警', operator: '系统', type: 'danger' },
-    { time: '2024-05-04 11:00:00', action: '告警升级', operator: '系统', type: 'warning' }
-  ]},
-  { id: 2, level: 'critical', status: 'active', host: 'web-02', metric: '服务响应', value: '5000ms', threshold: '3000ms', time: '2024-05-04 09:55:00', duration: '2小时50分', message: '服务响应超时，当前响应时间5000ms', history: [
-    { time: '2024-05-04 09:55:00', action: '触发告警', operator: '系统', type: 'danger' }
-  ]},
-  { id: 3, level: 'warning', status: 'active', host: 'db-02', metric: '磁盘使用率', value: '85%', threshold: '80%', time: '2024-05-04 08:20:00', duration: '4小时25分', message: '磁盘空间不足，使用率达到85%', history: [
-    { time: '2024-05-04 08:20:00', action: '触发告警', operator: '系统', type: 'warning' }
-  ]},
-  { id: 4, level: 'warning', status: 'acknowledged', host: 'app-03', metric: '内存使用率', value: '82%', threshold: '80%', time: '2024-05-04 07:45:00', duration: '5小时', message: '内存使用率偏高，当前为82%', history: [
-    { time: '2024-05-04 07:45:00', action: '触发告警', operator: '系统', type: 'warning' },
-    { time: '2024-05-04 09:00:00', action: '已确认', operator: '张三', type: 'primary' }
-  ]},
-  { id: 5, level: 'info', status: 'active', host: 'net-01', metric: '网络延迟', value: '150ms', threshold: '100ms', time: '2024-05-04 06:30:00', duration: '6小时15分', message: '网络延迟增加，当前延迟150ms', history: [
-    { time: '2024-05-04 06:30:00', action: '触发告警', operator: '系统', type: 'info' }
-  ]},
-  { id: 6, level: 'warning', status: 'resolved', host: 'storage-01', metric: '磁盘IO', value: '75%', threshold: '80%', time: '2024-05-03 16:20:00', duration: '已解决', message: '磁盘IO使用率较高', history: [
-    { time: '2024-05-03 16:20:00', action: '触发告警', operator: '系统', type: 'warning' },
-    { time: '2024-05-03 17:00:00', action: '已解决', operator: '李四', type: 'success' }
-  ]},
-  { id: 7, level: 'info', status: 'resolved', host: 'fw-01', metric: '会话数', value: '8000', threshold: '10000', time: '2024-05-03 14:00:00', duration: '已解决', message: '防火墙会话数正常', history: [
-    { time: '2024-05-03 14:00:00', action: '触发告警', operator: '系统', type: 'info' },
-    { time: '2024-05-03 15:30:00', action: '已解决', operator: '系统', type: 'success' }
-  ]},
-  { id: 8, level: 'critical', status: 'active', host: 'web-03', metric: '错误率', value: '5.2%', threshold: '1%', time: '2024-05-04 11:15:00', duration: '30分', message: '应用错误率异常，当前为5.2%', history: [
-    { time: '2024-05-04 11:15:00', action: '触发告警', operator: '系统', type: 'danger' }
-  ]}
-]
-
 // 辅助函数
 const getLevelText = (level) => {
   const texts = { critical: '严重', warning: '警告', info: '信息' }
@@ -848,9 +817,18 @@ const getStatusTagType = (status) => {
 const loadAlerts = async () => {
   loading.value = true
   try {
-    // 模拟数据
-    alertsData.value = [...mockAlerts]
-    total.value = mockAlerts.length
+    const params = {
+      page: currentPage.value,
+      pageSize: pageSize.value,
+      level: levelFilter.value,
+      status: statusFilter.value,
+      search: searchText.value,
+      startDate: dateRange.value ? dateRange.value[0] : null,
+      endDate: dateRange.value ? dateRange.value[1] : null
+    }
+    const res = await alerts.getAlerts(params)
+    alertsData.value = res.data.list || res.data
+    total.value = res.data.total || alertsData.value.length
     updateStats()
   } catch (error) {
     console.error('Failed to load alerts:', error)

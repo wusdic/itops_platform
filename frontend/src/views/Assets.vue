@@ -945,13 +945,27 @@ const handleSubmit = async () => {
   try {
     await formRef.value.validate()
     submitLoading.value = true
-    // 模拟保存
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    // 映射前端表单字段到后端API字段
+    const data = {
+      hostname: form.hostname || form.name,
+      ip_address: form.ip,
+      device_type: form.type,
+      os_type: form.os_type,
+      location: form.location,
+    }
+    
+    if (editingAsset.value) {
+      await assets.updateAsset(editingAsset.value.id, data)
+    } else {
+      await assets.createAsset(data)
+    }
+    
     ElMessage.success(editingAsset.value ? '更新成功' : '添加成功')
     showFormDialog.value = false
     loadAssets()
   } catch (error) {
-    // 验证失败
+    console.error('保存资产失败:', error)
   } finally {
     submitLoading.value = false
   }
@@ -1002,11 +1016,14 @@ const handleImportSubmit = async () => {
   }
   importLoading.value = true
   try {
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    ElMessage.success('导入成功：8条记录')
+    const formData = new FormData()
+    formData.append('file', importFile.value.raw)
+    await assets.importAssets(formData)
+    ElMessage.success('导入成功')
     showImportDialog.value = false
     loadAssets()
-  } catch {
+  } catch (error) {
+    console.error('导入失败:', error)
     ElMessage.error('导入失败')
   } finally {
     importLoading.value = false
@@ -1016,9 +1033,25 @@ const handleImportSubmit = async () => {
 const handleExport = async () => {
   exportLoading.value = true
   try {
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    // 创建URL参数
+    const params = {}
+    // 可以添加过滤参数
+    const response = await assets.exportAssets(params)
+    
+    // 创建下载链接
+    const blob = new Blob([response], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `assets_export_${new Date().toISOString().split('T')[0]}.xlsx`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    
     ElMessage.success('导出成功')
-  } catch {
+  } catch (error) {
+    console.error('导出失败:', error)
     ElMessage.error('导出失败')
   } finally {
     exportLoading.value = false

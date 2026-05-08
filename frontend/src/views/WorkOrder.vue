@@ -906,6 +906,7 @@ import {
 
 // 状态
 const loading = ref(false)
+const submitLoading = ref(false)
 const ordersData = ref([])
 const showCreateDialog = ref(false)
 const showDetailDrawer = ref(false)
@@ -978,73 +979,6 @@ const statsData = reactive([
 const pendingCount = computed(() => {
   return ordersData.value.filter(o => o.status === 'pending').length
 })
-
-// 模拟工单数据
-const mockOrders = [
-  {
-    id: 1, sn: 'WO-20240504-001', title: 'Web服务器CPU使用率异常', category: 'fault',
-    priority: 'urgent', status: 'pending', assignee: '', creator: '张三',
-    createTime: '2024-05-04 10:30:00', updateTime: '2024-05-04 10:30:00',
-    slaRemaining: '1小时30分', assetName: 'Web服务器01',
-    description: 'Web服务器CPU使用率持续高于90%，可能影响业务正常运行，请尽快处理。',
-    processes: [
-      { time: '2024-05-04 10:30:00', action: '创建工单', detail: '收到告警，自动创建工单', operator: '系统', type: 'primary' }
-    ],
-    comments: []
-  },
-  {
-    id: 2, sn: 'WO-20240504-002', title: '数据库存储空间扩容申请', category: 'change',
-    priority: 'high', status: 'processing', assignee: '李四', creator: '王五',
-    createTime: '2024-05-04 09:00:00', updateTime: '2024-05-04 14:00:00',
-    slaRemaining: '4小时', assetName: '数据库服务器',
-    description: '数据库存储空间不足，需要扩容500GB。',
-    processes: [
-      { time: '2024-05-04 09:00:00', action: '创建工单', detail: '提交扩容申请', operator: '王五', type: 'primary' },
-      { time: '2024-05-04 09:30:00', action: '分配处理人', detail: '分配给李四处理', operator: '管理员', type: 'info' },
-      { time: '2024-05-04 14:00:00', action: '开始处理', detail: '正在准备存储扩容', operator: '李四', type: 'warning' }
-    ],
-    comments: [
-      { author: '李四', time: '2024-05-04 14:00:00', text: '已开始准备扩容，预计明天完成。' }
-    ]
-  },
-  {
-    id: 3, sn: 'WO-20240503-003', title: '防火墙规则变更申请', category: 'change',
-    priority: 'medium', status: 'pending_approval', assignee: '王五', creator: '赵六',
-    createTime: '2024-05-03 16:00:00', updateTime: '2024-05-04 10:00:00',
-    slaRemaining: '已超时', assetName: '防火墙01',
-    description: '需要在防火墙上开放80端口的访问权限，用于新业务上线。',
-    processes: [
-      { time: '2024-05-03 16:00:00', action: '创建工单', detail: '提交防火墙规则变更申请', operator: '赵六', type: 'primary' },
-      { time: '2024-05-04 09:00:00', action: '完成处理', detail: '已配置防火墙规则', operator: '王五', type: 'success' }
-    ],
-    comments: []
-  },
-  {
-    id: 4, sn: 'WO-20240503-004', title: '应用服务器磁盘空间不足', category: 'fault',
-    priority: 'high', status: 'completed', assignee: '张三', creator: '系统',
-    createTime: '2024-05-03 14:00:00', updateTime: '2024-05-03 17:00:00',
-    slaRemaining: '已完成', assetName: '应用服务器02',
-    description: '磁盘空间不足，需要清理或扩容。',
-    processes: [
-      { time: '2024-05-03 14:00:00', action: '创建工单', detail: '自动创建', operator: '系统', type: 'primary' },
-      { time: '2024-05-03 15:00:00', action: '开始处理', detail: '清理临时文件', operator: '张三', type: 'warning' },
-      { time: '2024-05-03 17:00:00', action: '完成工单', detail: '已清理50GB空间', operator: '张三', type: 'success' }
-    ],
-    comments: []
-  },
-  {
-    id: 5, sn: 'WO-20240502-005', title: '新业务系统上线技术支持', category: 'requirement',
-    priority: 'medium', status: 'processing', assignee: '李四', creator: '孙七',
-    createTime: '2024-05-02 10:00:00', updateTime: '2024-05-04 11:00:00',
-    slaRemaining: '1天', assetName: '',
-    description: '新业务系统需要部署和配置技术支持。',
-    processes: [
-      { time: '2024-05-02 10:00:00', action: '创建工单', detail: '提交技术支持需求', operator: '孙七', type: 'primary' },
-      { time: '2024-05-02 11:00:00', action: '分配处理人', detail: '分配给李四', operator: '管理员', type: 'info' }
-    ],
-    comments: []
-  }
-]
 
 // 辅助函数
 const getCategoryText = (category) => {
@@ -1258,39 +1192,38 @@ const handleOrderCommand = (command, order) => {
 const handleSubmitOrder = async () => {
   if (!orderFormRef.value) return
   
-  await orderFormRef.value.validate((valid) => {
-    if (valid) {
-      const now = new Date().toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })
-      const newOrder = {
-        id: mockOrders.length + 1,
-        sn: `WO-20240504-${String(mockOrders.length + 1).padStart(3, '0')}`,
-        title: orderForm.title,
-        category: orderForm.category,
-        priority: orderForm.priority,
-        status: 'pending',
-        assignee: orderForm.assignee,
-        creator: '当前用户',
-        createTime: now,
-        updateTime: now,
-        slaRemaining: '8小时',
-        assetName: orderForm.asset,
-        description: orderForm.description,
-        processes: [{ time: now, action: '创建工单', detail: orderForm.description, operator: '当前用户', type: 'primary' }],
-        comments: []
-      }
-      
-      ordersData.value.unshift(newOrder)
-      total.value++
-      updateStats()
-      
-      showCreateDialog.value = false
-      Object.keys(orderForm).forEach(key => orderForm[key] = key === 'category' || key === 'priority' ? orderForm[key] : '')
-      orderForm.category = 'fault'
-      orderForm.priority = 'medium'
-      
-      ElMessage.success('工单创建成功')
+  try {
+    await orderFormRef.value.validate()
+    
+    submitLoading.value = true
+    
+    const data = {
+      order_type: orderForm.category || 'fault',
+      title: orderForm.title,
+      description: orderForm.description || '',
+      priority: orderForm.priority || 'P3',
+      device_name: orderForm.asset || undefined,
+      assignee: orderForm.assignee || undefined,
     }
-  })
+    
+    const response = await workorder.createWorkOrder(data)
+    
+    // 将返回的工单添加到列表头部
+    ordersData.value.unshift(response)
+    total.value++
+    updateStats()
+    
+    showCreateDialog.value = false
+    Object.keys(orderForm).forEach(key => orderForm[key] = key === 'category' || key === 'priority' ? orderForm[key] : '')
+    orderForm.category = 'fault'
+    orderForm.priority = 'medium'
+    
+    ElMessage.success('工单创建成功')
+  } catch (error) {
+    console.error('创建工单失败:', error)
+  } finally {
+    submitLoading.value = false
+  }
 }
 
 const handleExport = () => {

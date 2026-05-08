@@ -811,6 +811,7 @@ import {
   Search, Refresh, Plus, Setting, Edit, List, MoreFilled, QuestionFilled,
   VideoPlay, VideoPause, DataLine, Document, Warning, CircleCheck, Clock, Timer
 } from '@element-plus/icons-vue'
+import { scheduler } from '@/api'
 
 // 状态
 const loading = ref(false)
@@ -888,59 +889,6 @@ const filteredLogs = computed(() => {
   return taskLogs.value.filter(l => l.level === logLevelFilter.value)
 })
 
-// 模拟任务数据
-const mockTasks = [
-  {
-    id: 1, name: '服务器监控数据采集', type: 'collection', cron: '*/5 * * * *',
-    nextRun: '2026-05-05 12:05:00', lastRun: '2026-05-05 12:00:00', duration: '12秒',
-    status: 'running', command: '/scripts/collect_metrics.sh', description: '每5分钟采集服务器性能指标',
-    enabled: true
-  },
-  {
-    id: 2, name: '每日运维报告生成', type: 'report', cron: '0 8 * * *',
-    nextRun: '2026-05-06 08:00:00', lastRun: '2026-05-05 08:00:00', duration: '45秒',
-    status: 'completed', command: '/scripts/generate_report.py', description: '每天早上8点生成运维日报',
-    enabled: true
-  },
-  {
-    id: 3, name: '告警规则健康检查', type: 'alert_check', cron: '0 */30 * * *',
-    nextRun: '2026-05-05 12:30:00', lastRun: '2026-05-05 12:00:00', duration: '8秒',
-    status: 'running', command: '/scripts/check_alerts.sh', description: '每30分钟检查告警规则配置',
-    enabled: true
-  },
-  {
-    id: 4, name: '数据库定时备份', type: 'backup', cron: '0 2 * * *',
-    nextRun: '2026-05-06 02:00:00', lastRun: '2026-05-05 02:00:00', duration: '120秒',
-    status: 'completed', command: '/scripts/backup_db.sh', description: '每天凌晨2点备份数据库',
-    enabled: false
-  },
-  {
-    id: 5, name: '日志文件清理', type: 'collection', cron: '0 3 * * 0',
-    nextRun: '2026-05-11 03:00:00', lastRun: '2026-05-04 03:00:00', duration: '失败',
-    status: 'failed', command: '/scripts/cleanup_logs.sh', description: '每周日凌晨3点清理过期日志',
-    enabled: true
-  },
-  {
-    id: 6, name: '资产数据同步', type: 'collection', cron: '0 */4 * * *',
-    nextRun: '2026-05-05 16:00:00', lastRun: '2026-05-05 12:00:00', duration: '25秒',
-    status: 'running', command: '/scripts/sync_assets.py', description: '每4小时同步资产数据',
-    enabled: true
-  }
-]
-
-// 模拟日志数据
-const mockLogs = [
-  { time: '2026-05-05 12:00:00', level: 'info', message: '任务开始执行' },
-  { time: '2026-05-05 12:00:01', level: 'info', message: '正在采集服务器性能指标...' },
-  { time: '2026-05-05 12:00:05', level: 'info', message: '成功连接到服务器 (192.168.1.101)' },
-  { time: '2026-05-05 12:00:08', level: 'info', message: '采集到 CPU: 45%, 内存: 62%, 磁盘: 55%' },
-  { time: '2026-05-05 12:00:10', level: 'info', message: '成功连接到服务器 (192.168.1.102)' },
-  { time: '2026-05-05 12:00:12', level: 'info', message: '采集到 CPU: 38%, 内存: 71%, 磁盘: 68%' },
-  { time: '2026-05-05 12:00:15', level: 'warning', message: '服务器 192.168.1.103 连接超时' },
-  { time: '2026-05-05 12:00:18', level: 'info', message: '数据上报到监控系统完成' },
-  { time: '2026-05-05 12:00:19', level: 'info', message: '任务执行成功，共采集 15 台服务器指标' }
-]
-
 // 辅助函数
 const getTypeText = (type) => {
   const texts = { collection: '数据采集', report: '报告生成', alert_check: '告警检查', backup: '备份任务' }
@@ -981,8 +929,16 @@ const showCronHelp = (cron) => {
 const loadTasks = async () => {
   loading.value = true
   try {
-    tasksData.value = [...mockTasks]
-    total.value = mockTasks.length
+    const params = {
+      page: currentPage.value,
+      pageSize: pageSize.value,
+      type: typeFilter.value,
+      status: statusFilter.value,
+      search: searchText.value
+    }
+    const res = await scheduler.getTasks(params)
+    tasksData.value = res.data.list || res.data
+    total.value = res.data.total || tasksData.value.length
     updateStats()
   } catch (error) {
     console.error('Failed to load tasks:', error)
@@ -1044,27 +1000,35 @@ const handleEditTask = (task) => {
 const handleSubmitTask = async () => {
   if (!taskFormRef.value) return
 
-  await taskFormRef.value.validate((valid) => {
+  await taskFormRef.value.validate(async (valid) => {
     if (valid) {
       if (isEdit.value) {
-        const idx = tasksData.value.findIndex(t => t.id === taskForm.id)
-        if (idx !== -1) {
-          tasksData.value[idx] = { ...tasksData.value[idx], ...taskForm }
+        try {
+          await scheduler.updateTask(taskForm.id, taskForm)
+          const idx = tasksData.value.findIndex(t => t.id === taskForm.id)
+          if (idx !== -1) {
+            tasksData.value[idx] = { ...tasksData.value[idx], ...taskForm }
+          }
+          ElMessage.success('任务修改成功')
+        } catch (error) {
+          ElMessage.error('修改任务失败')
+          return
         }
-        ElMessage.success('任务修改成功')
       } else {
-        const newTask = {
-          id: mockTasks.length + 1,
-          ...taskForm,
-          status: taskForm.enabled ? 'paused' : 'paused',
-          nextRun: '-',
-          lastRun: '-',
-          duration: ''
+        try {
+          const res = await scheduler.createTask(taskForm)
+          const newTask = {
+            id: res.data?.id || total.value + 1,
+            ...taskForm
+          }
+          tasksData.value.unshift(newTask)
+          total.value++
+          updateStats()
+          ElMessage.success('任务创建成功')
+        } catch (error) {
+          ElMessage.error('创建任务失败')
+          return
         }
-        tasksData.value.unshift(newTask)
-        total.value++
-        updateStats()
-        ElMessage.success('任务创建成功')
       }
       showTaskDialog.value = false
     }
@@ -1074,35 +1038,49 @@ const handleSubmitTask = async () => {
 const handleRunNow = async (task) => {
   try {
     await ElMessageBox.confirm(`确定要立即执行任务「${task.name}」吗？`, '提示', { type: 'info' })
+    await scheduler.runTask(task.id)
     task.status = 'running'
     ElMessage.success('任务已开始执行')
-    setTimeout(() => {
-      task.status = 'completed'
-      task.lastRun = new Date().toLocaleString('zh-CN')
-      task.duration = '18秒'
-      updateStats()
-    }, 3000)
+    loadTasks()
   } catch (err) {
     if (err !== 'cancel') ElMessage.error('执行失败')
   }
 }
 
 const handlePause = async (task) => {
-  task.status = 'paused'
-  updateStats()
-  ElMessage.success('任务已暂停')
+  try {
+    await scheduler.pauseTask(task.id)
+    task.status = 'paused'
+    updateStats()
+    ElMessage.success('任务已暂停')
+  } catch (error) {
+    ElMessage.error('暂停任务失败')
+  }
 }
 
 const handleResume = async (task) => {
-  task.status = 'running'
-  updateStats()
-  ElMessage.success('任务已恢复')
+  try {
+    await scheduler.resumeTask(task.id)
+    task.status = 'running'
+    updateStats()
+    ElMessage.success('任务已恢复')
+  } catch (error) {
+    ElMessage.error('恢复任务失败')
+  }
 }
 
-const handleViewLogs = (task) => {
+const handleViewLogs = async (task) => {
   currentTask.value = task
-  taskLogs.value = [...mockLogs]
   showLogsDrawer.value = true
+  try {
+    const res = await scheduler.getTaskLogs(task.id, {
+      level: logLevelFilter.value
+    })
+    taskLogs.value = res.data.list || res.data || []
+  } catch (error) {
+    console.error('Failed to load task logs:', error)
+    taskLogs.value = []
+  }
 }
 
 const handleClearLogs = () => {
@@ -1120,14 +1098,18 @@ const handleTaskCommand = (command, task) => {
   switch (command) {
     case 'run': handleRunNow(task); break
     case 'enable': 
-      task.enabled = true
-      ElMessage.success('任务已启用')
+      scheduler.updateTask(task.id, { enabled: true }).then(() => {
+        task.enabled = true
+        ElMessage.success('任务已启用')
+      }).catch(() => {})
       break
     case 'disable': 
-      task.enabled = false
-      task.status = 'paused'
-      updateStats()
-      ElMessage.success('任务已禁用')
+      scheduler.updateTask(task.id, { enabled: false }).then(() => {
+        task.enabled = false
+        task.status = 'paused'
+        updateStats()
+        ElMessage.success('任务已禁用')
+      }).catch(() => {})
       break
     case 'logs': handleViewLogs(task); break
     case 'delete':
@@ -1135,7 +1117,8 @@ const handleTaskCommand = (command, task) => {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
-      }).then(() => {
+      }).then(async () => {
+        await scheduler.deleteTask(task.id)
         tasksData.value = tasksData.value.filter(t => t.id !== task.id)
         total.value--
         updateStats()

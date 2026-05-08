@@ -739,6 +739,7 @@ import {
   Search, Refresh, Download, Plus, Setting, View, Share, MoreFilled,
   Document, DataLine, Printer, Ticket, Warning, TrendCharts
 } from '@element-plus/icons-vue'
+import { reports } from '@/api'
 
 // 状态
 const loading = ref(false)
@@ -881,8 +882,20 @@ const getStatusTagType = (status) => {
 const loadReports = async () => {
   loading.value = true
   try {
-    reportsData.value = [...mockReports]
-    total.value = mockReports.length
+    const params = {
+      page: currentPage.value,
+      pageSize: pageSize.value,
+      type: reportType.value,
+      status: statusFilter.value,
+      search: searchText.value
+    }
+    if (dateRange.value && dateRange.value.length === 2) {
+      params.startDate = dateRange.value[0]
+      params.endDate = dateRange.value[1]
+    }
+    const res = await reports.getReports(params)
+    reportsData.value = res.data?.list || res.data || []
+    total.value = res.data?.total || res.total || 0
   } catch (error) {
     console.error('Failed to load reports:', error)
     ElMessage.error('加载报告列表失败')

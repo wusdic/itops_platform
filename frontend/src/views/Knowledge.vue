@@ -760,6 +760,7 @@ import {
   Search, Download, DocumentAdd, Plus, Folder, FolderOpened, Star, Clock,
   List, Grid, View, User, UserFilled, Edit, MoreFilled, Document
 } from '@element-plus/icons-vue'
+import { knowledge } from '@/api/index'
 
 // 状态
 const loading = ref(false)
@@ -813,124 +814,6 @@ const formRules = {
   summary: [{ required: true, message: '请输入文档摘要', trigger: 'blur' }]
 }
 
-// 模拟文档数据
-const mockDocs = [
-  {
-    id: 1,
-    title: 'Windows服务器CPU占用率过高的排查与解决',
-    category: '故障处理',
-    tags: ['服务器', 'Windows', 'CPU', '故障排查'],
-    summary: '详细介绍Windows服务器CPU占用率过高的常见原因及排查步骤，包括进程分析、性能监控工具使用等。',
-    content: '<h2>概述</h2><p>本文档介绍Windows服务器CPU占用率过高的排查与解决方法。</p><h2>排查步骤</h2><p>1. 打开任务管理器查看进程</p><p>2. 使用性能监控器分析</p><p>3. 检查服务日志</p>',
-    author: '张三',
-    views: 1256,
-    rating: 4.5,
-    updatedAt: '2024-05-03',
-    favorite: false,
-    comments: [
-      { author: '李四', time: '2024-05-04', text: '很实用的文档，帮助我解决了问题。' }
-    ]
-  },
-  {
-    id: 2,
-    title: 'CentOS系统磁盘空间扩容操作手册',
-    category: '操作手册',
-    tags: ['Linux', '磁盘', '扩容'],
-    summary: '详细说明CentOS系统如何进行磁盘空间扩容，包括LVM配置、文件系统扩展等操作步骤。',
-    content: '<h2>概述</h2><p>本文档介绍CentOS磁盘扩容操作步骤。</p>',
-    author: '李四',
-    views: 892,
-    rating: 4.8,
-    updatedAt: '2024-05-02',
-    favorite: true,
-    comments: []
-  },
-  {
-    id: 3,
-    title: '数据库连接池配置最佳实践',
-    category: '最佳实践',
-    tags: ['数据库', '性能', '配置'],
-    summary: '介绍数据库连接池的配置原则和最佳实践，包括连接数设置、超时配置、监控指标等。',
-    content: '<h2>概述</h2><p>本文档介绍数据库连接池配置的最佳实践。</p>',
-    author: '王五',
-    views: 1567,
-    rating: 4.6,
-    updatedAt: '2024-05-01',
-    favorite: false,
-    comments: []
-  },
-  {
-    id: 4,
-    title: '网络安全设备巡检标准流程',
-    category: '操作手册',
-    tags: ['安全', '网络', '巡检'],
-    summary: '网络安全设备日常巡检的标准操作流程，包括防火墙、入侵检测、VPN设备的巡检要点。',
-    content: '<h2>概述</h2><p>本文档介绍网络安全设备巡检流程。</p>',
-    author: '赵六',
-    views: 634,
-    rating: 4.2,
-    updatedAt: '2024-04-30',
-    favorite: false,
-    comments: []
-  },
-  {
-    id: 5,
-    title: 'VMware虚拟化平台常见故障处理',
-    category: '故障处理',
-    tags: ['虚拟化', 'VMware', '故障'],
-    summary: '汇总VMware虚拟化平台常见故障及处理方法，包括vCenter、ESXi主机的故障排查。',
-    content: '<h2>概述</h2><p>本文档介绍VMware故障处理方法。</p>',
-    author: '孙七',
-    views: 1089,
-    rating: 4.4,
-    updatedAt: '2024-04-29',
-    favorite: false,
-    comments: []
-  },
-  {
-    id: 6,
-    title: '数据备份与恢复方案设计指南',
-    category: '最佳实践',
-    tags: ['备份', '恢复', '数据安全'],
-    summary: '介绍数据备份方案的设计原则，包括备份策略、恢复测试、异地备份等内容。',
-    content: '<h2>概述</h2><p>本文档介绍数据备份方案设计。</p>',
-    author: '周八',
-    views: 2345,
-    rating: 4.9,
-    updatedAt: '2024-04-28',
-    favorite: true,
-    comments: []
-  },
-  {
-    id: 7,
-    title: '交换机端口环路故障排查',
-    category: '故障处理',
-    tags: ['网络', '交换机', '环路'],
-    summary: '详细说明如何排查和解决网络交换机端口环路导致的网络故障。',
-    content: '<h2>概述</h2><p>本文档介绍交换机环路故障排查。</p>',
-    author: '吴九',
-    views: 567,
-    rating: 4.3,
-    updatedAt: '2024-04-27',
-    favorite: false,
-    comments: []
-  },
-  {
-    id: 8,
-    title: '监控系统告警规则配置手册',
-    category: '操作手册',
-    tags: ['监控', '告警', '配置'],
-    summary: '详细介绍监控系统告警规则的配置方法，包括阈值设置、通知渠道、告警升级等。',
-    content: '<h2>概述</h2><p>本文档介绍告警规则配置。</p>',
-    author: '郑十',
-    views: 789,
-    rating: 4.1,
-    updatedAt: '2024-04-26',
-    favorite: false,
-    comments: []
-  }
-]
-
 // 辅助函数
 const getCategoryIcon = (category) => {
   const iconMap = {
@@ -947,8 +830,16 @@ const getCategoryIcon = (category) => {
 const loadDocs = async () => {
   loading.value = true
   try {
-    docsData.value = [...mockDocs]
-    totalDocs.value = mockDocs.length
+    const params = {
+      page: currentPage.value,
+      pageSize: pageSize.value,
+      category: activeCategory.value === 'all' ? '' : activeCategory.value,
+      keyword: searchText.value,
+      sortBy: sortBy.value
+    }
+    const res = await knowledge.getArticles(params)
+    docsData.value = res.data?.list || res.data || []
+    totalDocs.value = res.data?.total || res.data?.list?.length || 0
   } catch (error) {
     console.error('Failed to load docs:', error)
     ElMessage.error('加载文档列表失败')
@@ -1058,30 +949,42 @@ const handleRateChange = (rating) => {
 const handleSubmitDoc = async () => {
   if (!docFormRef.value) return
   
-  await docFormRef.value.validate((valid) => {
+  await docFormRef.value.validate(async (valid) => {
     if (valid) {
-      const newDoc = {
-        id: mockDocs.length + 1,
-        title: docForm.title,
-        category: docForm.category,
-        tags: docForm.tags,
-        summary: docForm.summary,
-        content: docForm.content,
-        author: '当前用户',
-        views: 0,
-        rating: 0,
-        updatedAt: new Date().toLocaleDateString('zh-CN'),
-        favorite: false,
-        comments: []
+      try {
+        const res = await knowledge.createArticle({
+          title: docForm.title,
+          category: docForm.category,
+          tags: docForm.tags,
+          summary: docForm.summary,
+          content: docForm.content
+        })
+        const newDoc = res.data || {
+          id: Date.now(),
+          title: docForm.title,
+          category: docForm.category,
+          tags: docForm.tags,
+          summary: docForm.summary,
+          content: docForm.content,
+          author: '当前用户',
+          views: 0,
+          rating: 0,
+          updatedAt: new Date().toLocaleDateString('zh-CN'),
+          favorite: false,
+          comments: []
+        }
+        
+        docsData.value.unshift(newDoc)
+        totalDocs.value++
+        
+        showCreateDialog.value = false
+        Object.keys(docForm).forEach(key => docForm[key] = Array.isArray(docForm[key]) ? [] : '')
+        
+        ElMessage.success('文档发布成功')
+      } catch (error) {
+        console.error('Failed to create doc:', error)
+        ElMessage.error('发布文档失败')
       }
-      
-      docsData.value.unshift(newDoc)
-      totalDocs.value++
-      
-      showCreateDialog.value = false
-      Object.keys(docForm).forEach(key => docForm[key] = Array.isArray(docForm[key]) ? [] : '')
-      
-      ElMessage.success('文档发布成功')
     }
   })
 }

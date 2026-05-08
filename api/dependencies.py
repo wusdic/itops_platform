@@ -139,27 +139,69 @@ async def get_current_user(
     获取当前登录用户
     从JWT Token中解析用户信息
     """
-    # TODO: 实现JWT Token验证逻辑
-    # 暂时返回模拟用户用于开发
-    if credentials:
-        # 实际实现中应该验证token并返回真实用户
-        pass
-    
-    # 开发环境返回默认用户
     settings = get_settings()
-    if not settings.DEBUG:
+    
+    # 如果没有提供凭证
+    if not credentials:
+        if settings.DEBUG:
+            # 开发环境返回默认用户
+            return CurrentUser(
+                user_id="dev_user",
+                username="developer",
+                email="dev@example.com",
+                roles=["admin"],
+                permissions=["*"],
+            )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
         )
     
-    return CurrentUser(
-        user_id="dev_user",
-        username="developer",
-        email="dev@example.com",
-        roles=["admin"],
-        permissions=["*"],
-    )
+    # 验证JWT Token
+    try:
+        from jose import jwt, JWTError
+        
+        payload = jwt.decode(
+            credentials.credentials,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM]
+        )
+        
+        username = payload.get("sub")
+        user_id = payload.get("user_id")
+        roles = payload.get("roles", [])
+        
+        if not username:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        return CurrentUser(
+            user_id=user_id or username,
+            username=username,
+            email=None,
+            roles=roles,
+            permissions=[],
+        )
+        
+    except JWTError as e:
+        if settings.DEBUG:
+            # 开发环境允许无有效token访问
+            return CurrentUser(
+                user_id="dev_user",
+                username="developer",
+                email="dev@example.com",
+                roles=["admin"],
+                permissions=["*"],
+            )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid token: {str(e)}",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 
 async def get_current_user_optional(

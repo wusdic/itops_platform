@@ -297,6 +297,7 @@ import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock, Message, Monitor, ChatDotRound, Bell, Share, Connection } from '@element-plus/icons-vue'
+import { auth } from '@/api'
 
 const router = useRouter()
 
@@ -381,13 +382,16 @@ const handleLogin = async () => {
     await loginFormRef.value.validate()
     loginLoading.value = true
     
-    // 模拟登录请求
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    // 调用真实登录API
+    const response = await auth.login({
+      username: loginForm.username,
+      password: loginForm.password
+    })
     
     // 保存登录状态
-    localStorage.setItem('token', 'mock-token-' + Date.now())
+    localStorage.setItem('token', response.access_token)
     localStorage.setItem('userInfo', JSON.stringify({
-      id: 1,
+      id: response.user_id,
       username: loginForm.username,
       role: 'admin'
     }))
@@ -396,7 +400,7 @@ const handleLogin = async () => {
     router.push('/dashboard')
   } catch (error) {
     if (error !== 'cancel') {
-      ElMessage.error('用户名或密码错误')
+      ElMessage.error(error.detail || '用户名或密码错误')
     }
   } finally {
     loginLoading.value = false
@@ -406,22 +410,30 @@ const handleLogin = async () => {
 // 注册
 const handleRegister = async () => {
   if (!registerFormRef.value) return
-  
+ 
   try {
     await registerFormRef.value.validate()
     registerLoading.value = true
     
-    // 模拟注册请求
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    // 调用真实注册API
+    await auth.register({
+      username: registerForm.username,
+      password: registerForm.password,
+      email: registerForm.email
+    })
     
     ElMessage.success({ message: '注册成功，请登录！', duration: 2000 })
     
     // 切换到登录表单
     isLogin.value = true
-    registerFormRef.value?.resetFields()
+    registerForm.username = ''
+    registerForm.password = ''
+    registerForm.confirmPassword = ''
+    registerForm.email = ''
+    registerForm.agreeTerms = false
   } catch (error) {
     if (error !== 'cancel') {
-      ElMessage.error('注册失败，请检查填写内容')
+      ElMessage.error(error.detail || '注册失败')
     }
   } finally {
     registerLoading.value = false
