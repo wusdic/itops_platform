@@ -817,40 +817,6 @@ const previewTableData = ref([
   { device: '存储服务器', cpu: '22%', memory: '45%', disk: '72%', alerts: 0 }
 ])
 
-// 模拟报告数据
-const mockReports = [
-  {
-    id: 1, name: '2024年5月运维日报', type: 'daily', period: '2024-05-04',
-    createdAt: '2024-05-04 18:00:00', dataRange: '2024-05-03 ~ 2024-05-04',
-    status: 'completed', size: '2.5MB'
-  },
-  {
-    id: 2, name: '2024年第18周运维周报', type: 'weekly', period: '2024-04-29 ~ 2024-05-05',
-    createdAt: '2024-05-05 09:00:00', dataRange: '2024-04-29 ~ 2024-05-05',
-    status: 'completed', size: '5.8MB'
-  },
-  {
-    id: 3, name: '2024年4月运维月报', type: 'monthly', period: '2024-04',
-    createdAt: '2024-05-01 10:00:00', dataRange: '2024-04-01 ~ 2024-04-30',
-    status: 'completed', size: '15.2MB'
-  },
-  {
-    id: 4, name: '资产分析报告-Q1', type: 'asset', period: '2024-Q1',
-    createdAt: '2024-04-15 14:00:00', dataRange: '2024-01-01 ~ 2024-03-31',
-    status: 'completed', size: '8.3MB'
-  },
-  {
-    id: 5, name: '告警统计报告', type: 'alert', period: '2024-04',
-    createdAt: '2024-05-02 11:00:00', dataRange: '2024-04-01 ~ 2024-04-30',
-    status: 'completed', size: '3.1MB'
-  },
-  {
-    id: 6, name: '工单处理报告-周报', type: 'workorder', period: '2024-05-01 ~ 2024-05-07',
-    createdAt: '2024-05-07 16:00:00', dataRange: '2024-05-01 ~ 2024-05-07',
-    status: 'generating', size: '-'
-  }
-]
-
 // 辅助函数
 const getTypeText = (type) => {
   const texts = {
