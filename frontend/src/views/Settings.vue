@@ -679,6 +679,347 @@
           </div>
         </div>
 
+        <!-- 环境配置 -->
+        <div
+          v-show="activeTab === 'environment'"
+          class="content-section"
+        >
+          <div class="section-header">
+            <div class="header-info">
+              <h3 class="section-title">
+                <el-icon><Cloud /></el-icon>
+                环境配置
+              </h3>
+              <p class="section-desc">
+                配置数据库连接、缓存服务和 AI 服务参数
+              </p>
+            </div>
+          </div>
+
+          <!-- TDengine 配置 -->
+          <div class="settings-card">
+            <div class="card-header">
+              <div
+                class="card-icon"
+                style="background: linear-gradient(135deg, #e6a23c, #ebb562)"
+              >
+                <el-icon><Database /></el-icon>
+              </div>
+              <div class="card-title">
+                <span>TDengine 时序数据库</span>
+                <span class="card-subtitle">Time-Series Database</span>
+              </div>
+            </div>
+            <div class="card-body">
+              <el-form
+                label-position="top"
+                class="settings-form"
+              >
+                <div class="form-grid">
+                  <el-form-item label="服务器地址">
+                    <el-input
+                      v-model="environmentSettings.tdengine.host"
+                      placeholder="localhost"
+                    >
+                      <template #prefix>
+                        <el-icon><Connection /></el-icon>
+                      </template>
+                    </el-input>
+                  </el-form-item>
+                  <el-form-item label="RESTful 端口">
+                    <el-input-number
+                      v-model="environmentSettings.tdengine.port"
+                      :min="1"
+                      :max="65535"
+                      placeholder="6041"
+                    />
+                  </el-form-item>
+                  <el-form-item label="数据库名称">
+                    <el-input
+                      v-model="environmentSettings.tdengine.database"
+                      placeholder="itops"
+                    />
+                  </el-form-item>
+                  <el-form-item label="连接端口">
+                    <el-input-number
+                      v-model="environmentSettings.tdengine.port"
+                      :min="1"
+                      :max="65535"
+                      placeholder="6030"
+                    />
+                  </el-form-item>
+                </div>
+                <div class="form-grid">
+                  <el-form-item label="用户名">
+                    <el-input
+                      v-model="environmentSettings.tdengine.username"
+                      placeholder="root"
+                    />
+                  </el-form-item>
+                  <el-form-item label="密码">
+                    <el-input
+                      v-model="environmentSettings.tdengine.password"
+                      type="password"
+                      placeholder="••••••••"
+                      show-password
+                    />
+                  </el-form-item>
+                </div>
+              </el-form>
+              <div class="card-actions">
+                <el-button
+                  type="primary"
+                  @click="testDatabaseConnection('tdengine')"
+                >
+                  <el-icon><Connection /></el-icon>
+                  测试连接
+                </el-button>
+                <el-button @click="saveEnvironmentSettings">
+                  <el-icon><Check /></el-icon>
+                  保存配置
+                </el-button>
+              </div>
+            </div>
+          </div>
+
+          <!-- InfluxDB 配置 -->
+          <div class="settings-card">
+            <div class="card-header">
+              <div
+                class="card-icon"
+                style="background: linear-gradient(135deg, #409eff, #53a8ff)"
+              >
+                <el-icon><DataLine /></el-icon>
+              </div>
+              <div class="card-title">
+                <span>InfluxDB 时序数据库</span>
+                <span class="card-subtitle">Time-Series Database</span>
+              </div>
+            </div>
+            <div class="card-body">
+              <el-form
+                label-position="top"
+                class="settings-form"
+              >
+                <el-form-item label="InfluxDB URL">
+                  <el-input
+                    v-model="environmentSettings.influxdb.url"
+                    placeholder="http://localhost:8086"
+                  >
+                    <template #prefix>
+                      <el-icon><Link /></el-icon>
+                    </template>
+                  </el-input>
+                </el-form-item>
+                <div class="form-grid">
+                  <el-form-item label="组织名称">
+                    <el-input
+                      v-model="environmentSettings.influxdb.org"
+                      placeholder="itops"
+                    />
+                  </el-form-item>
+                  <el-form-item label="存储桶">
+                    <el-input
+                      v-model="environmentSettings.influxdb.bucket"
+                      placeholder="metrics"
+                    />
+                  </el-form-item>
+                </div>
+                <el-form-item label="认证 Token">
+                  <el-input
+                    v-model="environmentSettings.influxdb.token"
+                    type="password"
+                    placeholder="••••••••"
+                    show-password
+                  />
+                </el-form-item>
+              </el-form>
+              <div class="card-actions">
+                <el-button
+                  type="primary"
+                  @click="testDatabaseConnection('influxdb')"
+                >
+                  <el-icon><Connection /></el-icon>
+                  测试连接
+                </el-button>
+                <el-button @click="saveEnvironmentSettings">
+                  <el-icon><Check /></el-icon>
+                  保存配置
+                </el-button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Redis 配置 -->
+          <div class="settings-card">
+            <div class="card-header">
+              <div
+                class="card-icon"
+                style="background: linear-gradient(135deg, #f56c6c, #ff7875)"
+              >
+                <el-icon><Timer /></el-icon>
+              </div>
+              <div class="card-title">
+                <span>Redis 缓存服务</span>
+                <span class="card-subtitle">Cache Service</span>
+              </div>
+            </div>
+            <div class="card-body">
+              <el-form
+                label-position="top"
+                class="settings-form"
+              >
+                <div class="form-grid">
+                  <el-form-item label="服务器地址">
+                    <el-input
+                      v-model="environmentSettings.redis.host"
+                      placeholder="localhost"
+                    >
+                      <template #prefix>
+                        <el-icon><Connection /></el-icon>
+                      </template>
+                    </el-input>
+                  </el-form-item>
+                  <el-form-item label="端口">
+                    <el-input-number
+                      v-model="environmentSettings.redis.port"
+                      :min="1"
+                      :max="65535"
+                      placeholder="6379"
+                    />
+                  </el-form-item>
+                  <el-form-item label="数据库编号">
+                    <el-input-number
+                      v-model="environmentSettings.redis.db"
+                      :min="0"
+                      :max="15"
+                      placeholder="0"
+                    />
+                  </el-form-item>
+                </div>
+                <el-form-item label="密码（可选）">
+                  <el-input
+                    v-model="environmentSettings.redis.password"
+                    type="password"
+                    placeholder="••••••••"
+                    show-password
+                  />
+                </el-form-item>
+              </el-form>
+              <div class="card-actions">
+                <el-button
+                  type="primary"
+                  @click="testDatabaseConnection('redis')"
+                >
+                  <el-icon><Connection /></el-icon>
+                  测试连接
+                </el-button>
+                <el-button @click="saveEnvironmentSettings">
+                  <el-icon><Check /></el-icon>
+                  保存配置
+                </el-button>
+              </div>
+            </div>
+          </div>
+
+          <!-- AI 服务配置 -->
+          <div class="settings-card">
+            <div class="card-header">
+              <div
+                class="card-icon"
+                style="background: linear-gradient(135deg, #7232dd, #b37feb)"
+              >
+                <el-icon><TrendCharts /></el-icon>
+              </div>
+              <div class="card-title">
+                <span>AI 服务配置</span>
+                <span class="card-subtitle">AI Service Configuration</span>
+              </div>
+            </div>
+            <div class="card-body">
+              <el-form
+                label-position="top"
+                class="settings-form"
+              >
+                <div class="form-grid">
+                  <el-form-item label="AI 提供商">
+                    <el-select
+                      v-model="environmentSettings.aiService.provider"
+                      placeholder="选择 AI 服务提供商"
+                    >
+                      <el-option
+                        label="通义千问 (Qwen)"
+                        value="qwen"
+                      />
+                      <el-option
+                        label="智谱 GLM"
+                        value="glm"
+                      />
+                      <el-option
+                        label="DeepSeek"
+                        value="deepseek"
+                      />
+                      <el-option
+                        label="本地模型"
+                        value="local"
+                      />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="模型名称">
+                    <el-input
+                      v-model="environmentSettings.aiService.model"
+                      placeholder="qwen3.5"
+                    />
+                  </el-form-item>
+                </div>
+                <el-form-item label="API 基础地址">
+                  <el-input
+                    v-model="environmentSettings.aiService.baseUrl"
+                    placeholder="http://localhost:8000/v1"
+                  >
+                    <template #prefix>
+                      <el-icon><Link /></el-icon>
+                    </template>
+                  </el-input>
+                </el-form-item>
+                <el-form-item label="API Key">
+                  <el-input
+                    v-model="environmentSettings.aiService.apiKey"
+                    type="password"
+                    placeholder="••••••••"
+                    show-password
+                  />
+                </el-form-item>
+                <el-form-item label="Temperature">
+                  <div class="slider-wrapper">
+                    <el-slider
+                      v-model="environmentSettings.aiService.temperature"
+                      :min="0"
+                      :max="2"
+                      :step="0.1"
+                      show-stops
+                    />
+                    <span class="slider-value">{{ environmentSettings.aiService.temperature }}</span>
+                  </div>
+                </el-form-item>
+              </el-form>
+              <div class="card-actions">
+                <el-button
+                  type="primary"
+                  @click="testAiServiceConnection"
+                >
+                  <el-icon><Connection /></el-icon>
+                  测试连接
+                </el-button>
+                <el-button @click="saveEnvironmentSettings">
+                  <el-icon><Check /></el-icon>
+                  保存配置
+                </el-button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- 用户管理 -->
         <div
           v-show="activeTab === 'users'"
@@ -1341,7 +1682,8 @@ import {
   Setting, Check, Plus, Edit, Delete, Download, Refresh, Search,
   InfoFilled, Picture, Upload, OfficeBuilding, Message, Monitor,
   DataLine, Link, Connection, Histogram, Warning, User, Lock, Key,
-  Bell, Postcard, Clock, Timer, List, Star, ArrowUp, TrendCharts, CircleCheck
+  Bell, Postcard, Clock, Timer, List, Star, ArrowUp, TrendCharts, CircleCheck,
+  Cloud
 } from '@element-plus/icons-vue'
 
 // 状态
@@ -1358,6 +1700,7 @@ const navItems = [
   { key: 'basic', title: '基本信息', desc: '系统信息和全局配置', icon: 'InfoFilled', gradient: 'linear-gradient(135deg, #409eff, #53a8ff)' },
   { key: 'monitoring', title: '监控配置', desc: '数据源和存储策略', icon: 'DataLine', gradient: 'linear-gradient(135deg, #67c23a, #85ce61)' },
   { key: 'alerts', title: '告警配置', desc: '告警规则和通知渠道', icon: 'Warning', gradient: 'linear-gradient(135deg, #e6a23c, #ebb562)' },
+  { key: 'environment', title: '环境配置', desc: '数据库和AI服务配置', icon: 'Cloud', gradient: 'linear-gradient(135deg, #36d7b7, #4db9a9)' },
   { key: 'users', title: '用户管理', desc: '用户和权限管理', icon: 'User', gradient: 'linear-gradient(135deg, #f56c6c, #ff7875)' },
   { key: 'logs', title: '系统日志', desc: '日志查看和导出', icon: 'Postcard', gradient: 'linear-gradient(135deg, #909399, #b1b3b8)' },
   { key: 'security', title: '安全设置', desc: '密码和会话策略', icon: 'Lock', gradient: 'linear-gradient(135deg, #7232dd, #b37feb)' }
@@ -1431,6 +1774,41 @@ const securitySettings = reactive({
   maxSessions: 3,
   enableLockout: true,
   maxFailedAttempts: 5
+})
+
+// 环境配置设置
+const environmentSettings = reactive({
+  // TDengine 配置
+  tdengine: {
+    host: 'localhost',
+    port: 6030,
+    database: 'itops',
+    username: 'root',
+    password: '',
+    url: 'http://localhost:6041'
+  },
+  // InfluxDB 配置
+  influxdb: {
+    url: 'http://localhost:8086',
+    token: '',
+    org: 'itops',
+    bucket: 'metrics'
+  },
+  // Redis 配置
+  redis: {
+    host: 'localhost',
+    port: 6379,
+    password: '',
+    db: 0
+  },
+  // AI 服务配置
+  aiService: {
+    provider: 'qwen',
+    apiKey: '',
+    baseUrl: 'http://localhost:8000/v1',
+    model: 'qwen3.5',
+    temperature: 0.7
+  }
 })
 
 // 日志设置
@@ -1513,6 +1891,45 @@ const saveAlertSettings = () => {
 
 const saveSecuritySettings = () => {
   ElMessage.success({ message: '安全设置已保存', grouping: true })
+}
+
+const saveEnvironmentSettings = async () => {
+  try {
+    await axios.post('/api/v1/admin/config/environment', environmentSettings)
+    ElMessage.success({ message: '环境配置已保存', grouping: true })
+  } catch (error) {
+    ElMessage.error('保存环境配置失败')
+    console.error('Failed to save environment settings:', error)
+  }
+}
+
+const testDatabaseConnection = async (dbType) => {
+  testing.value = true
+  try {
+    const configMap = {
+      tdengine: { host: environmentSettings.tdengine.host, port: environmentSettings.tdengine.port, database: environmentSettings.tdengine.database },
+      influxdb: { url: environmentSettings.influxdb.url, token: environmentSettings.influxdb.token, org: environmentSettings.influxdb.org },
+      redis: { host: environmentSettings.redis.host, port: environmentSettings.redis.port, password: environmentSettings.redis.password }
+    }
+    await axios.post(`/api/v1/admin/config/test-connection/${dbType}`, configMap[dbType])
+    ElMessage.success(`${dbType.toUpperCase()} 连接测试成功！`)
+  } catch (error) {
+    ElMessage.error(`${dbType.toUpperCase()} 连接测试失败`)
+  } finally {
+    testing.value = false
+  }
+}
+
+const testAiServiceConnection = async () => {
+  testing.value = true
+  try {
+    await axios.post('/api/v1/admin/config/test-ai', environmentSettings.aiService)
+    ElMessage.success('AI 服务连接测试成功！')
+  } catch (error) {
+    ElMessage.error('AI 服务连接测试失败')
+  } finally {
+    testing.value = false
+  }
 }
 
 const testConnection = async () => {
@@ -1937,6 +2354,23 @@ onUnmounted(() => {
 
     .card-actions {
       margin-left: auto;
+    }
+  }
+
+  .slider-wrapper {
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+
+    .el-slider {
+      flex: 1;
+    }
+
+    .slider-value {
+      min-width: 40px;
+      text-align: right;
+      color: $text-secondary;
+      font-family: 'Monaco', monospace;
     }
   }
 
