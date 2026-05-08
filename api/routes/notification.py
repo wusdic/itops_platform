@@ -13,7 +13,9 @@ from modules.business.notification import (
     NotificationType, NotificationConfig, NotificationMessage,
     get_notification_manager, NotificationManager,
 )
-from api.dependencies import get_current_user, CurrentUser
+from modules.foundation.db_models.notification.notification_model import NotificationLog
+from api.dependencies import get_db, get_current_user, CurrentUser, PaginationParams
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["通知渠道"])
@@ -313,43 +315,60 @@ async def test_channel(channel_id: str):
 
 # ============== 通知历史接口 ==============
 
-# 通知历史记录（内存存储，生产环境应存入数据库）
-_notification_history = []
-
-
 @router.get("/history", summary="获取通知历史")
 async def get_notification_history(
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
-    channel: Optional[str] = Query(None, description="通知渠道过滤"),
-    notification_type: Optional[str] = Query(None, description="通知类型过滤"),
+    channel_type: Optional[str] = Query(None, description="渠道类型过滤"),
+    success: Optional[bool] = Query(None, description="发送成功过滤"),
+    alert_level: Optional[str] = Query(None, description="告警级别过滤"),
     start_date: Optional[datetime] = Query(None, description="开始日期"),
     end_date: Optional[datetime] = Query(None, description="结束日期"),
     current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """获取通知发送历史记录"""
-    # 从内存存储获取历史记录
-    items = _notification_history.copy()
+    query = db.query(NotificationLog)
     
-    # 过滤
-    if channel:
-        items = [h for h in items if h.get("channel") == channel]
-    if notification_type:
-        items = [h for h in items if h.get("type") == notification_type]
+    if channel_type:
+        query = query.filter(NotificationLog.channel_type == channel_type)
+    
+    if success is not None:
+        query = query.filter(NotificationLog.success == success)
+    
+    if alert_level:
+        query = query.filter(NotificationLog.alert_level == alert_level)
+    
     if start_date:
-        items = [h for h in items if h.get("sent_at") and h["sent_at"] >= start_date]
+        query = query.filter(NotificationLog.created_at >= start_date)
+    
     if end_date:
-        items = [h for h in items if h.get("sent_at") and h["sent_at"] <= end_date]
+        query = query.filter(NotificationLog.created_at <= end_date)
     
-    total = len(items)
+    total = query.count()
     
-    # 分页
-    start = (page - 1) * page_size
-    end = start + page_size
-    page_items = items[start:end]
+    logs = query.order_by(NotificationLog.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
     
     return {
-        "items": page_items,
+        "items": [
+            {
+                "id": log.id,
+                "channel_id": log.channel_id,
+                "channel_name": log.channel_name,
+                "channel_type": log.channel_type,
+                "title": log.title,
+                "content": log.content,
+                "recipients": log.recipients,
+                "success": log.success,
+                "error_message": log.error_message,
+                "status_code": log.status_code,
+                "alert_id": log.alert_id,
+                "alert_level": log.alert_level,
+                "duration_ms": log.duration_ms,
+                "created_at": log.created_at.isoformat() if log.created_at else None,
+            }
+            for log in logs
+        ],
         "total": total,
         "page": page,
         "page_size": page_size,
