@@ -903,6 +903,7 @@ import {
   Search, Refresh, Download, Plus, List, Grid, View, Edit, Comment, MoreFilled,
   UploadFilled, Clock, User, UserFilled, ArrowUp, Ticket, Timer, CircleCheck, Warning
 } from '@element-plus/icons-vue'
+import { workorder } from '@/api'
 
 // 状态
 const loading = ref(false)
@@ -1027,8 +1028,18 @@ const getKanbanOrders = (status) => {
 const loadOrders = async () => {
   loading.value = true
   try {
-    ordersData.value = [...mockOrders]
-    total.value = mockOrders.length
+    const params = {
+      page: currentPage.value,
+      pageSize: pageSize.value,
+      category: categoryFilter.value,
+      priority: priorityFilter.value,
+      status: statusFilter.value,
+      assignee: assignFilter.value === 'me' ? 'current_user' : (assignFilter.value === 'unassigned' ? null : assignFilter.value),
+      search: searchText.value
+    }
+    const res = await workorder.getWorkOrders(params)
+    ordersData.value = res.data?.list || res.data || []
+    total.value = res.data?.total || ordersData.value.length
     updateStats()
   } catch (error) {
     console.error('Failed to load orders:', error)
@@ -1090,35 +1101,30 @@ const handleProcess = (order) => {
   showProcessDialog.value = true
 }
 
-const handleSubmitProcess = () => {
+const handleSubmitProcess = async () => {
   if (!processForm.description) {
     ElMessage.warning('请输入处理说明')
     return
   }
   
-  const now = new Date().toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })
-  
-  if (processForm.result === 'resolved') {
-    currentOrder.value.status = 'completed'
-    currentOrder.value.slaRemaining = '已完成'
-  } else if (processForm.result === 'in_progress') {
-    currentOrder.value.status = 'processing'
+  try {
+    await workorder.updateWorkOrder(currentOrder.value.id, {
+      status: processForm.result === 'resolved' ? 'completed' : 'processing',
+      process_result: processForm.result,
+      process_description: processForm.description,
+      assignee: processForm.assignee || undefined
+    })
+    
+    if (processForm.assignee) {
+      currentOrder.value.assignee = processForm.assignee
+    }
+    
+    showProcessDialog.value = false
+    ElMessage.success('处理已提交')
+    loadOrders()
+  } catch (error) {
+    ElMessage.error('提交处理失败')
   }
-  
-  currentOrder.value.processes.push({
-    time: now,
-    action: processForm.result === 'resolved' ? '完成工单' : '更新处理进度',
-    detail: processForm.description,
-    operator: '当前用户',
-    type: processForm.result === 'resolved' ? 'success' : 'warning'
-  })
-  
-  if (processForm.assignee) {
-    currentOrder.value.assignee = processForm.assignee
-  }
-  
-  showProcessDialog.value = false
-  ElMessage.success('处理已提交')
 }
 
 const handleComment = (order) => {
@@ -1126,46 +1132,87 @@ const handleComment = (order) => {
   showDetailDrawer.value = true
 }
 
-const handleAddComment = () => {
+const handleAddComment = async () => {
   if (!commentText.value.trim()) {
     ElMessage.warning('请输入评论内容')
     return
   }
   
-  const now = new Date().toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })
-  
-  if (!currentOrder.value.comments) {
-    currentOrder.value.comments = []
+  try {
+    await workorder.addComment(currentOrder.value.id, {
+      content: commentText.value
+    })
+    
+    const now = new Date().toLocaleDateString('zh-CN')
+    
+    if (!currentOrder.value.comments) {
+      currentOrder.value.comments = []
+    }
+    
+    currentOrder.value.comments.push({
+      author: '当前用户',
+      time: now,
+      text: commentText.value
+    })
+    
+    commentText.value = ''
+    ElMessage.success('评论已添加')
+  } catch (error) {
+    ElMessage.error('添加评论失败')
   }
-  
-  currentOrder.value.comments.push({
-    author: '当前用户',
-    time: now,
-    text: commentText.value
-  })
-  
-  commentText.value = ''
-  ElMessage.success('评论已添加')
 }
 
-const handleTransfer = (order) => {
-  ElMessage.info('转移工单功能')
+const handleTransfer = async (order) => {
+  try {
+    await workorder.updateWorkOrder(order.id, {
+      status: 'pending',
+      assignee: processForm.assignee
+    })
+    ElMessage.success('工单已转移')
+    loadOrders()
+  } catch (error) {
+    ElMessage.error('转移工单失败')
+  }
 }
 
-const handleComplete = (order) => {
-  order.status = 'completed'
-  order.slaRemaining = '已完成'
-  ElMessage.success('工单已标记为完成')
+const handleComplete = async (order) => {
+  try {
+    await workorder.approveWorkOrder(order.id, { result: 'approved' })
+    ElMessage.success('工单已标记为完成')
+    loadOrders()
+  } catch (error) {
+    ElMessage.error('操作失败')
+  }
 }
 
-const handleClose = (order) => {
-  order.status = 'closed'
-  ElMessage.success('工单已关闭')
+const handleClose = async (order) => {
+  try {
+    await workorder.updateWorkOrder(order.id, { status: 'closed' })
+    ElMessage.success('工单已关闭')
+    loadOrders()
+  } catch (error) {
+    ElMessage.error('关闭工单失败')
+  }
+}
+
+const handleExport = async () => {
+  try {
+    const params = {
+      category: categoryFilter.value,
+      priority: priorityFilter.value,
+      status: statusFilter.value,
+      search: searchText.value
+    }
+    await workorder.exportWorkOrders(params)
+    ElMessage.success('导出成功')
+  } catch (error) {
+    ElMessage.error('导出失败')
+  }
 }
 
 const handleOrderCommand = (command, order) => {
   switch (command) {
-    case 'edit': 
+    case 'edit':
       orderForm.title = order.title
       orderForm.category = order.category
       orderForm.priority = order.priority
@@ -1176,14 +1223,19 @@ const handleOrderCommand = (command, order) => {
       break
     case 'transfer': handleTransfer(order); break
     case 'close': handleClose(order); break
-    case 'delete': 
+    case 'delete':
       ElMessageBox.confirm('确定要删除此工单吗？', '提示', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
-      }).then(() => {
-        ordersData.value = ordersData.value.filter(o => o.id !== order.id)
-        ElMessage.success('工单已删除')
+      }).then(async () => {
+        try {
+          await workorder.deleteWorkOrder(order.id)
+          ElMessage.success('工单已删除')
+          loadOrders()
+        } catch (error) {
+          ElMessage.error('删除失败')
+        }
       }).catch(() => {})
       break
   }
@@ -1224,10 +1276,6 @@ const handleSubmitOrder = async () => {
   } finally {
     submitLoading.value = false
   }
-}
-
-const handleExport = () => {
-  ElMessage.success('导出成功')
 }
 
 // 初始化

@@ -73,6 +73,22 @@ export const auth = {
   refreshToken: () => api.post('/auth/refresh')
 }
 
+// ========== 设备相关 ==========
+export const devices = {
+  getDevices: (params) => api.get('/assets/devices', { params }),
+  getDeviceDetail: (id) => api.get(`/assets/devices/${id}`),
+  createDevice: (data) => api.post('/assets/device', data),
+  updateDevice: (id, data) => api.put(`/assets/device/${id}`, data),
+  deleteDevice: (id) => api.delete(`/assets/device/${id}`),
+  setMaintenance: (id, data) => api.post(`/assets/device/${id}/maintain`, data),
+  decommissionDevice: (id) => api.post(`/assets/device/${id}/decommission`),
+  syncConfig: (id) => api.post(`/assets/config/sync/${id}`),
+  createSnapshot: (data) => api.post('/assets/config/snapshot', data),
+  exportDevices: (params) => api.get('/assets/devices/export', { params, responseType: 'blob' }),
+  batchCollect: (ids) => api.post('/assets/devices/batch/collect', { ids }),
+  collectDevice: (id) => api.post(`/assets/devices/${id}/collect`)
+}
+
 // ========== 监控相关 ==========
 export const monitoring = {
   getMetrics: () => api.get('/monitoring/metrics'),
@@ -88,7 +104,11 @@ export const alerts = {
   updateAlert: (id, data) => api.put(`/monitoring/alerts/${id}`, data),
   acknowledgeAlert: (id) => api.post(`/monitoring/alerts/${id}/acknowledge`),
   deleteAlert: (id) => api.delete(`/monitoring/alerts/${id}`),
-  getAlertStats: () => api.get('/monitoring/alerts/stats')
+  getAlertStats: () => api.get('/monitoring/alerts/stats'),
+  createAlertRule: (data) => api.post('/monitoring/alerts/rules', data),
+  updateAlertRule: (id, data) => api.put(`/monitoring/alerts/rules/${id}`, data),
+  deleteAlertRule: (id) => api.delete(`/monitoring/alerts/rules/${id}`),
+  exportAlerts: (params) => api.get('/monitoring/alerts/export', { params, responseType: 'blob' })
 }
 
 // ========== 工单相关 ==========
@@ -100,7 +120,9 @@ export const workorder = {
   deleteWorkOrder: (id) => api.delete(`/workorders/${id}`),
   approveWorkOrder: (id, data) => api.post(`/workorders/${id}/approve`, data),
   rejectWorkOrder: (id, data) => api.post(`/workorders/${id}/reject`, data),
-  getWorkOrderStats: () => api.get('/workorders/stats/summary')
+  getWorkOrderStats: () => api.get('/workorders/stats/summary'),
+  addComment: (id, data) => api.post(`/workorders/${id}/comments`, data),
+  exportWorkOrders: (params) => api.get('/workorders/export', { params, responseType: 'blob' })
 }
 
 // ========== 知识库相关 ==========
@@ -111,20 +133,28 @@ export const knowledge = {
   updateArticle: (id, data) => api.put(`/knowledge/${id}`, data),
   deleteArticle: (id) => api.delete(`/knowledge/${id}`),
   getCategories: () => api.get('/knowledge/categories'),
-  searchArticles: (params) => api.get('/knowledge/search', { params })
+  searchArticles: (params) => api.get('/knowledge/search', { params }),
+  toggleFavorite: (id) => api.post(`/knowledge/${id}/favorite`),
+  exportArticle: (id) => api.get(`/knowledge/${id}/export`, { responseType: 'blob' }),
+  addComment: (id, data) => api.post(`/knowledge/${id}/comments`, data)
 }
 
 // ========== 报告相关 ==========
 export const reports = {
   getReports: (params) => api.get('/report/', { params }),
   getReportDetail: (id) => api.get(`/report/${id}`),
-  generateReport: (data) => api.post('/report/generate/generate', data),
+  generateReport: (data) => api.post('/report/generate', data),
+  generateAsync: (data) => api.post('/report/generate/async', data),
   deleteReport: (id) => api.delete(`/report/${id}`),
   downloadReport: (id, format) => api.get(`/report/${id}/download?format=${format}`, { responseType: 'blob' }),
-  getReportTemplates: () => api.get('/report/templates/'),
-  createReportTemplate: (data) => api.post('/report/templates/', data),
-  updateReportTemplate: (id, data) => api.put(`/report/templates/${id}`, data),
-  deleteReportTemplate: (id) => api.delete(`/report/templates/${id}`)
+  shareReport: (id) => api.post(`/report/${id}/share`),
+  getReportTemplates: () => api.get('/report/template'),
+  createReportTemplate: (data) => api.post('/report/template', data),
+  updateReportTemplate: (id, data) => api.put(`/report/template/${id}`, data),
+  deleteReportTemplate: (id) => api.delete(`/report/template/${id}`),
+  saveTemplate: (data) => data.id 
+    ? api.put(`/report/template/${data.id}`, data) 
+    : api.post('/report/template', data)
 }
 
 // ========== 资产相关 ==========
@@ -136,7 +166,9 @@ export const assets = {
   deleteAsset: (id) => api.delete(`/assets/${id}`),
   importAssets: (formData) => api.post('/assets/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   exportAssets: (params) => api.get('/assets/export', { params, responseType: 'blob' }),
-  getAssetStats: () => api.get('/assets/stats')
+  getAssetStats: () => api.get('/assets/stats'),
+  collectAssetData: (id) => api.post(`/assets/${id}/collect`),
+  setMaintenance: (id, data) => api.post(`/assets/${id}/maintenance`, data)
 }
 
 // ========== 通知渠道相关 ==========

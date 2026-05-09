@@ -3,8 +3,11 @@
     class="app-layout"
     :class="[themeClass, { 'is-collapse': isCollapse }]"
   >
-    <!-- 左侧导航 -->
-    <aside class="sidebar">
+    <!-- 左侧导航 - 未登录不显示 -->
+    <aside
+      v-if="isLoggedIn"
+      class="sidebar"
+    >
       <!-- Logo区域 -->
       <div class="sidebar-header">
         <div
@@ -161,8 +164,11 @@
       </div>
     </aside>
 
-    <!-- 主内容区 -->
-    <div class="main-container">
+    <!-- 主内容区 - 未登录不显示 -->
+    <div
+      v-if="isLoggedIn"
+      class="main-container"
+    >
       <!-- 顶部标签页 -->
       <header class="top-tabs">
         <div class="tabs-scroll">
@@ -424,8 +430,9 @@ const showTabBar = ref(true)
 const showSettings = ref(false)
 const showUserMenu = ref(false)
 const showAIPanel = ref(false)
-const username = ref('管理员')
-const userRole = ref('admin')
+const isLoggedIn = ref(!!localStorage.getItem('token'))
+const username = ref(localStorage.getItem('userInfo') ? JSON.parse(localStorage.getItem('userInfo')).username : '管理员')
+const userRole = ref(localStorage.getItem('userInfo') ? JSON.parse(localStorage.getItem('userInfo')).role : 'admin')
 const userRoleText = computed(() => {
   const map = { admin: '系统管理员', operator: '运维人员', viewer: '访客' }
   return map[userRole.value] || userRole.value
@@ -575,7 +582,13 @@ const loadPreference = () => {
 const goHome = () => router.push('/dashboard')
 const goProfile = () => { showUserMenu.value = false; router.push('/profile') }
 const goSettings = () => { showUserMenu.value = false; router.push('/settings') }
-const logout = () => { showUserMenu.value = false; router.push('/login') }
+const logout = () => {
+  localStorage.removeItem('token')
+  localStorage.removeItem('userInfo')
+  isLoggedIn.value = false
+  showUserMenu.value = false
+  router.push('/login')
+}
 
 const createWorkOrder = () => router.push('/workorder/create')
 const quickCollect = () => router.push('/devices/collect')
@@ -606,11 +619,21 @@ const handleKeydown = (e) => {
   }
 }
 
-// 路由监听
+// 路由监听 - 更新登录状态
 watch(() => route.path, (path) => {
   const item = findNavItem(path)
   if (item) addTab(item)
   currentTab.value = path
+  // 检查登录状态
+  isLoggedIn.value = !!localStorage.getItem('token')
+  const userInfo = localStorage.getItem('userInfo')
+  if (userInfo) {
+    try {
+      const info = JSON.parse(userInfo)
+      username.value = info.username || '管理员'
+      userRole.value = info.role || 'admin'
+    } catch (e) {}
+  }
 })
 
 function findNavItem(path) {

@@ -896,50 +896,69 @@ const handleEditDoc = (doc) => {
   showDocDrawer.value = false
 }
 
-const handleToggleFavorite = (doc) => {
-  doc.favorite = !doc.favorite
-  ElMessage.success(doc.favorite ? '已收藏' : '已取消收藏')
+const handleToggleFavorite = async (doc) => {
+  try {
+    await knowledge.toggleFavorite(doc.id)
+    doc.favorite = !doc.favorite
+    ElMessage.success(doc.favorite ? '已收藏' : '已取消收藏')
+  } catch (error) {
+    ElMessage.error('操作失败')
+  }
 }
 
-const handleDocCommand = (command, doc) => {
+const handleDocCommand = async (command, doc) => {
   switch (command) {
     case 'view': handleViewDoc(doc); break
     case 'copy': 
       navigator.clipboard.writeText(window.location.origin + '/knowledge/' + doc.id)
       ElMessage.success('链接已复制')
       break
-    case 'export': ElMessage.success('导出成功'); break
-    case 'delete': 
-      ElMessageBox.confirm('确定要删除此文档吗？', '提示', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }).then(() => {
+    case 'export': 
+      try {
+        await knowledge.exportArticle(doc.id)
+        ElMessage.success('导出成功')
+      } catch (error) {
+        ElMessage.error('导出失败')
+      }
+      break
+    case 'delete':
+      try {
+        await knowledge.deleteArticle(doc.id)
         docsData.value = docsData.value.filter(d => d.id !== doc.id)
         ElMessage.success('文档已删除')
-      }).catch(() => {})
+      } catch (error) {
+        ElMessage.error('删除失败')
+      }
       break
   }
 }
 
-const handleAddComment = () => {
+const handleAddComment = async () => {
   if (!commentText.value.trim()) {
     ElMessage.warning('请输入评论内容')
     return
   }
   
-  if (!currentDoc.value.comments) {
-    currentDoc.value.comments = []
+  try {
+    await knowledge.addComment(currentDoc.value.id, {
+      content: commentText.value
+    })
+    
+    if (!currentDoc.value.comments) {
+      currentDoc.value.comments = []
+    }
+    
+    currentDoc.value.comments.push({
+      author: '当前用户',
+      time: new Date().toLocaleDateString('zh-CN'),
+      text: commentText.value
+    })
+    
+    commentText.value = ''
+    ElMessage.success('评论已添加')
+  } catch (error) {
+    ElMessage.error('添加评论失败')
   }
-  
-  currentDoc.value.comments.push({
-    author: '当前用户',
-    time: new Date().toLocaleDateString('zh-CN'),
-    text: commentText.value
-  })
-  
-  commentText.value = ''
-  ElMessage.success('评论已添加')
 }
 
 const handleRateChange = (rating) => {

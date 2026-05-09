@@ -742,7 +742,7 @@ import {
   Search, Refresh, Download, Setting, Check, View, Clock, MoreFilled,
   Document, Guide, CircleCheck, WarningFilled, Bell, InfoFilled, CircleCheckFilled
 } from '@element-plus/icons-vue'
-import { alerts } from '@/api'
+import { alerts, workorder } from '@/api'
 
 // 状态
 const loading = ref(false)
@@ -877,8 +877,13 @@ const handleSelectionChange = (rows) => {
 }
 
 const handleAcknowledge = async (alert) => {
-  alert.status = 'acknowledged'
-  ElMessage.success(`已确认告警: ${alert.message}`)
+  try {
+    await alerts.acknowledgeAlert(alert.id)
+    alert.status = 'acknowledged'
+    ElMessage.success('告警已确认')
+  } catch (error) {
+    ElMessage.error('确认失败')
+  }
 }
 
 const handleBatchAck = async () => {
@@ -886,10 +891,15 @@ const handleBatchAck = async () => {
     ElMessage.warning('请先选择要确认的告警')
     return
   }
-  selectedRows.value.forEach(a => {
-    if (a.status === 'active') a.status = 'acknowledged'
-  })
-  ElMessage.success(`已确认 ${selectedRows.value.length} 条告警`)
+  try {
+    for (const row of selectedRows.value) {
+      await alerts.acknowledgeAlert(row.id)
+    }
+    ElMessage.success(`已确认 ${selectedRows.value.length} 条告警`)
+    loadAlerts()
+  } catch (error) {
+    ElMessage.error('批量确认失败')
+  }
 }
 
 const handleViewDetail = (alert) => {
@@ -902,18 +912,38 @@ const handleViewHistory = (alert) => {
   showDetailDrawer.value = true
 }
 
-const handleSilence = (alert) => {
-  ElMessage.info('静默告警: ' + alert.message)
+const handleSilence = async (alert) => {
+  try {
+    await alerts.updateAlert(alert.id, { status: 'silenced' })
+    ElMessage.success('告警已静默')
+    loadAlerts()
+  } catch (error) {
+    ElMessage.error('静默失败')
+  }
 }
 
-const handleCreateTicket = (alert) => {
-  ElMessage.success(`正在为告警「${alert.message}」创建工单...`)
+const handleCreateTicket = async (alert) => {
+  try {
+    await workorder.createWorkOrder({
+      title: `告警工单: ${alert.title}`,
+      description: alert.message || alert.title,
+      priority: alert.severity === 'critical' ? 'high' : 'medium',
+      type: 'incident'
+    })
+    ElMessage.success('工单已创建')
+  } catch (error) {
+    ElMessage.error('创建工单失败')
+  }
 }
 
 const handleResolve = async (alert) => {
-  alert.status = 'resolved'
-  alert.duration = '已解决'
-  ElMessage.success('告警已标记为已解决')
+  try {
+    await alerts.updateAlert(alert.id, { status: 'resolved' })
+    ElMessage.success('告警已标记为已解决')
+    loadAlerts()
+  } catch (error) {
+    ElMessage.error('标记失败')
+  }
 }
 
 const handleAlertCommand = (command, alert) => {
@@ -925,14 +955,39 @@ const handleAlertCommand = (command, alert) => {
   }
 }
 
-const handleSaveRule = () => {
-  ElMessage.success('告警规则保存成功')
-  showRuleDialog.value = false
+const handleSaveRule = async () => {
+  try {
+    if (currentRule.value?.id) {
+      await alerts.updateAlertRule(currentRule.value.id, ruleForm)
+      ElMessage.success('告警规则已更新')
+    } else {
+      await alerts.createAlertRule(ruleForm)
+      ElMessage.success('告警规则已创建')
+    }
+    showRuleDialog.value = false
+    loadAlerts()
+  } catch (error) {
+    ElMessage.error('保存规则失败')
+  }
 }
 
-const handleExport = () => {
-  ElMessage.success('导出成功')
+const handleExport = async () => {
+  try {
+    const params = {
+      level: levelFilter.value,
+      status: statusFilter.value,
+      search: searchText.value,
+      startDate: dateRange.value ? dateRange.value[0] : null,
+      endDate: dateRange.value ? dateRange.value[1] : null
+    }
+    await alerts.exportAlerts(params)
+    ElMessage.success('导出成功')
+  } catch (error) {
+    ElMessage.error('导出失败')
+  }
 }
+
+const currentRule = ref(null)
 
 const handleAutoRefresh = (checked) => {
   if (checked) {

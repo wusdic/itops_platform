@@ -851,18 +851,17 @@ const formatTime = (time) => {
 const loadAssets = async () => {
   loading.value = true
   try {
-    // 模拟数据
-    assetsData.value = [
-      { id: 1, name: 'Web服务器-01', hostname: 'web-01', type: 'server', ip: '192.168.1.101', status: 'online', os_type: 'CentOS 7.9', location: '机房A-机柜1', created_at: '2024-01-15 10:30:00', updated_at: '2024-05-04 14:25:00' },
-      { id: 2, name: '数据库服务器', hostname: 'db-01', type: 'server', ip: '192.168.1.102', status: 'online', os_type: 'Ubuntu 22.04', location: '机房A-机柜2', created_at: '2024-01-15 10:30:00', updated_at: '2024-05-04 14:20:00' },
-      { id: 3, name: '华为核心交换机', hostname: 'sw-core-01', type: 'network', ip: '192.168.1.1', status: 'online', os_type: 'VRP', location: '机房A-机柜0', created_at: '2024-01-10 09:00:00', updated_at: '2024-05-04 14:00:00' },
-      { id: 4, name: '天融信防火墙', hostname: 'fw-01', type: 'security', ip: '192.168.1.254', status: 'online', os_type: 'TOS', location: '机房A-机柜0', created_at: '2024-01-10 09:00:00', updated_at: '2024-05-04 13:55:00' },
-      { id: 5, name: '应用服务器-01', hostname: 'app-01', type: 'server', ip: '192.168.1.103', status: 'maintenance', os_type: '麒麟Linux V10', location: '机房A-机柜3', created_at: '2024-02-01 11:00:00', updated_at: '2024-05-04 12:00:00' },
-      { id: 6, name: '绿盟IDS', hostname: 'ids-01', type: 'security', ip: '192.168.1.200', status: 'online', os_type: 'NF', location: '机房A-机柜0', created_at: '2024-01-20 14:00:00', updated_at: '2024-05-04 13:50:00' },
-      { id: 7, name: '存储阵列', hostname: 'storage-01', type: 'storage', ip: '192.168.1.50', status: 'online', os_type: '-', location: '机房B-机柜1', created_at: '2024-03-01 10:00:00', updated_at: '2024-05-04 13:45:00' },
-      { id: 8, name: '启明星辰WAF', hostname: 'waf-01', type: 'security', ip: '192.168.1.253', status: 'offline', os_type: '-', location: '机房A-机柜0', created_at: '2024-01-15 15:00:00', updated_at: '2024-05-03 22:00:00' }
-    ]
-    total.value = assetsData.value.length
+    const params = {
+      page: currentPage.value,
+      pageSize: pageSize.value,
+      type: typeFilter.value,
+      status: statusFilter.value,
+      os_type: osFilter.value,
+      search: searchText.value
+    }
+    const res = await assets.getAssets(params)
+    assetsData.value = res.data?.list || res.data || []
+    total.value = res.data?.total || assetsData.value.length
     updateStats()
   } catch (error) {
     console.error('Failed to load assets:', error)
@@ -979,20 +978,34 @@ const handleDelete = async (asset) => {
       cancelButtonText: '取消',
       confirmButtonClass: 'el-button--danger'
     })
+    await assets.deleteAsset(asset.id)
     ElMessage.success('删除成功')
     loadAssets()
-  } catch {
-    // 取消
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('删除失败')
+    }
   }
 }
 
-const handleCommand = (command, asset) => {
+const handleCommand = async (command, asset) => {
   switch (command) {
     case 'collect':
-      ElMessage.success(`开始采集 ${asset.name} 的数据...`)
+      try {
+        await assets.collectAssetData(asset.id)
+        ElMessage.success(`开始采集 ${asset.name} 的数据...`)
+      } catch (error) {
+        ElMessage.error('采集失败')
+      }
       break
     case 'maintenance':
-      ElMessage.info(`${asset.name} 已进入维护模式`)
+      try {
+        await assets.setMaintenance(asset.id, { status: 'maintenance' })
+        ElMessage.info(`${asset.name} 已进入维护模式`)
+        loadAssets()
+      } catch (error) {
+        ElMessage.error('设置维护模式失败')
+      }
       break
     case 'delete':
       handleDelete(asset)
@@ -1000,9 +1013,22 @@ const handleCommand = (command, asset) => {
   }
 }
 
-const handleImport = () => {
-  importFile.value = null
-  showImportDialog.value = true
+const handleExport = async () => {
+  try {
+    exportLoading.value = true
+    const params = {
+      type: typeFilter.value,
+      status: statusFilter.value,
+      os_type: osFilter.value,
+      search: searchText.value
+    }
+    await assets.exportAssets(params)
+    ElMessage.success('导出成功')
+  } catch (error) {
+    ElMessage.error('导出失败')
+  } finally {
+    exportLoading.value = false
+  }
 }
 
 const handleFileChange = (file) => {
@@ -1027,34 +1053,6 @@ const handleImportSubmit = async () => {
     ElMessage.error('导入失败')
   } finally {
     importLoading.value = false
-  }
-}
-
-const handleExport = async () => {
-  exportLoading.value = true
-  try {
-    // 创建URL参数
-    const params = {}
-    // 可以添加过滤参数
-    const response = await assets.exportAssets(params)
-    
-    // 创建下载链接
-    const blob = new Blob([response], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `assets_export_${new Date().toISOString().split('T')[0]}.xlsx`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    window.URL.revokeObjectURL(url)
-    
-    ElMessage.success('导出成功')
-  } catch (error) {
-    console.error('导出失败:', error)
-    ElMessage.error('导出失败')
-  } finally {
-    exportLoading.value = false
   }
 }
 

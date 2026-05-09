@@ -912,19 +912,30 @@ const handleTypeChange = () => {
 const handleGenerateReport = async () => {
   if (!reportFormRef.value) return
   
-  await reportFormRef.value.validate((valid) => {
-    if (valid) {
-      ElMessage.success('报告正在生成中...')
-      showCreateDialog.value = false
-      setTimeout(() => {
-        loadReports()
-      }, 1000)
+  try {
+    await reportFormRef.value.validate()
+    await reports.generateReport(reportForm)
+    ElMessage.success('报告正在生成中...')
+    showCreateDialog.value = false
+    setTimeout(() => {
+      loadReports()
+    }, 1500)
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('生成报告失败')
     }
-  })
+  }
 }
 
-const handleSaveAsTemplate = () => {
-  ElMessage.success('模板保存成功')
+const handleSaveAsTemplate = async () => {
+  try {
+    await reports.saveTemplate(reportForm)
+    ElMessage.success('模板保存成功')
+    showCreateDialog.value = false
+    loadReports()
+  } catch (error) {
+    ElMessage.error('保存模板失败')
+  }
 }
 
 const handlePreview = (report) => {
@@ -932,12 +943,22 @@ const handlePreview = (report) => {
   showPreviewDrawer.value = true
 }
 
-const handleDownload = (report) => {
-  ElMessage.success(`正在下载: ${report.name}`)
+const handleDownload = async (report) => {
+  try {
+    await reports.downloadReport(report.id, 'pdf')
+    ElMessage.success(`正在下载: ${report.name}`)
+  } catch (error) {
+    ElMessage.error('下载失败')
+  }
 }
 
-const handleShare = (report) => {
-  ElMessage.success('分享链接已复制到剪贴板')
+const handleShare = async (report) => {
+  try {
+    await reports.shareReport(report.id)
+    ElMessage.success('分享链接已复制到剪贴板')
+  } catch (error) {
+    ElMessage.error('分享失败')
+  }
 }
 
 const handleReportCommand = (command, report) => {
@@ -959,24 +980,31 @@ const handleReportCommand = (command, report) => {
 }
 
 const handleEditTemplate = (template) => {
-  ElMessage.info('编辑模板: ' + template.name)
+  templateForm.name = template.name
+  templateForm.type = template.type
+  templateForm.items = [...template.items]
+  templateTab.value = 'edit'
 }
 
-const handleDeleteTemplate = (template) => {
-  ElMessageBox.confirm('确定要删除此模板吗？', '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(() => {
-    templates.value = templates.value.filter(t => t.name !== template.name)
+const handleDeleteTemplate = async (template) => {
+  try {
+    await reports.deleteReportTemplate(template.id)
+    templates.value = templates.value.filter(t => t.id !== template.id)
     ElMessage.success('模板已删除')
-  }).catch(() => {})
+  } catch (error) {
+    ElMessage.error('删除模板失败')
+  }
 }
 
-const handleSaveTemplate = () => {
-  ElMessage.success('模板保存成功')
-  templateTab.value = 'list'
-  loadReports()
+const handleSaveTemplate = async () => {
+  try {
+    await reports.createReportTemplate(templateForm)
+    ElMessage.success('模板保存成功')
+    templateTab.value = 'list'
+    loadReports()
+  } catch (error) {
+    ElMessage.error('保存模板失败')
+  }
 }
 
 const handlePrint = () => {

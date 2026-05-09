@@ -561,12 +561,13 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Search, Refresh, Plus, Download, Edit, View, MoreFilled, DataLine,
   Monitor, Connection, Bell, SetUp
 } from '@element-plus/icons-vue'
+import { devices } from '@/api'
 
 const loading = ref(false)
 const exportLoading = ref(false)
@@ -676,23 +677,17 @@ const getMetricColor = (value) => {
 }
 
 const handleSearch = () => {
-  loading.value = true
-  setTimeout(() => {
-    loading.value = false
-    ElMessage.success('搜索完成')
-  }, 500)
+  loadDevices()
 }
 
 const handleFilterChange = () => {
-  handleSearch()
+  currentPage.value = 1
+  loadDevices()
 }
 
 const handleRefresh = () => {
-  loading.value = true
-  setTimeout(() => {
-    loading.value = false
-    ElMessage.success('刷新成功')
-  }, 800)
+  loadDevices()
+  ElMessage.success('刷新成功')
 }
 
 const handleSelectionChange = (rows) => {
@@ -717,16 +712,33 @@ const handleView = (row) => {
 
 const handleSaveDevice = async () => {
   if (!deviceFormRef.value) return
-  await deviceFormRef.value.validate((valid) => {
-    if (valid) {
-      deviceDialogVisible.value = false
-      ElMessage.success(isEdit.value ? '设备已更新' : '设备已添加')
+  try {
+    await deviceFormRef.value.validate()
+    
+    if (isEdit.value) {
+      await devices.updateDevice(deviceForm.id, deviceForm)
+      ElMessage.success('设备已更新')
+    } else {
+      await devices.createDevice(deviceForm)
+      ElMessage.success('设备已添加')
     }
-  })
+    
+    deviceDialogVisible.value = false
+    loadDevices()
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.detail || '保存失败')
+    }
+  }
 }
 
-const handleCollect = (row) => {
-  ElMessage.info('正在采集: ' + row.name)
+const handleCollect = async (row) => {
+  try {
+    await devices.collectDevice(row.id)
+    ElMessage.success('正在采集: ' + row.name)
+  } catch (error) {
+    ElMessage.error('采集失败')
+  }
 }
 
 const handleCommand = (cmd, row) => {
@@ -734,8 +746,14 @@ const handleCommand = (cmd, row) => {
     case 'delete':
       ElMessageBox.confirm(`确定删除设备 "${row.name}" 吗？`, '删除确认', {
         type: 'warning'
-      }).then(() => {
-        ElMessage.success('设备已删除')
+      }).then(async () => {
+        try {
+          await devices.deleteDevice(row.id)
+          ElMessage.success('设备已删除')
+          loadDevices()
+        } catch (error) {
+          ElMessage.error(error.detail || '删除失败')
+        }
       }).catch(() => {})
       break
     default:
@@ -743,29 +761,78 @@ const handleCommand = (cmd, row) => {
   }
 }
 
-const handleExport = () => {
-  exportLoading.value = true
-  setTimeout(() => {
-    exportLoading.value = false
-    ElMessage.success('导出成功')
-  }, 1000)
+const loadDevices = async () => {
+  loading.value = true
+  try {
+    const params = {
+      page: currentPage.value,
+      page_size: pageSize.value,
+    }
+    if (searchText.value) params.keyword = searchText.value
+    if (typeFilter.value) params.type = typeFilter.value
+    if (statusFilter.value) params.status = statusFilter.value
+    
+    const res = await devices.getDevices(params)
+    devicesData.value = res.items || res.data?.items || []
+    totalCount.value = res.total || res.data?.total || 0
+    
+    // 更新统计数据
+    const total = totalCount.value
+    const online = devicesData.value.filter(d => d.status === 'online').length
+    const offline = devicesData.value.filter(d => d.status === 'offline').length
+    const maintenance = devicesData.value.filter(d => d.status === 'maintenance').length
+    
+    statsData[0].value = total
+    statsData[1].value = online
+    statsData[2].value = offline
+    statsData[3].value = maintenance
+  } catch (error) {
+    ElMessage.error('加载设备列表失败')
+  } finally {
+    loading.value = false
+  }
 }
 
-const handleBatchCollect = () => {
+const handleExport = async () => {
+  try {
+    exportLoading.value = true
+    await devices.exportDevices()
+    ElMessage.success('导出成功')
+  } catch (error) {
+    ElMessage.error('导出失败')
+  } finally {
+    exportLoading.value = false
+  }
+}
+
+const handleBatchCollect = async () => {
   if (selectedRows.value.length === 0) {
     ElMessage.warning('请先选择设备')
     return
   }
-  ElMessage.info(`开始批量采集 ${selectedRows.value.length} 台设备`)
+  try {
+    const ids = selectedRows.value.map(row => row.id)
+    await devices.batchCollect(ids)
+    ElMessage.success(`开始批量采集 ${selectedRows.value.length} 台设备`)
+  } catch (error) {
+    ElMessage.error('批量采集失败')
+  }
 }
 
 const handleSizeChange = (val) => {
   pageSize.value = val
+  currentPage.value = 1
+  loadDevices()
 }
 
 const handlePageChange = (val) => {
   currentPage.value = val
+  loadDevices()
 }
+
+onMounted(() => {
+  loadDevices()
+})
 </script>
 
 <style scoped lang="scss">
