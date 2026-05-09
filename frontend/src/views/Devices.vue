@@ -1,719 +1,238 @@
 <template>
   <div class="devices-page">
-    <!-- 页面头部 -->
+    <!-- 页面标题 -->
     <div class="page-header">
-      <div class="page-header-left">
-        <h2 class="page-title">
-          设备管理
-        </h2>
-        <p class="page-subtitle">
-          统一管理所有设备，支持多种采集方式
-        </p>
-      </div>
-      <div class="page-header-actions">
-        <el-button
-          :loading="exportLoading"
-          @click="handleExport"
-        >
-          <el-icon><Download /></el-icon>
-          导出
-        </el-button>
-        <el-button
-          type="primary"
-          @click="handleCreate"
-        >
-          <el-icon><Plus /></el-icon>
-          添加设备
-        </el-button>
-      </div>
+      <h2>设备管理</h2>
+      <el-button type="primary" @click="openAddDialog">
+        <el-icon><Plus /></el-icon> 添加设备
+      </el-button>
     </div>
 
-    <!-- 统计卡片 -->
-    <div class="stats-grid">
-      <div 
-        v-for="(stat, index) in statsData" 
-        :key="stat.key"
-        class="stat-card"
-        :style="{ animationDelay: `${index * 0.08}s` }"
-      >
-        <div
-          class="stat-icon"
-          :class="stat.key"
-        >
-          <el-icon><component :is="stat.icon" /></el-icon>
-        </div>
-        <div class="stat-content">
-          <div class="stat-value">
-            {{ stat.value }}
-          </div>
-          <div class="stat-title">
-            {{ stat.title }}
-          </div>
-        </div>
-        <div
-          v-if="stat.key === 'online'"
-          class="stat-pulse"
-          :class="{ active: stat.alert }"
-        />
-      </div>
-    </div>
-
-    <!-- 筛选工具栏 -->
+    <!-- 筛选栏 -->
     <div class="filter-bar">
-      <div class="filter-left">
-        <el-input
-          v-model="searchText"
-          placeholder="搜索设备名称、IP..."
-          style="width: 260px"
-          clearable
-          @keyup.enter="handleSearch"
-          @clear="handleSearch"
-        >
-          <template #prefix>
-            <el-icon><Search /></el-icon>
-          </template>
-        </el-input>
-
-        <el-select
-          v-model="typeFilter"
-          placeholder="设备类型"
-          style="width: 140px"
-          clearable
-          @change="handleFilterChange"
-        >
-          <el-option
-            label="服务器"
-            value="server"
-          >
-            <div class="level-option">
-              <span class="level-dot server" />
-              <span>服务器</span>
-            </div>
-          </el-option>
-          <el-option
-            label="网络设备"
-            value="network"
-          >
-            <div class="level-option">
-              <span class="level-dot network" />
-              <span>网络设备</span>
-            </div>
-          </el-option>
-          <el-option
-            label="安全设备"
-            value="security"
-          >
-            <div class="level-option">
-              <span class="level-dot security" />
-              <span>安全设备</span>
-            </div>
-          </el-option>
-        </el-select>
-
-        <el-select
-          v-model="statusFilter"
-          placeholder="运行状态"
-          style="width: 130px"
-          clearable
-          @change="handleFilterChange"
-        >
-          <el-option
-            label="在线"
-            value="online"
-          >
-            <span class="status-dot online" />
-            在线
-          </el-option>
-          <el-option
-            label="离线"
-            value="offline"
-          >
-            <span class="status-dot offline" />
-            离线
-          </el-option>
-          <el-option
-            label="维护中"
-            value="maintenance"
-          >
-            <span class="status-dot maintenance" />
-            维护中
-          </el-option>
-        </el-select>
-
-        <el-select
-          v-model="osFilter"
-          placeholder="操作系统"
-          style="width: 140px"
-          clearable
-          @change="handleFilterChange"
-        >
-          <el-option
-            label="麒麟Linux"
-            value="kylin"
-          />
-          <el-option
-            label="CentOS"
-            value="centos"
-          />
-          <el-option
-            label="Ubuntu"
-            value="ubuntu"
-          />
-          <el-option
-            label="Windows"
-            value="windows"
-          />
-          <el-option
-            label="华为VRP"
-            value="vrp"
-          />
-        </el-select>
-      </div>
-
-      <div class="filter-right">
-        <el-button
-          text
-          :loading="loading"
-          @click="handleRefresh"
-        >
-          <el-icon><Refresh /></el-icon>
-          刷新
-        </el-button>
-        <el-button
-          text
-          @click="handleBatchCollect"
-        >
-          <el-icon><DataLine /></el-icon>
-          批量采集
-        </el-button>
-      </div>
+      <el-input
+        v-model="searchText"
+        placeholder="搜索设备名称/IP"
+        style="width: 240px"
+        clearable
+        @clear="loadDevices"
+        @keyup.enter="loadDevices"
+      >
+        <template #prefix><el-icon><Search /></el-icon></template>
+      </el-input>
+      <el-select v-model="typeFilter" placeholder="设备类型" clearable style="width: 140px" @change="loadDevices">
+        <el-option label="服务器" value="server" />
+        <el-option label="网络设备" value="network" />
+        <el-option label="安全设备" value="security" />
+        <el-option label="存储设备" value="storage" />
+      </el-select>
+      <el-select v-model="statusFilter" placeholder="状态" clearable style="width: 120px" @change="loadDevices">
+        <el-option label="在线" value="online" />
+        <el-option label="离线" value="offline" />
+        <el-option label="维护中" value="maintenance" />
+      </el-select>
+      <el-button @click="loadDevices"><el-icon><Refresh /></el-icon> 刷新</el-button>
     </div>
 
     <!-- 设备列表 -->
-    <div class="table-card">
-      <el-table
-        v-loading="loading"
-        :data="devicesData"
-        stripe
-        class="devices-table"
-        row-key="id"
-        @selection-change="handleSelectionChange"
-      >
-        <el-table-column
-          type="selection"
-          width="50"
-        />
-
-        <el-table-column
-          label="设备信息"
-          min-width="220"
-          show-overflow-tooltip
-        >
+    <div class="device-table">
+      <el-table :data="devicesData" v-loading="loading" stripe @row-click="handleRowClick">
+        <el-table-column prop="name" label="设备名称" min-width="150" />
+        <el-table-column prop="hostname" label="主机名" min-width="120" />
+        <el-table-column prop="ip_address" label="IP地址" width="140" />
+        <el-table-column prop="type" label="类型" width="100">
           <template #default="{ row }">
-            <div class="device-info">
-              <div
-                class="device-icon"
-                :class="row.type"
-              >
-                <el-icon><component :is="getTypeIcon(row.type)" /></el-icon>
-              </div>
-              <div class="device-details">
-                <span class="device-name">{{ row.name }}</span>
-                <span class="device-ip">{{ row.ip }}</span>
-              </div>
-            </div>
+            <span class="type-tag">{{ typeText(row.type) }}</span>
           </template>
         </el-table-column>
-
-        <el-table-column
-          label="类型"
-          width="100"
-        >
+        <el-table-column prop="status" label="状态" width="90">
           <template #default="{ row }">
-            <el-tag
-              size="small"
-              :type="getTypeTagType(row.type)"
-            >
-              {{ getTypeText(row.type) }}
-            </el-tag>
+            <span class="status-tag" :class="row.status">{{ statusText(row.status) }}</span>
           </template>
         </el-table-column>
-
-        <el-table-column
-          label="操作系统"
-          width="120"
-        >
+        <el-table-column prop="os_type" label="操作系统" width="100" />
+        <el-table-column prop="location" label="位置" min-width="120" show-overflow-tooltip />
+        <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
-            <span class="os-text">{{ row.os }}</span>
-          </template>
-        </el-table-column>
-
-        <el-table-column
-          label="状态"
-          width="100"
-        >
-          <template #default="{ row }">
-            <div class="status-cell">
-              <span
-                class="status-dot"
-                :class="row.status"
-              />
-              <span class="status-text">{{ getStatusText(row.status) }}</span>
-            </div>
-          </template>
-        </el-table-column>
-
-        <el-table-column
-          label="采集方式"
-          width="100"
-        >
-          <template #default="{ row }">
-            <el-tag
-              size="small"
-              type="info"
-            >
-              {{ getCollectMethod(row.method) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-
-        <el-table-column
-          label="性能指标"
-          min-width="200"
-        >
-          <template #default="{ row }">
-            <div class="metrics-cell">
-              <div class="metric-item">
-                <span class="metric-label">CPU</span>
-                <el-progress
-                  :percentage="row.cpu"
-                  :stroke-width="6"
-                  :color="getMetricColor(row.cpu)"
-                  :show-text="false"
-                  size="small"
-                />
-                <span class="metric-value">{{ row.cpu }}%</span>
-              </div>
-              <div class="metric-item">
-                <span class="metric-label">内存</span>
-                <el-progress
-                  :percentage="row.memory"
-                  :stroke-width="6"
-                  :color="getMetricColor(row.memory)"
-                  :show-text="false"
-                  size="small"
-                />
-                <span class="metric-value">{{ row.memory }}%</span>
-              </div>
-              <div class="metric-item">
-                <span class="metric-label">磁盘</span>
-                <el-progress
-                  :percentage="row.disk"
-                  :stroke-width="6"
-                  :color="getMetricColor(row.disk)"
-                  :show-text="false"
-                  size="small"
-                />
-                <span class="metric-value">{{ row.disk }}%</span>
-              </div>
-            </div>
-          </template>
-        </el-table-column>
-
-        <el-table-column
-          label="最后采集"
-          width="160"
-        >
-          <template #default="{ row }">
-            <span class="last-collect">{{ row.lastCollect }}</span>
-          </template>
-        </el-table-column>
-
-        <el-table-column
-          label="操作"
-          width="180"
-          fixed="right"
-        >
-          <template #default="{ row }">
-            <el-button
-              size="small"
-              text
-              type="primary"
-              @click="handleView(row)"
-            >
-              <el-icon><View /></el-icon>
-            </el-button>
-            <el-button
-              size="small"
-              text
-              type="primary"
-              @click="handleEdit(row)"
-            >
-              <el-icon><Edit /></el-icon>
-            </el-button>
-            <el-button
-              size="small"
-              text
-              @click="handleCollect(row)"
-            >
-              <el-icon><Refresh /></el-icon>
-            </el-button>
-            <el-dropdown
-              trigger="click"
-              @command="(cmd) => handleCommand(cmd, row)"
-            >
-              <el-button
-                size="small"
-                text
-              >
-                <el-icon><MoreFilled /></el-icon>
-              </el-button>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item command="alarm">
-                    设置告警
-                  </el-dropdown-item>
-                  <el-dropdown-item command="ssh">
-                    远程连接
-                  </el-dropdown-item>
-                  <el-dropdown-item command="config">
-                    配置管理
-                  </el-dropdown-item>
-                  <el-dropdown-item
-                    command="delete"
-                    divided
-                  >
-                    删除设备
-                  </el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
+            <el-button type="primary" link @click.stop="openEditDialog(row)">编辑</el-button>
+            <el-button type="primary" link @click.stop="handleSyncConfig(row)">配置</el-button>
+            <el-button type="danger" link @click.stop="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
 
       <!-- 分页 -->
-      <div class="table-pagination">
+      <div class="pagination">
         <el-pagination
           v-model:current-page="currentPage"
-          v-model:page-size="pageSize"
+          :page-size="pageSize"
           :total="totalCount"
-          :page-sizes="[10, 20, 50, 100]"
-          layout="total, sizes, prev, pager, next, jumper"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next"
           @size-change="handleSizeChange"
           @current-change="handlePageChange"
         />
       </div>
     </div>
 
-    <!-- 添加/编辑设备对话框 -->
+    <!-- 添加/编辑对话框 -->
     <el-dialog
-      v-model="deviceDialogVisible"
+      v-model="dialogVisible"
       :title="isEdit ? '编辑设备' : '添加设备'"
       width="600px"
-      :append-to-body="true"
+      :close-on-click-modal="false"
     >
-      <el-form
-        ref="deviceFormRef"
-        :model="deviceForm"
-        :rules="deviceRules"
-        label-width="100px"
-      >
-        <el-form-item
-          label="设备名称"
-          prop="name"
-        >
-          <el-input
-            v-model="deviceForm.name"
-            placeholder="请输入设备名称"
-          />
+      <el-form ref="formRef" :model="deviceForm" :rules="rules" label-width="100px">
+        <el-form-item label="设备名称" prop="name">
+          <el-input v-model="deviceForm.name" placeholder="如：Web服务器-01" />
         </el-form-item>
-        <el-form-item
-          label="设备IP"
-          prop="ip"
-        >
-          <el-input
-            v-model="deviceForm.ip"
-            placeholder="如 192.168.1.100"
-          />
+        <el-form-item label="主机名" prop="hostname">
+          <el-input v-model="deviceForm.hostname" placeholder="服务器主机名" />
         </el-form-item>
-        <el-form-item
-          label="设备类型"
-          prop="type"
-        >
-          <el-select
-            v-model="deviceForm.type"
-            placeholder="请选择"
-            style="width: 100%"
-          >
-            <el-option
-              label="Windows服务器"
-              value="windows"
-            />
-            <el-option
-              label="Linux服务器"
-              value="linux"
-            />
-            <el-option
-              label="网络设备"
-              value="network"
-            />
-            <el-option
-              label="安全设备"
-              value="security"
-            />
+        <el-form-item label="IP地址" prop="ip_address">
+          <el-input v-model="deviceForm.ip_address" placeholder="如：192.168.1.100" />
+        </el-form-item>
+        <el-form-item label="设备类型" prop="type">
+          <el-select v-model="deviceForm.type" style="width: 100%">
+            <el-option label="服务器" value="server" />
+            <el-option label="网络设备" value="network" />
+            <el-option label="安全设备" value="security" />
+            <el-option label="存储设备" value="storage" />
           </el-select>
         </el-form-item>
-        <el-form-item
-          label="操作系统"
-          prop="os"
-        >
-          <el-select
-            v-model="deviceForm.os"
-            placeholder="请选择"
-            style="width: 100%"
-          >
-            <el-option
-              label="Windows Server"
-              value="Windows"
-            />
-            <el-option
-              label="麒麟Linux"
-              value="Kylin"
-            />
-            <el-option
-              label="CentOS"
-              value="CentOS"
-            />
-            <el-option
-              label="Ubuntu"
-              value="Ubuntu"
-            />
-            <el-option
-              label="华为VRP"
-              value="VRP"
-            />
+        <el-form-item label="操作系统" prop="os_type">
+          <el-select v-model="deviceForm.os_type" style="width: 100%">
+            <el-option label="Windows Server" value="windows" />
+            <el-option label="CentOS" value="centos" />
+            <el-option label="Ubuntu" value="ubuntu" />
+            <el-option label="麒麟Linux" value="kylin" />
+            <el-option label="华为VRP" value="vrp" />
+            <el-option label="其他" value="other" />
           </el-select>
         </el-form-item>
-        <el-form-item
-          label="采集方式"
-          prop="method"
-        >
-          <el-select
-            v-model="deviceForm.method"
-            placeholder="请选择"
-            style="width: 100%"
-          >
-            <el-option
-              label="SNMP"
-              value="snmp"
-            />
-            <el-option
-              label="SSH"
-              value="ssh"
-            />
-            <el-option
-              label="WMI"
-              value="wmi"
-            />
-            <el-option
-              label="API"
-              value="api"
-            />
-            <el-option
-              label="浏览器"
-              value="browser"
-            />
-          </el-select>
+        <el-form-item label="端口" prop="port">
+          <el-input-number v-model="deviceForm.port" :min="1" :max="65535" />
         </el-form-item>
-        <el-form-item
-          label="端口"
-          prop="port"
-        >
-          <el-input-number
-            v-model="deviceForm.port"
-            :min="1"
-            :max="65535"
-          />
+        <el-form-item label="用户名" prop="username">
+          <el-input v-model="deviceForm.username" placeholder="SSH用户名" />
         </el-form-item>
-        <el-form-item label="备注">
-          <el-input
-            v-model="deviceForm.remark"
-            type="textarea"
-            :rows="3"
-            placeholder="可选"
-          />
+        <el-form-item label="密码" prop="password">
+          <el-input v-model="deviceForm.password" type="password" show-password placeholder="SSH密码" />
+        </el-form-item>
+        <el-form-item label="位置" prop="location">
+          <el-input v-model="deviceForm.location" placeholder="如：机房A-机柜3" />
+        </el-form-item>
+        <el-form-item label="描述">
+          <el-input v-model="deviceForm.description" type="textarea" :rows="2" placeholder="设备描述信息" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="deviceDialogVisible = false">
-          取消
-        </el-button>
-        <el-button
-          type="primary"
-          @click="handleSaveDevice"
-        >
-          保存
-        </el-button>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleSave" :loading="saving">保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- 设备详情抽屉 -->
+    <el-drawer v-model="detailVisible" title="设备详情" size="500px">
+      <div v-if="currentDevice" class="device-detail">
+        <div class="detail-row"><span class="label">设备名称</span><span class="value">{{ currentDevice.name }}</span></div>
+        <div class="detail-row"><span class="label">主机名</span><span class="value">{{ currentDevice.hostname }}</span></div>
+        <div class="detail-row"><span class="label">IP地址</span><span class="value">{{ currentDevice.ip_address }}</span></div>
+        <div class="detail-row"><span class="label">类型</span><span class="value">{{ typeText(currentDevice.type) }}</span></div>
+        <div class="detail-row"><span class="label">状态</span><span class="value status-tag" :class="currentDevice.status">{{ statusText(currentDevice.status) }}</span></div>
+        <div class="detail-row"><span class="label">操作系统</span><span class="value">{{ currentDevice.os_type }}</span></div>
+        <div class="detail-row"><span class="label">位置</span><span class="value">{{ currentDevice.location }}</span></div>
+        <div class="detail-row"><span class="label">描述</span><span class="value">{{ currentDevice.description }}</span></div>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import {
-  Search, Refresh, Plus, Download, Edit, View, MoreFilled, DataLine,
-  Monitor, Connection, Bell, SetUp
-} from '@element-plus/icons-vue'
+import { Plus, Search, Refresh } from '@element-plus/icons-vue'
 import { devices } from '@/api'
 
+// 状态
 const loading = ref(false)
-const exportLoading = ref(false)
+const saving = ref(false)
+const dialogVisible = ref(false)
+const detailVisible = ref(false)
+const isEdit = ref(false)
+const currentPage = ref(1)
+const pageSize = ref(20)
+const totalCount = ref(0)
 const searchText = ref('')
 const typeFilter = ref('')
 const statusFilter = ref('')
-const osFilter = ref('')
-const currentPage = ref(1)
-const pageSize = ref(20)
-const totalCount = ref(50)
-const selectedRows = ref([])
+const formRef = ref(null)
+const devicesData = ref([])
+const currentDevice = ref(null)
 
-// 统计卡片数据
-const statsData = reactive([
-  { key: 'total', title: '设备总数', value: 50, icon: 'Monitor' },
-  { key: 'online', title: '在线设备', value: 45, icon: 'CircleCheck', alert: false },
-  { key: 'offline', title: '离线设备', value: 3, icon: 'CircleClose', alert: true },
-  { key: 'maintenance', title: '维护中', value: 2, icon: 'Setting', alert: false }
-])
-
-// 设备列表数据
-const devicesData = ref([
-  { id: 1, name: 'Web服务器-01', ip: '192.168.1.101', type: 'windows', os: 'Windows Server 2019', status: 'online', method: 'wmi', cpu: 45, memory: 68, disk: 52, lastCollect: '3分钟前' },
-  { id: 2, name: '数据库服务器', ip: '192.168.1.102', type: 'linux', os: 'Kylin Linux V10', status: 'online', method: 'ssh', cpu: 32, memory: 75, disk: 61, lastCollect: '2分钟前' },
-  { id: 3, name: '核心交换机-CORE-01', ip: '192.168.1.1', type: 'network', os: 'VRP 8.180', status: 'online', method: 'snmp', cpu: 15, memory: 40, disk: 0, lastCollect: '1分钟前' },
-  { id: 4, name: '防火墙-FW-01', ip: '192.168.1.254', type: 'security', os: 'TopSec OS', status: 'online', method: 'api', cpu: 25, memory: 55, disk: 30, lastCollect: '5分钟前' },
-  { id: 5, name: 'App服务器-01', ip: '192.168.1.103', type: 'linux', os: 'CentOS 7.9', status: 'offline', method: 'ssh', cpu: 0, memory: 0, disk: 58, lastCollect: '2小时前' },
-  { id: 6, name: '负载均衡器', ip: '192.168.1.10', type: 'network', os: 'VRP 8.180', status: 'online', method: 'snmp', cpu: 20, memory: 45, disk: 0, lastCollect: '1分钟前' },
-  { id: 7, name: '日志服务器', ip: '192.168.1.110', type: 'linux', os: 'Ubuntu 22.04', status: 'maintenance', method: 'ssh', cpu: 8, memory: 30, disk: 72, lastCollect: '30分钟前' },
-  { id: 8, name: 'IDS入侵检测', ip: '192.168.1.200', type: 'security', os: 'NSFOCUS 5.0', status: 'online', method: 'api', cpu: 35, memory: 62, disk: 45, lastCollect: '4分钟前' }
-])
-
-// 对话框
-const deviceDialogVisible = ref(false)
-const isEdit = ref(false)
-const deviceFormRef = ref(null)
+// 表单
 const deviceForm = reactive({
   name: '',
-  ip: '',
-  type: '',
-  os: '',
-  method: '',
+  hostname: '',
+  ip_address: '',
+  type: 'server',
+  os_type: 'centos',
   port: 22,
-  remark: ''
+  username: '',
+  password: '',
+  location: '',
+  description: ''
 })
-const deviceRules = {
+
+const rules = {
   name: [{ required: true, message: '请输入设备名称', trigger: 'blur' }],
-  ip: [{ required: true, message: '请输入设备IP', trigger: 'blur' }],
-  type: [{ required: true, message: '请选择设备类型', trigger: 'change' }],
-  method: [{ required: true, message: '请选择采集方式', trigger: 'change' }]
+  ip_address: [{ required: true, message: '请输入IP地址', trigger: 'blur' }],
+  type: [{ required: true, message: '请选择设备类型', trigger: 'change' }]
 }
 
-const getTypeIcon = (type) => {
-  const map = {
-    windows: 'Monitor',
-    linux: 'Monitor',
-    network: 'Connection',
-    security: 'Bell'
-  }
-  return map[type] || 'Monitor'
-}
-
-const getTypeText = (type) => {
-  const map = {
-    windows: 'Windows',
-    linux: 'Linux',
-    network: '网络',
-    security: '安全'
-  }
-  return map[type] || type
-}
-
-const getTypeTagType = (type) => {
-  const map = {
-    windows: '',
-    linux: 'success',
-    network: 'warning',
-    security: 'danger'
-  }
-  return map[type] || 'info'
-}
-
-const getStatusText = (status) => {
-  const map = {
-    online: '在线',
-    offline: '离线',
-    maintenance: '维护中'
-  }
-  return map[status] || status
-}
-
-const getCollectMethod = (method) => {
-  const map = {
-    snmp: 'SNMP',
-    ssh: 'SSH',
-    wmi: 'WMI',
-    api: 'API',
-    browser: '浏览器'
-  }
-  return map[method] || method
-}
-
-const getMetricColor = (value) => {
-  if (value >= 80) return '#f53f3f'
-  if (value >= 60) return '#ff7d00'
-  return '#00b42a'
-}
-
-const handleSearch = () => {
+onMounted(() => {
   loadDevices()
-}
+})
 
-const handleFilterChange = () => {
-  currentPage.value = 1
-  loadDevices()
-}
-
-const handleRefresh = () => {
-  loadDevices()
-  ElMessage.success('刷新成功')
-}
-
-const handleSelectionChange = (rows) => {
-  selectedRows.value = rows
-}
-
-const handleCreate = () => {
-  isEdit.value = false
-  Object.assign(deviceForm, { name: '', ip: '', type: '', os: '', method: '', port: 22, remark: '' })
-  deviceDialogVisible.value = true
-}
-
-const handleEdit = (row) => {
-  isEdit.value = true
-  Object.assign(deviceForm, row)
-  deviceDialogVisible.value = true
-}
-
-const handleView = (row) => {
-  ElMessage.info('查看设备详情: ' + row.name)
-}
-
-const handleSaveDevice = async () => {
-  if (!deviceFormRef.value) return
+const loadDevices = async () => {
+  loading.value = true
   try {
-    await deviceFormRef.value.validate()
+    const params = { page: currentPage.value, page_size: pageSize.value }
+    if (searchText.value) params.keyword = searchText.value
+    if (typeFilter.value) params.type = typeFilter.value
+    if (statusFilter.value) params.status = statusFilter.value
+    
+    const res = await devices.getDevices(params)
+    devicesData.value = res.items || res.data?.items || []
+    totalCount.value = res.total || res.data?.total || 0
+  } catch (error) {
+    ElMessage.error('加载设备列表失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+const openAddDialog = () => {
+  isEdit.value = false
+  Object.assign(deviceForm, {
+    name: '', hostname: '', ip_address: '', type: 'server',
+    os_type: 'centos', port: 22, username: '', password: '',
+    location: '', description: ''
+  })
+  dialogVisible.value = true
+}
+
+const openEditDialog = (row) => {
+  isEdit.value = true
+  Object.assign(deviceForm, { ...row, password: '' })
+  dialogVisible.value = true
+}
+
+const handleSave = async () => {
+  if (!formRef.value) return
+  try {
+    await formRef.value.validate()
+    saving.value = true
     
     if (isEdit.value) {
       await devices.updateDevice(deviceForm.id, deviceForm)
@@ -723,105 +242,46 @@ const handleSaveDevice = async () => {
       ElMessage.success('设备已添加')
     }
     
-    deviceDialogVisible.value = false
+    dialogVisible.value = false
     loadDevices()
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error(error.detail || '保存失败')
     }
+  } finally {
+    saving.value = false
   }
 }
 
-const handleCollect = async (row) => {
+const handleRowClick = (row) => {
+  currentDevice.value = row
+  detailVisible.value = true
+}
+
+const handleSyncConfig = async (row) => {
   try {
-    await devices.collectDevice(row.id)
-    ElMessage.success('正在采集: ' + row.name)
+    await devices.syncConfig(row.id)
+    ElMessage.success('配置同步成功')
   } catch (error) {
-    ElMessage.error('采集失败')
+    ElMessage.error('配置同步失败')
   }
 }
 
-const handleCommand = (cmd, row) => {
-  switch (cmd) {
-    case 'delete':
-      ElMessageBox.confirm(`确定删除设备 "${row.name}" 吗？`, '删除确认', {
-        type: 'warning'
-      }).then(async () => {
-        try {
-          await devices.deleteDevice(row.id)
-          ElMessage.success('设备已删除')
-          loadDevices()
-        } catch (error) {
-          ElMessage.error(error.detail || '删除失败')
-        }
-      }).catch(() => {})
-      break
-    default:
-      ElMessage.info('操作: ' + cmd)
-  }
-}
-
-const loadDevices = async () => {
-  loading.value = true
+const handleDelete = async (row) => {
   try {
-    const params = {
-      page: currentPage.value,
-      page_size: pageSize.value,
+    await ElMessageBox.confirm(`确定删除设备 "${row.name}" 吗？`, '删除确认', { type: 'warning' })
+    await devices.deleteDevice(row.id)
+    ElMessage.success('设备已删除')
+    loadDevices()
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('删除失败')
     }
-    if (searchText.value) params.keyword = searchText.value
-    if (typeFilter.value) params.type = typeFilter.value
-    if (statusFilter.value) params.status = statusFilter.value
-    
-    const res = await devices.getDevices(params)
-    devicesData.value = res.items || res.data?.items || []
-    totalCount.value = res.total || res.data?.total || 0
-    
-    // 更新统计数据
-    const total = totalCount.value
-    const online = devicesData.value.filter(d => d.status === 'online').length
-    const offline = devicesData.value.filter(d => d.status === 'offline').length
-    const maintenance = devicesData.value.filter(d => d.status === 'maintenance').length
-    
-    statsData[0].value = total
-    statsData[1].value = online
-    statsData[2].value = offline
-    statsData[3].value = maintenance
-  } catch (error) {
-    ElMessage.error('加载设备列表失败')
-  } finally {
-    loading.value = false
-  }
-}
-
-const handleExport = async () => {
-  try {
-    exportLoading.value = true
-    await devices.exportDevices()
-    ElMessage.success('导出成功')
-  } catch (error) {
-    ElMessage.error('导出失败')
-  } finally {
-    exportLoading.value = false
-  }
-}
-
-const handleBatchCollect = async () => {
-  if (selectedRows.value.length === 0) {
-    ElMessage.warning('请先选择设备')
-    return
-  }
-  try {
-    const ids = selectedRows.value.map(row => row.id)
-    await devices.batchCollect(ids)
-    ElMessage.success(`开始批量采集 ${selectedRows.value.length} 台设备`)
-  } catch (error) {
-    ElMessage.error('批量采集失败')
   }
 }
 
 const handleSizeChange = (val) => {
   pageSize.value = val
-  currentPage.value = 1
   loadDevices()
 }
 
@@ -830,314 +290,91 @@ const handlePageChange = (val) => {
   loadDevices()
 }
 
-onMounted(() => {
-  loadDevices()
-})
+const typeText = (type) => {
+  const map = { server: '服务器', network: '网络设备', security: '安全设备', storage: '存储设备' }
+  return map[type] || type
+}
+
+const statusText = (status) => {
+  const map = { online: '在线', offline: '离线', maintenance: '维护中' }
+  return map[status] || status
+}
 </script>
 
-<style scoped lang="scss">
-@use '@/styles/variables.scss' as *;
-
+<style lang="scss" scoped>
 .devices-page {
-  padding: $spacing-xl;
+  background: #f7f8fa;
   min-height: 100%;
-  background: $bg-page;
-  animation: fadeIn 0.3s ease-out;
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: $spacing-xl;
-
-  .page-header-left {
-    .page-title {
-      font-size: $font-size-xl;
-      font-weight: $font-weight-bold;
-      color: $text-primary;
-      margin: 0 0 $space-2 0;
-    }
-
-    .page-subtitle {
-      font-size: $font-size-sm;
-      color: $text-secondary;
-      margin: 0;
-    }
-  }
-
-  .page-header-actions {
-    display: flex;
-    gap: $spacing-sm;
-  }
-}
-
-// 统计卡片
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: $spacing-lg;
-  margin-bottom: $spacing-xl;
-}
-
-.stat-card {
-  background: $bg-container;
-  border-radius: $radius-lg;
-  padding: $spacing-lg;
-  display: flex;
   align-items: center;
-  gap: $spacing-md;
-  position: relative;
-  overflow: hidden;
-  transition: all 0.3s;
-  animation: fadeInUp 0.4s ease-out backwards;
-
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: $shadow-sm;
-  }
-
-  .stat-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: $radius-lg;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  margin-bottom: 24px;
+  
+  h2 {
+    margin: 0;
     font-size: 20px;
-    color: #fff;
-
-    &.total { background: linear-gradient(135deg, #165dff, #4080ff); }
-    &.online { background: linear-gradient(135deg, #00b42a, #23c343); }
-    &.offline { background: linear-gradient(135deg, #f53f3f, #ff7875); }
-    &.maintenance { background: linear-gradient(135deg, #ff7d00, #ff9f40); }
-  }
-
-  .stat-content {
-    .stat-value {
-      font-size: 24px;
-      font-weight: $font-weight-bold;
-      color: $text-primary;
-    }
-
-    .stat-title {
-      font-size: $font-size-sm;
-      color: $text-secondary;
-    }
-  }
-
-  .stat-pulse {
-    position: absolute;
-    right: $spacing-lg;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: $success;
-
-    &.active {
-      background: $danger;
-      animation: pulse 1.5s infinite;
-    }
+    font-weight: 600;
+    color: #1d2129;
   }
 }
 
-@keyframes pulse {
-  0%, 100% { transform: translateY(-50%) scale(1); opacity: 1; }
-  50% { transform: translateY(-50%) scale(1.3); opacity: 0.7; }
-}
-
-// 筛选栏
 .filter-bar {
+  background: #fff;
+  padding: 16px 20px;
+  border-radius: 8px;
+  margin-bottom: 16px;
   display: flex;
-  justify-content: space-between;
+  gap: 12px;
   align-items: center;
-  padding: $spacing-md $spacing-lg;
-  background: $bg-container;
-  border-radius: $radius-lg;
-  margin-bottom: $spacing-lg;
-
-  .filter-left {
-    display: flex;
-    gap: $spacing-sm;
-    align-items: center;
-  }
-
-  .filter-right {
-    display: flex;
-    gap: $spacing-sm;
-    align-items: center;
-  }
 }
 
-// 表格卡片
-.table-card {
-  background: $bg-container;
-  border-radius: $radius-lg;
-  padding: $spacing-lg;
+.device-table {
+  background: #fff;
+  border-radius: 8px;
+  padding: 20px;
 }
 
-.devices-table {
-  :deep(.el-table__header th) {
-    background: $bg-page;
-    font-weight: $font-weight-medium;
-  }
+.type-tag {
+  font-size: 12px;
+  padding: 2px 8px;
+  background: #e8f0ff;
+  color: #165dff;
+  border-radius: 4px;
 }
 
-// 设备信息单元格
-.device-info {
-  display: flex;
-  align-items: center;
-  gap: $spacing-md;
-
-  .device-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: $radius-md;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    color: #fff;
-
-    &.windows { background: linear-gradient(135deg, #165dff, #4080ff); }
-    &.linux { background: linear-gradient(135deg, #00b42a, #23c343); }
-    &.network { background: linear-gradient(135deg, #722ed1, #9254de); }
-    &.security { background: linear-gradient(135deg, #f53f3f, #ff7875); }
-  }
-
-  .device-details {
-    display: flex;
-    flex-direction: column;
-
-    .device-name {
-      font-size: $font-size-sm;
-      font-weight: $font-weight-medium;
-      color: $text-primary;
-    }
-
-    .device-ip {
-      font-size: $font-size-xs;
-      color: $text-secondary;
-    }
-  }
+.status-tag {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  &.online { background: #e8ffea; color: #00b42a; }
+  &.offline { background: #f7f8fa; color: #86909c; }
+  &.maintenance { background: #fff7e6; color: #ff7d00; }
 }
 
-// 状态单元格
-.status-cell {
-  display: flex;
-  align-items: center;
-  gap: $spacing-xs;
-
-  .status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-
-    &.online { background: $success; }
-    &.offline { background: $danger; }
-    &.maintenance { background: $warning; }
-  }
-
-  .status-text {
-    font-size: $font-size-sm;
-  }
-}
-
-// 操作系统
-.os-text {
-  font-size: $font-size-sm;
-  color: $text-secondary;
-}
-
-// 指标单元格
-.metrics-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  width: 180px;
-
-  .metric-item {
-    display: flex;
-    align-items: center;
-    gap: $spacing-xs;
-
-    .metric-label {
-      width: 32px;
-      font-size: $font-size-xs;
-      color: $text-placeholder;
-    }
-
-    :deep(.el-progress-bar__outer) {
-      border-radius: 3px;
-    }
-
-    .metric-value {
-      width: 40px;
-      font-size: $font-size-xs;
-      color: $text-secondary;
-      text-align: right;
-    }
-  }
-}
-
-.last-collect {
-  font-size: $font-size-xs;
-  color: $text-placeholder;
-}
-
-// 分页
-.table-pagination {
+.pagination {
+  margin-top: 20px;
   display: flex;
   justify-content: flex-end;
-  margin-top: $spacing-lg;
 }
 
-// 选项样式
-.level-option,
-.option-item {
-  display: flex;
-  align-items: center;
-  gap: $spacing-sm;
-}
-
-.level-dot,
-.option-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-
-  &.server { background: #165dff; }
-  &.network { background: #722ed1; }
-  &.security { background: #f53f3f; }
-  &.storage { background: #00b42a; }
-}
-
-.status-dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-
-  &.online { background: $success; }
-  &.offline { background: $danger; }
-  &.maintenance { background: $warning; }
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+.device-detail {
+  .detail-row {
+    display: flex;
+    padding: 12px 0;
+    border-bottom: 1px solid #f2f3f5;
+    .label {
+      width: 100px;
+      color: #86909c;
+      font-size: 14px;
+    }
+    .value {
+      flex: 1;
+      color: #1d2129;
+      font-size: 14px;
+    }
   }
 }
 </style>
