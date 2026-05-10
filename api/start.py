@@ -124,23 +124,60 @@ def init_monitoring(config: dict):
         return None
 
 
+# 全局 LLM 客户端
+_llm_client = None
+
+
 def init_ai(config: dict):
     """
     初始化AI组件
     """
-    if not config.get("ai_enabled"):
+    global _llm_client
+
+    # Fallback: 优先用 config，否则用环境变量
+    ai_enabled = config.get("ai_enabled")
+    if ai_enabled is None:
+        ai_enabled = os.getenv("AI_ENABLED", "true").lower() == "true"
+
+    if not ai_enabled:
         logger.info("AI is disabled")
         return None
-    
+
     try:
-        # 初始化AI助手
-        # from modules.business.ai_copilot.copilot import AICopilot
-        
-        logger.info("AI initialized successfully")
+        # 加载 AI Copilot 配置（YAML）
+        import yaml
+
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        copilot_config_path = os.path.join(project_root, "config", "templates", "ai_copilot.yaml")
+
+        ai_config = {"ollama": {}, "models": {"default": "qwen3.6-27b-q4-k-m"}, "conversation": {}}
+        if os.path.exists(copilot_config_path):
+            with open(copilot_config_path, "r") as f:
+                loaded = yaml.safe_load(f) or {}
+                ai_config["ollama"] = loaded.get("ollama", {})
+                ai_config["models"] = loaded.get("models", {"default": "qwen3.6-27b-q4-k-m"})
+                ai_config["conversation"] = loaded.get("conversation", {})
+
+        # base_url 优先用 dev.yaml 里的 ai.base_url（运行时通过环境变量传入）
+        # 检查环境变量或传入的 config
+        base_url = os.getenv("AI_BASE_URL", "http://127.0.0.1:11434")
+        model = os.getenv("AI_MODEL", ai_config["models"].get("default", "qwen3.6-27b-q4-k-m"))
+        ai_config["ollama"]["base_url"] = base_url
+        ai_config["models"]["default"] = model
+
+        # 初始化 LLM 客户端
+        from modules.business.ai_copilot.llm_client import init_llm_client
+        _llm_client = init_llm_client(ai_config)
+        logger.info(f"AI initialized successfully: base_url={base_url}, model={model}")
         return True
     except Exception as e:
         logger.warning(f"AI initialization failed: {e}")
         return None
+
+
+def get_llm_client():
+    """获取全局 LLM 客户端"""
+    return _llm_client
 
 
 def start_server(config: dict):

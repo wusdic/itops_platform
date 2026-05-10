@@ -21,6 +21,8 @@ services:
       - CONFIG_FILE=/app/config/prod.yaml
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=INFO
+      - AI_BASE_URL=http://host.docker.internal:11434
+      - AI_MODEL=qwen3.6-27b-q4-k-m
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:

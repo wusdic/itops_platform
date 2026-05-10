@@ -9,7 +9,10 @@ FROM python:3.11-slim as builder
 WORKDIR /app
 
 # Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# python:3.11-slim is based on Debian trixie (testing)
+RUN echo 'deb https://mirrors.ustc.edu.cn/debian/ trixie main non-free-firmware' > /etc/apt/sources.list && \
+    echo 'deb https://mirrors.ustc.edu.cn/debian-security/ trixie-security main non-free-firmware' >> /etc/apt/sources.list && \
+    apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
     libcurl4-openssl-dev \
@@ -18,7 +21,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+RUN pip install --no-cache-dir --user --timeout=1200 -i https://pypi.tuna.tsinghua.edu.cn/simple/ -r requirements.txt
 
 # Stage 2: Runtime
 FROM python:3.11-slim
@@ -29,34 +32,17 @@ LABEL description="内网本地化AI辅助运维管理平台"
 WORKDIR /app
 
 # Install runtime dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    gnupg \
-    ca-certificates \
+# python:3.11-slim is based on Debian trixie (testing)
+RUN echo 'deb https://mirrors.ustc.edu.cn/debian/ trixie main non-free-firmware non-free' > /etc/apt/sources.list && \
+    echo 'deb https://mirrors.ustc.edu.cn/debian-security/ trixie-security main non-free-firmware non-free' >> /etc/apt/sources.list && \
+    apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     chromium-sandbox \
-    libcurl4 \
-    libssl3 \
-    libasound2 \
-    libatk1.0-0 \
-    libatk-bridge2.0-0 \
-    libcups2 \
-    libdbus-1-3 \
-    libdrm2 \
-    libxkbcommon0 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxfixes3 \
-    libxrandr2 \
-    libgbm1 \
-    libpango-1.0-0 \
-    libcairo2 \
-    libatspi2.0-0 \
-    libxshmfence1 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Set Playwright browser path
-ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
+ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
 # Create non-root user

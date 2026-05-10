@@ -10,28 +10,33 @@ ollama:
   
 # 模型配置
 models:
-  default: "qwen3.5:8b"
+  default: "qwen3.6-27b-q4-k-m"
   available:
+    - name: "qwen3.6-27b-q4-k-m"
+      display_name: "通义千问3.6 27B Q4"
+      max_tokens: 8192
+      context_window: 32768
+      enabled: true
     - name: "qwen3.5:8b"
       display_name: "通义千问3.5 8B"
       max_tokens: 8192
       context_window: 32768
-      enabled: true
+      enabled: false
     - name: "qwen3.5:14b"
       display_name: "通义千问3.5 14B"
       max_tokens: 8192
       context_window: 32768
-      enabled: true
+      enabled: false
     - name: "qwen2.5:7b"
       display_name: "通义千问2.5 7B"
       max_tokens: 8192
       context_window: 32768
-      enabled: true
+      enabled: false
     - name: "llama3.1:8b"
       display_name: "Llama 3.1 8B"
       max_tokens: 8192
       context_window: 32768
-      enabled: true
+      enabled: false
 
 # 对话配置
 conversation:

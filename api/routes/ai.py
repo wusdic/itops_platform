@@ -115,39 +115,70 @@ async def chat(
 ):
     """
     发送消息给AI助手
-    注意：需要配置LLM服务才能真正生成AI回复
-    当前实现返回引导信息，提示用户使用具体功能
     """
     conversation_id = request.conversation_id or f"conv-{datetime.now().strftime('%Y%m%d%H%M%S')}"
-    
-    # 检测用户意图，返回对应的建议
-    message_lower = request.message.lower()
-    
-    suggestions = []
-    response_message = ""
-    
-    if any(kw in message_lower for kw in ['故障', '问题', '报错', '错误', '慢', '挂']):
-        suggestions = ["进入故障排查模式", "查看相关故障案例", "生成故障处理工单"]
-        response_message = "我看到您遇到了故障或问题。您可以：\n1. 使用 /troubleshoot 接口进行智能故障排查\n2. 描述具体症状获取相关故障案例\n3. 如需紧急处理，可以创建工单"
-    elif any(kw in message_lower for kw in ['性能', '优化', '慢', '负载']):
-        suggestions = ["生成性能优化建议", "查看系统指标", "分析容量趋势"]
-        response_message = "关于性能优化，我可以帮您：\n1. 分析当前系统指标\n2. 生成优化建议\n3. 预测容量需求"
-    elif any(kw in message_lower for kw in ['知识', '文档', 'sop', '怎么', '如何']):
-        suggestions = ["搜索知识库", "查看SOP文档", "查找故障案例"]
-        response_message = "我可以帮您查找知识库中的相关文档。请告诉我具体想了解什么。"
-    else:
+
+    # 尝试获取全局 LLM 客户端
+    from api.start import get_llm_client
+    llm_client = get_llm_client()
+
+    if llm_client is None:
+        # LLM 未初始化，降级到意图检测
         suggestions = ["进行故障排查", "生成优化建议", "搜索知识库", "分析日志"]
-        response_message = "您好！我是AI运维助手。我可以帮您：\n1. 故障排查 - 分析问题原因并给出解决方案\n2. 性能优化 - 提供系统优化建议\n3. 知识问答 - 解答运维相关问题\n4. 日志分析 - 提取关键错误和异常"
-    
-    return {
-        "conversation_id": conversation_id,
-        "message": response_message,
-        "suggestions": suggestions,
-        "metadata": {
-            "mode": "intent_detection",
-            "timestamp": datetime.now().isoformat()
-        },
-    }
+        response_message = "AI服务暂不可用，请检查LLM服务是否启动。"
+        return {
+            "conversation_id": conversation_id,
+            "message": response_message,
+            "suggestions": suggestions,
+            "metadata": {
+                "mode": "llm_unavailable",
+                "timestamp": datetime.now().isoformat()
+            },
+        }
+
+    # 构建消息
+    messages = [
+        {"role": "system", "content": "你是一个专业的IT运维AI助手。请用中文简洁回答运维相关问题。"},
+        {"role": "user", "content": request.message},
+    ]
+
+    try:
+        # 调用 LLM（非流式）
+        result = await llm_client.chat(
+            messages=messages,
+            model=None,  # 使用默认模型
+            temperature=0.7,
+            max_tokens=2048,
+        )
+
+        if result.get("done") and result.get("content"):
+            response_message = result["content"]
+            return {
+                "conversation_id": conversation_id,
+                "message": response_message,
+                "suggestions": ["继续对话", "进入故障排查", "生成优化建议"],
+                "metadata": {
+                    "mode": "llm",
+                    "model": result.get("model", "qwen3.6-27b-q4-k-m"),
+                    "eval_count": result.get("eval_count", 0),
+                    "timestamp": datetime.now().isoformat()
+                },
+            }
+        else:
+            return {
+                "conversation_id": conversation_id,
+                "message": "AI回复生成失败，请重试。",
+                "suggestions": ["重试", "进入故障排查", "生成优化建议"],
+                "metadata": {"mode": "llm_error", "timestamp": datetime.now().isoformat()},
+            }
+    except Exception as e:
+        logger.error(f"LLM chat error: {e}")
+        return {
+            "conversation_id": conversation_id,
+            "message": f"AI服务异常: {str(e)}",
+            "suggestions": ["重试", "进入故障排查", "生成优化建议"],
+            "metadata": {"mode": "llm_error", "error": str(e), "timestamp": datetime.now().isoformat()},
+        }
 
 
 @router.get("/conversation/{conversation_id}", summary="获取会话历史")

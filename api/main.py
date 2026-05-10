@@ -63,6 +63,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
         logger.info(f"Environment: {settings.ENVIRONMENT}")
     except Exception as e:
         logger.warning(f"Settings initialization skipped: {e}")
+
+    # 初始化AI（LLM客户端）
+    try:
+        from api.start import init_ai
+        ai_result = init_ai({})
+        if ai_result:
+            logger.info("AI (LLM) initialized successfully")
+        else:
+            logger.warning("AI initialization returned None (disabled or failed)")
+    except Exception as e:
+        logger.warning(f"AI initialization skipped: {e}")
     
     logger.info("ITOps Platform API Gateway started successfully")
     
