@@ -12,7 +12,8 @@ from typing import AsyncGenerator
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from api.routes import (
     monitoring_router,
@@ -176,6 +177,37 @@ def create_app() -> FastAPI:
         tags=["认证"],
     )
 
+    # 前端静态文件服务 - 使用中间件方式避免路由冲突
+    dist_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist")
+    if os.path.exists(dist_path):
+        @app.middleware("static_files")
+        async def static_files_middleware(request: Request, call_next):
+            path = request.url.path
+            
+            # 拦截 /assets/* 请求
+            if path.startswith("/assets/"):
+                file_path = os.path.join(dist_path, path.lstrip("/"))
+                if os.path.isfile(file_path):
+                    return FileResponse(file_path)
+            
+            response = await call_next(request)
+            return response
+        
+        @app.get("/")
+        async def serve_index():
+            return FileResponse(os.path.join(dist_path, "index.html"))
+        
+        # SPA fallback路由 - 必须放在API路由之后
+        @app.get("/{path:path}")
+        async def serve_spa(path: str):
+            # 排除API路径
+            if path.startswith("api/"):
+                from fastapi.responses import JSONResponse
+                return JSONResponse(status_code=404, content={"detail": "Not Found"})
+            return FileResponse(os.path.join(dist_path, "index.html"))
+        
+        logger.info(f"Frontend static files enabled at /assets/ from: {dist_path}")
+
     # 健康检查端点
     @app.get("/health", tags=["系统"])
     async def health_check():
@@ -208,7 +240,15 @@ def create_app() -> FastAPI:
                 "path": str(request.url),
             },
         )
-    
+
+    # 挂载前端静态文件 (在所有API路由之后)
+    # 路径: api/main.py -> project_root/frontend/dist
+    current_dir = os.path.dirname(os.path.abspath(__file__))  # api/
+    project_root = os.path.dirname(current_dir)  # 项目根目录
+    dist_path = os.path.join(project_root, "frontend", "dist")
+    if os.path.exists(dist_path):
+        app.mount("/", StaticFiles(directory=dist_path, html=True), name="frontend")
+
     return app
 
 
