@@ -33,16 +33,16 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      # tdengine:
-      #   condition: service_healthy
-      # qdrant:
-      #   condition: service_healthy
-      # minio:
-      #   condition: service_healthy
+      tdengine:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      minio:
+        condition: service_healthy
     networks:
       - itops-network
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -158,11 +158,9 @@ services:
       - qdrant_data:/qdrant/storage
     networks:
       - itops-network
+    # qdrant image has no shell tools; skip healthcheck
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["NONE"]
 
   # ==========================================
   # MinIO Object Storage
@@ -183,7 +181,7 @@ services:
     networks:
       - itops-network
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live"]
       interval: 30s
       timeout: 20s
       retries: 3
@@ -226,11 +224,11 @@ services:
     networks:
       - itops-network
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000 || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000 || wget -q -O /dev/null http://localhost:3000 || exit 1"]
       interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
+      timeout: 15s
+      retries: 5
+      start_period: 40s
 
 # ==========================================
 # Volumes
