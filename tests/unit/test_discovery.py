@@ -2,6 +2,7 @@
 Discovery Module Unit Tests
 
 Tests for IP Scanner and SNMP Scanner modules.
+Uses DataFactory for test data generation (TDD approach).
 """
 
 import pytest
@@ -12,6 +13,104 @@ from typing import List, Dict, Any
 import sys
 import os
 sys.path.insert(0, '/home/zcxx/.hermes/projects/itops_platform')
+
+
+# ============== DataFactory for Discovery Tests ==============
+
+class DiscoveryDataFactory:
+    """Test data factory for discovery module"""
+    
+    def __init__(self, seed: int = 42):
+        import random
+        import uuid
+        self._random = random
+        self._random.seed(seed)
+        self._counter = 0
+        self._uuid = uuid
+    
+    def _uid(self) -> str:
+        self._counter += 1
+        return f"test_{self._counter}_{self._uuid.uuid4().hex[:8]}"
+    
+    def ip_address(self, network: str = "192.168.1") -> str:
+        return f"{network}.{self._random.randint(1, 254)}"
+    
+    def hostname(self) -> str:
+        prefixes = ["web", "app", "db", "cache", "proxy", "lb", "storage", "node"]
+        return f"{self._random.choice(prefixes)}-{self._random.choice(['prod', 'dev', 'test'])}-{self._random.randint(1,99):02d}"
+    
+    def mac_address(self) -> str:
+        return ":".join([f"{self._random.randint(0, 255):02x}" for _ in range(6)])
+    
+    def discovered_host(self, **overrides) -> dict:
+        """Generate DiscoveredHost data"""
+        os_types = ["windows", "linux", "unix", "network", "unknown"]
+        vendors = ["Cisco", "Huawei", "Juniper", "Dell", "HP", "VMware", "Microsoft", "Linux", None]
+        
+        data = {
+            "ip": self.ip_address(),
+            "hostname": self.hostname(),
+            "mac": self.mac_address(),
+            "os_type": self._random.choice(os_types),
+            "os_version": f"{self._random.randint(1,9)}.{self._random.randint(0,20)}.{self._random.randint(0,100)}",
+            "vendor": self._random.choice(vendors),
+            "ports": self._random.sample([22, 80, 443, 3306, 3389, 8080], k=self._random.randint(1,4)),
+            "services": {"http": "Apache", "ssh": "OpenSSH"},
+            "status": "up",
+            "response_time": self._random.uniform(0.5, 50.0),
+            "ttl": self._random.choice([64, 128, 255]),
+        }
+        data.update(overrides)
+        return data
+    
+    def snmp_device(self, **overrides) -> dict:
+        """Generate SNMPDiscoveredDevice data"""
+        device_types = ["router", "switch", "server", "workstation", "printer", "firewall", "load_balancer", "storage", "unknown"]
+        vendors = ["Cisco", "Juniper", "Huawei", "H3C", "Arista", "Dell", "HP", "VMware", "Microsoft", "Linux"]
+        os_types = ["Cisco IOS", "Juniper JunOS", "Huawei VRP", "Linux", "Windows", "VMware ESXi"]
+        
+        data = {
+            "ip": self.ip_address(),
+            "hostname": self.hostname(),
+            "sys_descr": f"{self._random.choice(vendors)} {self._random.choice(os_types)} Software",
+            "sys_object_id": f"1.3.6.1.4.1.{self._random.randint(1, 9999)}.{self._random.randint(1, 100)}",
+            "sys_uptime": self._random.randint(100000, 100000000),
+            "vendor": self._random.choice(vendors),
+            "device_type": self._random.choice(device_types),
+            "os_type": self._random.choice(os_types),
+            "os_version": f"{self._random.randint(10, 15)}.{self._random.randint(1, 5)}.{self._random.randint(1, 10)}",
+            "location": f"DataCenter-{self._random.choice(['A', 'B', 'C'])}",
+            "contact": f"admin@{self.hostname()}.local",
+            "mac_address": self.mac_address(),
+            "interfaces": [
+                {"index": i, "description": f"GigabitEthernet0/{i}", "type": "ethernet", "speed": 1000000000}
+                for i in range(1, 5)
+            ],
+            "status": "responding",
+            "response_time": self._random.uniform(1.0, 100.0),
+            "community": "public",
+            "snmp_version": self._random.choice(["v1", "v2c", "v3"]),
+        }
+        data.update(overrides)
+        return data
+    
+    def ip_range(self, prefix: str = "192.168.1") -> str:
+        """Generate random CIDR range"""
+        return f"{prefix}.0/30"
+    
+    def cidr_small(self) -> str:
+        """Small CIDR for testing (/30)"""
+        return f"{self.ip_address()[:-4]}.0/30"
+    
+    def cidr_large(self) -> str:
+        """Large CIDR for testing (/24)"""
+        return f"{self.ip_address()[:-4]}.0/24"
+
+
+# Fixture
+@pytest.fixture
+def factory():
+    return DiscoveryDataFactory(seed=42)
 
 
 class TestDiscoveredHost:

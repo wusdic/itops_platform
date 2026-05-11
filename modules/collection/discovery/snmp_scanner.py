@@ -535,7 +535,7 @@ class SNMPScanner:
         
         # Try to find version patterns
         patterns = [
-            r'(\d+\.\d+(?:\.\d+)?)',  # e.g., 2.6.32, 15.2, 4.19.0
+            r'(\d+\.\d+(?:\.\d+)?[A-Za-z]*)',  # e.g., 2.6.32, 15.2, 4.19.0, 15.2.4M
             r'Version\s+(\S+)',
             r'Vers\.\s*(\S+)',
             r'Release\s+(\S+)',

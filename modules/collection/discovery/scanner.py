@@ -532,6 +532,32 @@ class IPScanner:
         
         return None
     
+    def _parse_target(self, target: str) -> List[str]:
+        """Parse target string into list of IP addresses
+        
+        Args:
+            target: CIDR notation (e.g., "192.168.1.0/24") or single IP
+            
+        Returns:
+            List of IP address strings
+        """
+        targets = []
+        
+        try:
+            if '/' in target:
+                network = ipaddress.ip_network(target, strict=False)
+                for ip in network.hosts():
+                    targets.append(str(ip))
+            else:
+                # Validate single IP address
+                ipaddress.ip_address(target)
+                targets.append(target)
+        except ValueError as e:
+            logger.error(f"Invalid target format: {target} - {e}")
+            raise ValueError(f"Invalid target format: {target}") from e
+        
+        return targets
+    
     def close(self):
         """Close the scanner and cleanup resources"""
         self._executor.shutdown(wait=False)
