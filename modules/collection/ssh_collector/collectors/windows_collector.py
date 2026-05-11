@@ -33,7 +33,7 @@ class WindowsCollector:
         Returns:
             系统信息字典
         """
-        return self._client.collect_system_info()
+        return self._client.get_system_info()
     
     def collect_disk_info(self) -> List[Dict[str, Any]]:
         """

@@ -186,9 +186,8 @@ class ScriptRecorder:
         return self.session
     
     def _record(self, action: RecordedAction):
-        """记录动作"""
-        if self._enabled:
-            self.session.add_action(action)
+        # 始终记录动作（record_navigate/fill/click 等方法本身就是显式录制）
+        self.session.add_action(action)
     
     def record_navigate(self, url: str, success: bool = True, error: str = None):
         """录制导航操作"""

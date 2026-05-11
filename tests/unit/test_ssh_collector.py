@@ -194,7 +194,7 @@ class TestWinRMConfig(unittest.TestCase):
         self.assertEqual(config.host, '192.168.1.1')
         self.assertEqual(config.port, 5985)
         self.assertEqual(config.username, 'admin')
-        self.assertFalse(config.use_https)
+        self.assertFalse(config.ssl)
     
     def test_https_config(self):
         """测试HTTPS配置"""
@@ -202,11 +202,11 @@ class TestWinRMConfig(unittest.TestCase):
             host='192.168.1.1',
             username='admin',
             password='secret',
-            use_https=True
+            ssl=True
         )
         
-        self.assertEqual(config.https_port, 5986)
-        self.assertTrue(config.use_https)
+        self.assertEqual(config.port, 5986)
+        self.assertTrue(config.ssl)
 
 
 class TestLinuxCollector(unittest.TestCase):

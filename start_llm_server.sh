@@ -7,7 +7,7 @@ set -e
 MODEL_PATH="${1:-/tmp/model_cache/unsloth/Qwen3___6-27B-GGUF/Qwen3.6-27B-Q4_K_M.gguf}"
 PORT="${2:-11434}"
 N_CTX="${3:-2048}"
-N_THREADS="${4:-8}"
+N_THREADS="${4:-1}"
 
 PID_FILE="/tmp/llm_server.pid"
 

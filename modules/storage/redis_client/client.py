@@ -575,7 +575,8 @@ class RedisClient:
             except Exception:
                 return False
         else:
-            return self._client.lock(name, timeout, blocking_timeout, blocking)
+            lock = self._client.lock(name, timeout, blocking_timeout, blocking)
+            return lock.acquire()
     
     def unlock(self, name: str) -> bool:
         """释放分布式锁"""

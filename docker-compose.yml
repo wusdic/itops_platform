@@ -21,8 +21,10 @@ services:
       - CONFIG_FILE=/app/config/prod.yaml
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=INFO
-      - AI_BASE_URL=http://host.docker.internal:11434
-      - AI_MODEL=qwen3.6-27b-q4-k-m
+      - AI_BASE_URL=http://host.docker.internal:11435
+      - AI_MODEL=qwen3.5-9b-deepseek-v4-flash-q8_0
+    networks:
+      - itops-network
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
@@ -41,8 +43,6 @@ services:
         condition: service_started
       minio:
         condition: service_healthy
-    networks:
-      - itops-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s

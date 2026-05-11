@@ -58,7 +58,7 @@ class TestHTTPClient(unittest.TestCase):
 class TestHTTPClientRequest(unittest.TestCase):
     """HTTP请求测试"""
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.http_client.urlopen')
     def test_get_request(self, mock_urlopen):
         """测试GET请求"""
         from modules.collection.api_collector.http_client import HTTPClient
@@ -79,7 +79,7 @@ class TestHTTPClientRequest(unittest.TestCase):
         self.assertEqual(result['status_code'], 200)
         self.assertEqual(result['data']['data'], 'test')
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.http_client.urlopen')
     def test_post_request(self, mock_urlopen):
         """测试POST请求"""
         from modules.collection.api_collector.http_client import HTTPClient
@@ -100,7 +100,7 @@ class TestHTTPClientRequest(unittest.TestCase):
         self.assertEqual(result['status_code'], 201)
         self.assertEqual(result['data']['id'], 1)
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.http_client.urlopen')
     def test_authentication(self, mock_urlopen):
         """测试认证"""
         from modules.collection.api_collector.http_client import HTTPClient
@@ -126,7 +126,7 @@ class TestHTTPClientRequest(unittest.TestCase):
         # API Key
         client.get('/api', api_key='key123')
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.http_client.urlopen')
     def test_error_response(self, mock_urlopen):
         """测试错误响应"""
         from modules.collection.api_collector.http_client import HTTPClient

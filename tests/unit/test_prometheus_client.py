@@ -308,7 +308,7 @@ class TestPrometheusAPIError(unittest.TestCase):
         from modules.collection.api_collector.prometheus_client import PrometheusAPIError
         
         error = PrometheusAPIError(
-            type='bad_data',
+            type_='bad_data',
             message='invalid query'
         )
         

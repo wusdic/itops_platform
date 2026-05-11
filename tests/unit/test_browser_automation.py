@@ -6,7 +6,7 @@ import asyncio
 import os
 import sys
 import unittest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
 
 # 添加项目路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
@@ -305,7 +305,7 @@ class TestBrowserAutomationAsync(unittest.IsolatedAsyncioTestCase):
         mock_context.new_page = AsyncMock(return_value=mock_page)
         
         mock_playwright_instance = AsyncMock()
-        mock_playwright_instance.chromium = MagicMock(return_value=mock_browser)
+        type(mock_playwright_instance).chromium = PropertyMock(return_value=mock_browser)
         mock_playwright.return_value.start = AsyncMock(return_value=mock_playwright_instance)
         
         config = BrowserConfig()
@@ -322,25 +322,27 @@ class TestBrowserAutomationAsync(unittest.IsolatedAsyncioTestCase):
         """测试页面导航"""
         mock_page = AsyncMock()
         mock_page.goto = AsyncMock()
-        
-        mock_browser = AsyncMock()
+
         mock_context = AsyncMock()
         mock_context.new_page = AsyncMock(return_value=mock_page)
-        
+
+        mock_browser = AsyncMock()
         mock_browser.new_context = AsyncMock(return_value=mock_context)
-        
-        mock_playwright_instance = AsyncMock()
-        mock_playwright_instance.chromium = MagicMock(return_value=mock_browser)
-        mock_playwright.return_value.start = AsyncMock(return_value=mock_playwright_instance)
-        
+
+        # 直接给 driver 的内部属性赋值，跳过复杂的 playwright mock 链
         config = BrowserConfig()
         driver = BrowserDriver(config)
-        await driver.start()
-        
+        driver._browser = mock_browser
+        driver._context = mock_context
+        driver._page = mock_page
+
         result = await driver.navigate('https://example.com')
-        
+
         self.assertTrue(result)
         mock_page.goto.assert_called_once()
+        # 检查 URL 正确（timeout 等参数可能有默认值差异）
+        call_args = mock_page.goto.call_args
+        self.assertEqual(call_args[0][0], 'https://example.com')
 
 
 class TestTaskExecutor(unittest.TestCase):

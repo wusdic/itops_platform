@@ -64,8 +64,8 @@ storage:
 # AI配置
 ai:
   provider: ollama  # ollama 或 openai
-  base_url: http://127.0.0.1:11434  # 本地 llama-cpp-python 服务
-  model: qwen3.6-27b-q4-k-m
+  base_url: http://127.0.0.1:11435
+  model: qwen3.5-9b-deepseek-v4-flash-q8_0
   temperature: 0.7
   max_tokens: 4096
 

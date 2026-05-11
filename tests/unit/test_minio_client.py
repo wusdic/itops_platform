@@ -164,15 +164,19 @@ class TestMinIOOperations(unittest.TestCase):
     
     def test_fallback_to_local(self):
         """测试回退到本地存储"""
-        from modules.storage.minio.client import MinIOClient
+        from modules.storage.minio.client import MinIOClient, LocalStorageClient
         
-        # 创建客户端（不安装minio库时使用本地存储）
-        client = MinIOClient.__new__(MinIOClient)
-        client._minio_available = False
-        client._client = client._LocalStorage__init__(
-            MinIOClient._LocalStorageClient.__new__(MinIOClient._LocalStorageClient),
-            self.temp_dir
+        # 创建一个MinIOClient并强制使用本地存储后备
+        client = MinIOClient(
+            endpoint='localhost:9000',
+            access_key='test',
+            secret_key='test123',
+            bucket='testbucket'
         )
+        
+        # 模拟MinIO不可用，强制使用本地存储
+        client._minio_available = False
+        client._client = LocalStorageClient(base_path=self.temp_dir)
         
         # 测试基本操作
         client._client.upload_data(b'test', 'test.txt')

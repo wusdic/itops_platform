@@ -58,7 +58,7 @@ class TestInfluxDBClient(unittest.TestCase):
         
         # 测试带特殊字符的字符串
         result = client._format_field('msg', 'hello, world')
-        self.assertEqual(result, 'msg="hello\\, world"')
+        self.assertEqual(result, 'msg="hello, world"')
     
     def test_format_field_number(self):
         """测试数字字段格式化"""

@@ -7,8 +7,10 @@ from typing import Optional, List
 from datetime import datetime
 from enum import Enum
 import json
+import logging
 
 from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -21,6 +23,76 @@ from modules.collection.device_manager import DeviceManager
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+
+# ============== 模块级流式生成器 ==============
+
+async def _llm_stream_generator(
+    base_url: str,
+    model: str,
+    messages: List[dict],
+    conversation_id: str,
+    timeout: float = 120.0,
+):
+    """
+    模块级流式响应生成器（避免Python 3.13嵌套async def的闭包问题）
+    """
+    import httpx
+    import asyncio
+
+    payload = {
+        "messages": messages,
+        "model": model,
+        "stream": True,
+        "temperature": 0.7,
+        "max_tokens": 1024,
+    }
+
+    full_content = ""
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(timeout)) as client:
+            async with client.stream("POST", f"{base_url}/api/chat", json=payload) as resp:
+                buffer = ""
+                depth = 0
+                in_string = False
+                escape = False
+                async for raw in resp.aiter_text():
+                    for ch in raw:
+                        buffer += ch
+                        if escape:
+                            escape = False
+                            continue
+                        if ch == "\\" and in_string:
+                            escape = True
+                            continue
+                        if ch == '"':
+                            in_string = not in_string
+                        if not in_string:
+                            if ch == "{":
+                                depth += 1
+                            elif ch == "}":
+                                depth -= 1
+                                if depth == 0 and buffer.lstrip().startswith("data: "):
+                                    json_str = buffer.lstrip()[6:]
+                                    buffer = ""
+                                    try:
+                                        data = json.loads(json_str)
+                                        if "message" in data:
+                                            content = data["message"].get("content", "")
+                                            full_content += content
+                                            yield f"data: {json.dumps({'type': 'content', 'content': content}, ensure_ascii=False)}\n\n"
+                                        if data.get("done", False):
+                                            break
+                                    except json.JSONDecodeError:
+                                        pass
+        yield f"data: {json.dumps({'type': 'done', 'conversation_id': conversation_id, 'content': full_content}, ensure_ascii=False)}\n\n"
+        yield "data: [DONE]\n\n"
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        logger.error(f"Stream error: {e}")
+        yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
 
 
 # ============== 枚举定义 ==============
@@ -55,6 +127,7 @@ class ChatRequest(BaseModel):
     conversation_id: Optional[str] = Field(None, description="会话ID")
     conversation_type: str = Field("chat", description="对话类型")
     context: Optional[dict] = Field(None, description="上下文信息")
+    stream: bool = Field(False, description="是否启用流式输出")
 
 
 class ChatResponse(BaseModel):
@@ -107,6 +180,50 @@ def _find_related_cases(symptom: str, keyword: str = None, limit: int = 5) -> Li
 
 # ============== 对话接口 ==============
 
+@router.post("/chat/_debug", summary="调试流式接口")
+async def chat_debug(
+    request: ChatRequest,
+):
+    """无依赖的最小化流式测试端点"""
+    import httpx
+    import json
+
+    async def stream_generator():
+        payload = {
+            "messages": [{"role": "user", "content": request.message}],
+            "model": "qwen3.5-9b-deepseek-v4-flash-q8_0",
+            "stream": True,
+        }
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(120.0)) as client:
+                async with client.stream("POST", "http://host.docker.internal:11435/api/chat", json=payload) as resp:
+                    async for line in resp.aiter_lines():
+                        if line:
+                            try:
+                                data = json.loads(line)
+                                content = data.get("message", {}).get("content", "")
+                                yield f"data: {json.dumps({'type': 'content', 'content': content})}\n\n"
+                                if data.get("done", False):
+                                    break
+                            except json.JSONDecodeError:
+                                continue
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            yield "data: [DONE]\n\n"
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+
+    return StreamingResponse(
+        stream_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        }
+    )
+
+
 @router.post("/chat", summary="发送消息")
 async def chat(
     request: ChatRequest,
@@ -142,42 +259,47 @@ async def chat(
         {"role": "user", "content": request.message},
     ]
 
-    try:
-        # 调用 LLM（非流式）
-        result = await llm_client.chat(
-            messages=messages,
-            model=None,  # 使用默认模型
-            temperature=0.7,
-            max_tokens=2048,
+    if request.stream:
+        # 流式响应：使用模块级生成器（避免Python 3.13嵌套async def闭包bug）
+        base_url = llm_client.base_url or "http://127.0.0.1:11435"
+        model = llm_client._default_model or "qwen3.5-9b-deepseek-v4-flash-q8_0"
+        return StreamingResponse(
+            _llm_stream_generator(base_url, model, messages, conversation_id),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Conversation-ID": conversation_id,
+            }
         )
 
-        if result.get("done") and result.get("content"):
-            response_message = result["content"]
-            return {
-                "conversation_id": conversation_id,
-                "message": response_message,
-                "suggestions": ["继续对话", "进入故障排查", "生成优化建议"],
-                "metadata": {
-                    "mode": "llm",
-                    "model": result.get("model", "qwen3.6-27b-q4-k-m"),
-                    "eval_count": result.get("eval_count", 0),
-                    "timestamp": datetime.now().isoformat()
-                },
-            }
-        else:
-            return {
-                "conversation_id": conversation_id,
-                "message": "AI回复生成失败，请重试。",
-                "suggestions": ["重试", "进入故障排查", "生成优化建议"],
-                "metadata": {"mode": "llm_error", "timestamp": datetime.now().isoformat()},
-            }
-    except Exception as e:
-        logger.error(f"LLM chat error: {e}")
+    # 非流式响应
+    result = await llm_client.chat(
+        messages=messages,
+        model=None,
+        temperature=0.7,
+        max_tokens=2048,
+    )
+
+    if result.get("done") and result.get("content"):
+        response_message = result["content"]
         return {
             "conversation_id": conversation_id,
-            "message": f"AI服务异常: {str(e)}",
+            "message": response_message,
+            "suggestions": ["继续对话", "进入故障排查", "生成优化建议"],
+            "metadata": {
+                "mode": "llm",
+                "model": result.get("model", "qwen3.5-9b-deepseek-v4-flash-q8_0"),
+                "eval_count": result.get("eval_count", 0),
+                "timestamp": datetime.now().isoformat()
+            },
+        }
+    else:
+        return {
+            "conversation_id": conversation_id,
+            "message": "AI回复生成失败，请重试。",
             "suggestions": ["重试", "进入故障排查", "生成优化建议"],
-            "metadata": {"mode": "llm_error", "error": str(e), "timestamp": datetime.now().isoformat()},
+            "metadata": {"mode": "llm_error", "timestamp": datetime.now().isoformat()},
         }
 
 
