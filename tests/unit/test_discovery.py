@@ -592,3 +592,182 @@ class TestScannerClose:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestDiscoveryDataFactory:
+    """Tests for DiscoveryDataFactory"""
+    
+    def test_factory_ip_address(self, factory):
+        """Test IP address generation"""
+        ip = factory.ip_address()
+        assert ip.startswith("192.168.1.")
+        parts = ip.split(".")
+        assert 1 <= int(parts[3]) <= 254
+    
+    def test_factory_hostname(self, factory):
+        """Test hostname generation"""
+        hostname = factory.hostname()
+        assert "-" in hostname
+        assert len(hostname) > 5
+    
+    def test_factory_mac_address(self, factory):
+        """Test MAC address generation"""
+        mac = factory.mac_address()
+        parts = mac.split(":")
+        assert len(parts) == 6
+        for part in parts:
+            assert len(part) == 2
+            assert int(part, 16) <= 255
+    
+    def test_factory_discovered_host(self, factory):
+        """Test discovered host data generation"""
+        host_data = factory.discovered_host()
+        
+        assert "ip" in host_data
+        assert "hostname" in host_data
+        assert "mac" in host_data
+        assert "os_type" in host_data
+        assert "ports" in host_data
+        assert isinstance(host_data["ports"], list)
+    
+    def test_factory_discovered_host_with_overrides(self, factory):
+        """Test discovered host with overrides"""
+        host_data = factory.discovered_host(ip="10.0.0.1", status="down")
+        assert host_data["ip"] == "10.0.0.1"
+        assert host_data["status"] == "down"
+    
+    def test_factory_snmp_device(self, factory):
+        """Test SNMP device data generation"""
+        device_data = factory.snmp_device()
+        
+        assert "ip" in device_data
+        assert "hostname" in device_data
+        assert "sys_descr" in device_data
+        assert "vendor" in device_data
+        assert "device_type" in device_data
+        assert isinstance(device_data["interfaces"], list)
+    
+    def test_factory_cidr_small(self, factory):
+        """Test small CIDR generation"""
+        cidr = factory.cidr_small()
+        assert "/30" in cidr
+        parts = cidr.split(".")
+        assert len(parts) == 4
+    
+    def test_factory_cidr_large(self, factory):
+        """Test large CIDR generation"""
+        cidr = factory.cidr_large()
+        assert "/24" in cidr
+
+
+class TestDiscoveryDataDriven:
+    """Data-driven tests using factory-generated data"""
+    
+    def test_ip_scanner_with_factory_data(self, factory):
+        """Test IPScanner with factory-generated data"""
+        from modules.collection.discovery.scanner import IPScanner
+        
+        scanner = IPScanner()
+        
+        # Generate multiple hosts
+        for _ in range(3):
+            ip = factory.ip_address()
+            host_data = factory.discovered_host(ip=ip)
+            
+            # Test OS detection with generated data
+            os_type, version = scanner._detect_os(
+                host_data["ttl"], 
+                host_data["vendor"].encode() if host_data["vendor"] else b""
+            )
+            assert os_type is not None
+    
+    def test_snmp_scanner_with_factory_data(self, factory):
+        """Test SNMPScanner with factory-generated data"""
+        from modules.collection.discovery.snmp_scanner import SNMPScanner
+        
+        scanner = SNMPScanner()
+        
+        # Test vendor detection with factory data
+        device_data = factory.snmp_device(vendor="Cisco", sys_object_id="1.3.6.1.4.1.9.1.1")
+        vendor = scanner._detect_vendor(device_data["sys_object_id"], device_data["sys_descr"])
+        assert vendor == "Cisco"
+        
+        # Test device type detection
+        device_type = scanner._detect_device_type(device_data["sys_descr"], device_data["sys_object_id"])
+        assert device_type is not None
+    
+    def test_multiple_hosts_to_dict(self, factory):
+        """Test converting multiple hosts to dict"""
+        from modules.collection.discovery.scanner import DiscoveredHost, OSType
+        
+        hosts = []
+        for _ in range(5):
+            data = factory.discovered_host()
+            host = DiscoveredHost(
+                ip=data["ip"],
+                hostname=data["hostname"],
+                os_type=OSType(data["os_type"]),
+                status=data["status"],
+            )
+            hosts.append(host)
+        
+        # All hosts should convert to dict properly
+        for host in hosts:
+            d = host.to_dict()
+            assert "ip" in d
+            assert "os_type" in d
+            assert "status" in d
+
+
+class TestDiscoveryEdgeCases:
+    """Edge case tests"""
+    
+    def test_ip_scanner_invalid_cidr_various(self):
+        """Test various invalid CIDR formats"""
+        from modules.collection.discovery.scanner import IPScanner
+        
+        scanner = IPScanner()
+        invalid_targets = ["invalid", "256.1.1.1/24", "192.168.1.0/33", ""]
+        
+        for target in invalid_targets:
+            try:
+                if target:  # Skip empty
+                    scanner._parse_target(target)
+                # If no exception, the test should handle it
+                assert target == "" or "/" not in target
+            except ValueError:
+                pass  # Expected for invalid targets
+    
+    def test_snmp_scanner_empty_responses(self):
+        """Test SNMP scanner with empty/no responses"""
+        from modules.collection.discovery.snmp_scanner import SNMPScanner
+        
+        scanner = SNMPScanner()
+        
+        # Test vendor detection with None values
+        vendor = scanner._detect_vendor(None, None)
+        assert vendor is None
+        
+        # Test device type detection with empty string
+        device_type = scanner._detect_device_type("", "")
+        from modules.collection.discovery.snmp_scanner import SNMPDeviceType
+        assert device_type == SNMPDeviceType.UNKNOWN
+    
+    def test_os_detect_empty_banner(self):
+        """Test OS detection with empty banner"""
+        from modules.collection.discovery.scanner import IPScanner
+        
+        scanner = IPScanner()
+        
+        # Empty banner with different TTLs
+        os_type, version = scanner._detect_os(64, b"")
+        assert os_type.value == "linux"
+        
+        os_type, version = scanner._detect_os(128, b"")
+        assert os_type.value == "windows"
+        
+        os_type, version = scanner._detect_os(255, b"")
+        assert os_type.value == "network"
+        
+        os_type, version = scanner._detect_os(None, b"")
+        assert os_type.value == "unknown"
