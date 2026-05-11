@@ -1,6 +1,6 @@
 """
 BM-05 AI Copilot - LLM Client
-LLM客户端 - llama.cpp GGUF集成，支持Qwen3.6-27B等大模型
+LLM客户端 - llama.cpp GGUF集成，支持Qwen3.5-9B-DeepSeek-V4-Flash-Q8_0等大模型
 """
 
 import asyncio
