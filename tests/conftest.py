@@ -196,6 +196,27 @@ class DataFactory:
         data.update(overrides)
         return data
 
+    def notification_target_rule(self, **overrides) -> dict:
+        """生成通知目标规则数据"""
+        rule_types = ["alert_level", "device", "category", "custom"]
+        notify_channels = ["email", "dingtalk", "feishu", "wechat_work", "webhook", "sms", "phone"]
+        data = {
+            "name": f"规则_{self._uid()}",
+            "description": f"通知目标规则描述 - {uuid.uuid4().hex[:8]}",
+            "rule_type": random.choice(rule_types),
+            "match_conditions": {
+                "levels": random.sample(["critical", "high", "medium", "low", "info"], k=random.randint(1, 3))
+            },
+            "notify_channels": random.sample(notify_channels, k=random.randint(1, 3)),
+            "notify_receivers": [f"user_{self._uid()}@test.local" for _ in range(random.randint(1, 2))],
+            "notify_interval": random.choice([0, 60, 300, 600, 1800]),
+            "max_notify_count": random.randint(1, 5),
+            "priority": random.randint(1, 200),
+            "enabled": random.choice([True, False]),
+        }
+        data.update(overrides)
+        return data
+
     def notification_template(self, **overrides) -> dict:
         """生成通知模板数据"""
         data = {

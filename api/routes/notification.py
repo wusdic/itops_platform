@@ -420,18 +420,18 @@ async def get_target_rules(
     db: Session = Depends(get_db),
 ):
     """获取通知目标规则列表"""
-    from modules.foundation.db_models.notification.notification_model import NotificationTargetRule
+    from modules.business.notification.target_config import get_target_rule_service
 
-    query = db.query(NotificationTargetRule)
+    service = get_target_rule_service(db)
+    rules = service.list_rules(
+        rule_type=rule_type,
+        enabled=enabled,
+        page=pagination.page,
+        page_size=pagination.page_size,
+    )
 
-    if rule_type:
-        query = query.filter(NotificationTargetRule.rule_type == rule_type)
-
-    if enabled is not None:
-        query = query.filter(NotificationTargetRule.enabled == enabled)
-
-    total = query.count()
-    rules = query.order_by(NotificationTargetRule.priority.asc(), NotificationTargetRule.id.asc()).offset(pagination.offset).limit(pagination.limit).all()
+    # 获取总数（不带分页）
+    all_rules = service.list_rules(rule_type=rule_type, enabled=enabled)
 
     return {
         "items": [
@@ -457,7 +457,7 @@ async def get_target_rules(
             }
             for r in rules
         ],
-        "total": total,
+        "total": len(all_rules),
         "page": pagination.page,
         "page_size": pagination.page_size,
     }
@@ -470,40 +470,21 @@ async def create_target_rule(
     db: Session = Depends(get_db),
 ):
     """创建新的通知目标规则"""
-    from modules.foundation.db_models.notification.notification_model import NotificationTargetRule
+    from modules.business.notification.target_config import get_target_rule_service
 
-    # 检查名称是否重复
-    existing = db.query(NotificationTargetRule).filter(NotificationTargetRule.name == rule.name).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="规则名称已存在")
+    service = get_target_rule_service(db)
+    rule_data = rule.model_dump()
+    rule_data["created_by"] = current_user.username
 
-    db_rule = NotificationTargetRule(
-        name=rule.name,
-        description=rule.description,
-        rule_type=rule.rule_type,
-        match_conditions=json.dumps(rule.match_conditions) if rule.match_conditions else None,
-        notify_channels=json.dumps(rule.notify_channels),
-        notify_receivers=json.dumps(rule.notify_receivers) if rule.notify_receivers else None,
-        notify_interval=rule.notify_interval,
-        max_notify_count=rule.max_notify_count,
-        escalation_config=json.dumps(rule.escalation_config) if rule.escalation_config else None,
-        suppress_enabled=rule.suppress_enabled,
-        suppress_until=rule.suppress_until,
-        time_windows=json.dumps(rule.time_windows) if rule.time_windows else None,
-        priority=rule.priority,
-        enabled=True,
-        created_by=current_user.username,
-    )
-
-    db.add(db_rule)
-    db.commit()
-    db.refresh(db_rule)
-
-    return {
-        "id": db_rule.id,
-        "name": db_rule.name,
-        "message": "通知目标规则创建成功",
-    }
+    try:
+        db_rule = service.create_rule(rule_data)
+        return {
+            "id": db_rule.id,
+            "name": db_rule.name,
+            "message": "通知目标规则创建成功",
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/target-rules/{rule_id}", summary="获取通知目标规则详情")
@@ -513,9 +494,10 @@ async def get_target_rule(
     db: Session = Depends(get_db),
 ):
     """获取指定通知目标规则的详细信息"""
-    from modules.foundation.db_models.notification.notification_model import NotificationTargetRule
+    from modules.business.notification.target_config import get_target_rule_service
 
-    rule = db.query(NotificationTargetRule).filter(NotificationTargetRule.id == rule_id).first()
+    service = get_target_rule_service(db)
+    rule = service.get_rule_by_id(rule_id)
 
     if not rule:
         raise HTTPException(status_code=404, detail="规则不存在")
@@ -551,27 +533,17 @@ async def update_target_rule(
     db: Session = Depends(get_db),
 ):
     """更新通知目标规则"""
-    from modules.foundation.db_models.notification.notification_model import NotificationTargetRule
+    from modules.business.notification.target_config import get_target_rule_service
 
-    rule = db.query(NotificationTargetRule).filter(NotificationTargetRule.id == rule_id).first()
-
-    if not rule:
-        raise HTTPException(status_code=404, detail="规则不存在")
-
-    # 更新字段
+    service = get_target_rule_service(db)
     update_data = rule_update.model_dump(exclude_unset=True)
+    update_data["updated_by"] = current_user.username
 
-    for key, value in update_data.items():
-        if value is not None:
-            if key in ['match_conditions', 'notify_channels', 'notify_receivers', 'escalation_config', 'time_windows']:
-                setattr(rule, key, json.dumps(value))
-            else:
-                setattr(rule, key, value)
-
-    rule.updated_by = current_user.username
-    db.commit()
-
-    return {"status": "success", "message": "规则更新成功"}
+    try:
+        service.update_rule(rule_id, update_data)
+        return {"status": "success", "message": "规则更新成功"}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.delete("/target-rules/{rule_id}", summary="删除通知目标规则")
@@ -581,17 +553,15 @@ async def delete_target_rule(
     db: Session = Depends(get_db),
 ):
     """删除通知目标规则"""
-    from modules.foundation.db_models.notification.notification_model import NotificationTargetRule
+    from modules.business.notification.target_config import get_target_rule_service
 
-    rule = db.query(NotificationTargetRule).filter(NotificationTargetRule.id == rule_id).first()
+    service = get_target_rule_service(db)
 
-    if not rule:
-        raise HTTPException(status_code=404, detail="规则不存在")
-
-    db.delete(rule)
-    db.commit()
-
-    return {"status": "success", "message": "规则删除成功"}
+    try:
+        service.delete_rule(rule_id)
+        return {"status": "success", "message": "规则删除成功"}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.post("/target-rules/{rule_id}/toggle", summary="启用/禁用通知目标规则")
@@ -602,18 +572,15 @@ async def toggle_target_rule(
     db: Session = Depends(get_db),
 ):
     """启用或禁用通知目标规则"""
-    from modules.foundation.db_models.notification.notification_model import NotificationTargetRule
+    from modules.business.notification.target_config import get_target_rule_service
 
-    rule = db.query(NotificationTargetRule).filter(NotificationTargetRule.id == rule_id).first()
+    service = get_target_rule_service(db)
 
-    if not rule:
-        raise HTTPException(status_code=404, detail="规则不存在")
-
-    rule.enabled = enabled
-    rule.updated_by = current_user.username
-    db.commit()
-
-    return {"status": "success", "message": f"规则已{'启用' if enabled else '禁用'}"}
+    try:
+        service.toggle_rule(rule_id, enabled=enabled, updated_by=current_user.username)
+        return {"status": "success", "message": f"规则已{'启用' if enabled else '禁用'}"}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.get("/target-rules/match", summary="匹配通知目标规则")
@@ -627,53 +594,16 @@ async def match_target_rules(
     db: Session = Depends(get_db),
 ):
     """根据告警信息匹配通知目标规则"""
-    from modules.foundation.db_models.notification.notification_model import NotificationTargetRule
+    from modules.business.notification.target_config import get_target_rule_service
 
-    # 获取所有启用的规则
-    rules = db.query(NotificationTargetRule).filter(
-        NotificationTargetRule.enabled == True
-    ).order_by(NotificationTargetRule.priority.asc()).all()
-
-    matched_rules = []
-
-    for rule in rules:
-        is_match = False
-
-        # 按规则类型匹配
-        if rule.rule_type == "alert_level":
-            conditions = json.loads(rule.match_conditions) if rule.match_conditions else {}
-            levels = conditions.get("levels", [])
-            if alert_level in levels:
-                is_match = True
-
-        elif rule.rule_type == "device":
-            conditions = json.loads(rule.match_conditions) if rule.match_conditions else {}
-            device_ids = conditions.get("device_ids", [])
-            device_types = conditions.get("device_types", [])
-            if device_id and device_id in device_ids:
-                is_match = True
-            if device_type and device_type in device_types:
-                is_match = True
-
-        elif rule.rule_type == "category":
-            conditions = json.loads(rule.match_conditions) if rule.match_conditions else {}
-            categories = conditions.get("categories", [])
-            if category and category in categories:
-                is_match = True
-
-        elif rule.rule_type == "custom":
-            # 自定义规则暂不实现，需要表达式引擎
-            is_match = False
-
-        if is_match:
-            matched_rules.append({
-                "id": rule.id,
-                "name": rule.name,
-                "notify_channels": json.loads(rule.notify_channels) if rule.notify_channels else [],
-                "notify_receivers": json.loads(rule.notify_receivers) if rule.notify_receivers else [],
-                "notify_interval": rule.notify_interval,
-                "max_notify_count": rule.max_notify_count,
-            })
+    service = get_target_rule_service(db)
+    matched_rules = service.match_rules(
+        alert_level=alert_level,
+        device_id=device_id,
+        device_name=device_name,
+        device_type=device_type,
+        category=category,
+    )
 
     return {
         "alert_level": alert_level,

@@ -1,343 +1,488 @@
 """
-通知目标规则测试
-测试NotificationTargetRule模型的创建、查询、匹配功能
+通知目标规则服务层测试 (TDD)
+测试 target_config.py 中的 NotificationTargetRuleService
 """
 
 import pytest
 import json
-from datetime import datetime
-from unittest.mock import MagicMock, patch
+from datetime import datetime, timedelta
+from unittest.mock import MagicMock, patch, AsyncMock
+from typing import Optional, List
 
 from modules.foundation.db_models.notification.notification_model import NotificationTargetRule
 
 
-class TestNotificationTargetRuleModel:
-    """NotificationTargetRule模型测试"""
+class TestNotificationTargetRuleService:
+    """NotificationTargetRule 服务层测试"""
 
-    def test_rule_creation(self):
-        """测试规则创建"""
-        rule = NotificationTargetRule(
-            name="Critical Alert Rule",
-            description="Critical级别告警通知规则",
-            rule_type="alert_level",
-            match_conditions=json.dumps({"levels": ["critical", "high"]}),
-            notify_channels=json.dumps(["email", "dingtalk"]),
-            notify_receivers=json.dumps(["admin@example.com"]),
-            notify_interval=300,
-            max_notify_count=3,
-            priority=10,
-            enabled=True,
-        )
+    @pytest.fixture
+    def mock_db_session(self):
+        """创建模拟的数据库会话"""
+        session = MagicMock()
+        session.query.return_value = session
+        session.filter.return_value = session
+        session.order_by.return_value = session
+        session.offset.return_value = session
+        session.limit.return_value = session
+        session.first.return_value = None
+        session.all.return_value = []
+        session.add.return_value = None
+        session.commit.return_value = None
+        session.refresh.return_value = None
+        session.delete.return_value = None
+        return session
 
-        assert rule.name == "Critical Alert Rule"
-        assert rule.rule_type == "alert_level"
-        assert rule.enabled is True
-
-    def test_rule_types(self):
-        """测试所有支持的规则类型"""
-        rule_types = ["alert_level", "device", "category", "custom"]
-
-        for rule_type in rule_types:
-            rule = NotificationTargetRule(
-                name=f"Test {rule_type} Rule",
-                rule_type=rule_type,
-                notify_channels=json.dumps(["email"]),
-            )
-            assert rule.rule_type == rule_type
-
-    def test_rule_default_values(self):
-        """测试默认值"""
-        rule = NotificationTargetRule(
-            name="Test Rule",
-            rule_type="alert_level",
-            notify_channels=json.dumps(["email"]),
-        )
-
-        assert rule.enabled is True
-        assert rule.suppress_enabled is False
-        assert rule.notify_interval == 300
-        assert rule.max_notify_count == 3
-        assert rule.priority == 100
-
-    def test_rule_repr(self):
-        """测试字符串表示"""
-        rule = NotificationTargetRule(
-            id=1,
-            name="Test Rule",
-            rule_type="alert_level",
-        )
-
-        repr_str = repr(rule)
-        assert "NotificationTargetRule" in repr_str
-        assert "Test Rule" in repr_str
-
-    def test_rule_with_escalation_config(self):
-        """测试带升级配置的规则"""
-        escalation = {
-            "critical": [
-                {"after_seconds": 300, "channels": ["sms"]},
-                {"after_seconds": 600, "channels": ["phone"]},
-            ]
+    @pytest.fixture
+    def sample_rule_data(self):
+        """示例规则数据"""
+        return {
+            "name": "Critical Alert Rule",
+            "description": "Critical级别告警通知规则",
+            "rule_type": "alert_level",
+            "match_conditions": {"levels": ["critical", "high"]},
+            "notify_channels": ["email", "dingtalk"],
+            "notify_receivers": ["admin@example.com"],
+            "notify_interval": 300,
+            "max_notify_count": 3,
+            "priority": 10,
+            "enabled": True,
         }
 
+    @pytest.fixture
+    def sample_rule(self, sample_rule_data):
+        """创建示例规则对象"""
         rule = NotificationTargetRule(
-            name="Escalation Rule",
-            rule_type="alert_level",
-            notify_channels=json.dumps(["email"]),
-            escalation_config=json.dumps(escalation),
+            id=1,
+            name=sample_rule_data["name"],
+            description=sample_rule_data["description"],
+            rule_type=sample_rule_data["rule_type"],
+            match_conditions=json.dumps(sample_rule_data["match_conditions"]),
+            notify_channels=json.dumps(sample_rule_data["notify_channels"]),
+            notify_receivers=json.dumps(sample_rule_data["notify_receivers"]),
+            notify_interval=sample_rule_data["notify_interval"],
+            max_notify_count=sample_rule_data["max_notify_count"],
+            priority=sample_rule_data["priority"],
+            enabled=sample_rule_data["enabled"],
+            created_at=datetime.now(),
         )
+        return rule
 
-        config = json.loads(rule.escalation_config)
-        assert "critical" in config
-        assert len(config["critical"]) == 2
+    def test_service_can_be_instantiated(self, mock_db_session):
+        """测试服务可以实例化"""
+        from modules.business.notification.target_config import NotificationTargetRuleService
+        
+        service = NotificationTargetRuleService(mock_db_session)
+        assert service is not None
+        assert service.db == mock_db_session
 
-    def test_rule_with_time_windows(self):
-        """测试带时段配置的规则"""
-        time_windows = [
-            {"days": [1, 2, 3, 4, 5], "start_hour": 9, "end_hour": 18},  # 工作日
-            {"days": [6, 7], "start_hour": 10, "end_hour": 16},  # 周末
-        ]
+    def test_create_rule(self, mock_db_session, sample_rule_data):
+        """测试创建规则"""
+        from modules.business.notification.target_config import NotificationTargetRuleService
+        
+        # Mock query to return no existing rule
+        mock_db_session.query.return_value.filter.return_value.first.return_value = None
+        
+        service = NotificationTargetRuleService(mock_db_session)
+        result = service.create_rule(sample_rule_data)
+        
+        # 验证规则创建成功
+        assert result is not None
+        mock_db_session.add.assert_called_once()
+        mock_db_session.commit.assert_called_once()
 
-        rule = NotificationTargetRule(
-            name="Business Hours Rule",
-            rule_type="alert_level",
-            notify_channels=json.dumps(["email"]),
-            time_windows=json.dumps(time_windows),
-        )
+    def test_create_rule_with_duplicate_name(self, mock_db_session, sample_rule_data, sample_rule):
+        """测试创建重复名称规则应抛出异常"""
+        from modules.business.notification.target_config import NotificationTargetRuleService
+        
+        # Mock existing rule
+        mock_db_session.query.return_value.filter.return_value.first.return_value = sample_rule
+        
+        service = NotificationTargetRuleService(mock_db_session)
+        
+        with pytest.raises(ValueError, match="规则名称已存在"):
+            service.create_rule(sample_rule_data)
 
-        windows = json.loads(rule.time_windows)
-        assert len(windows) == 2
+    def test_get_rule_by_id(self, mock_db_session, sample_rule):
+        """测试通过ID获取规则"""
+        from modules.business.notification.target_config import NotificationTargetRuleService
+        
+        mock_db_session.query.return_value.filter.return_value.first.return_value = sample_rule
+        
+        service = NotificationTargetRuleService(mock_db_session)
+        result = service.get_rule_by_id(1)
+        
+        assert result is not None
+        assert result.id == 1
+        assert result.name == sample_rule.name
 
-    def test_rule_with_suppress_until(self):
-        """测试带抑制截止时间的规则"""
-        suppress_until = datetime(2024, 12, 31, 23, 59, 59)
+    def test_get_rule_by_id_not_found(self, mock_db_session):
+        """测试获取不存在的规则"""
+        from modules.business.notification.target_config import NotificationTargetRuleService
+        
+        mock_db_session.query.return_value.filter.return_value.first.return_value = None
+        
+        service = NotificationTargetRuleService(mock_db_session)
+        result = service.get_rule_by_id(999)
+        
+        assert result is None
 
-        rule = NotificationTargetRule(
-            name="Suppressed Rule",
-            rule_type="alert_level",
-            notify_channels=json.dumps(["email"]),
-            suppress_enabled=True,
-            suppress_until=suppress_until,
-        )
+    def test_list_rules(self, mock_db_session, sample_rule):
+        """测试列出规则"""
+        from modules.business.notification.target_config import NotificationTargetRuleService
+        
+        mock_db_session.query.return_value.filter.return_value.all.return_value = [sample_rule]
+        mock_db_session.query.return_value.count.return_value = 1
+        
+        service = NotificationTargetRuleService(mock_db_session)
+        result = service.list_rules()
+        
+        assert len(result) == 1
+        assert result[0].name == sample_rule.name
 
-        assert rule.suppress_until == suppress_until
+    def test_list_rules_with_filters(self, mock_db_session, sample_rule):
+        """测试带过滤条件的列表查询"""
+        from modules.business.notification.target_config import NotificationTargetRuleService
+        
+        mock_db_session.query.return_value.filter.return_value.filter.return_value.all.return_value = [sample_rule]
+        mock_db_session.query.return_value.filter.return_value.count.return_value = 1
+        
+        service = NotificationTargetRuleService(mock_db_session)
+        result = service.list_rules(rule_type="alert_level", enabled=True)
+        
+        assert len(result) == 1
+        mock_db_session.query.return_value.filter.assert_called()
 
+    def test_update_rule(self, mock_db_session, sample_rule):
+        """测试更新规则"""
+        from modules.business.notification.target_config import NotificationTargetRuleService
+        
+        service = NotificationTargetRuleService(mock_db_session)
+        update_data = {"name": "Updated Rule", "notify_interval": 600}
+        
+        # Need to return sample_rule for id lookup, then None for name uniqueness check
+        # First call: query.filter(id==1).first() -> sample_rule
+        # Second call: query.filter(name==new_name, id!=1).first() -> None
+        call_results = [sample_rule, None]
+        mock_query = MagicMock()
+        mock_query.filter.return_value.first.side_effect = call_results
+        mock_db_session.query.return_value = mock_query
+        
+        result = service.update_rule(1, update_data)
+        
+        assert result is not None
+        assert sample_rule.name == "Updated Rule"
+        mock_db_session.commit.assert_called()
 
-class TestNotificationTargetRuleAPI:
-    """NotificationTargetRule API测试"""
+    def test_update_rule_not_found(self, mock_db_session):
+        """测试更新不存在的规则"""
+        from modules.business.notification.target_config import NotificationTargetRuleService
+        
+        mock_db_session.query.return_value.filter.return_value.first.return_value = None
+        
+        service = NotificationTargetRuleService(mock_db_session)
+        
+        with pytest.raises(ValueError, match="规则不存在"):
+            service.update_rule(999, {"name": "Test"})
 
-    def test_create_rule_request_model(self):
-        """测试创建规则请求模型"""
-        from api.routes.notification import NotificationTargetRuleCreate
+    def test_delete_rule(self, mock_db_session, sample_rule):
+        """测试删除规则"""
+        from modules.business.notification.target_config import NotificationTargetRuleService
+        
+        mock_db_session.query.return_value.filter.return_value.first.return_value = sample_rule
+        
+        service = NotificationTargetRuleService(mock_db_session)
+        result = service.delete_rule(1)
+        
+        assert result is True
+        mock_db_session.delete.assert_called_with(sample_rule)
+        mock_db_session.commit.assert_called()
 
-        rule = NotificationTargetRuleCreate(
-            name="New Rule",
-            description="Test rule",
-            rule_type="alert_level",
-            match_conditions={"levels": ["critical"]},
-            notify_channels=["email", "dingtalk"],
-            notify_receivers=["admin@test.com"],
-            notify_interval=600,
-            max_notify_count=5,
-            priority=50,
-        )
+    def test_delete_rule_not_found(self, mock_db_session):
+        """测试删除不存在的规则"""
+        from modules.business.notification.target_config import NotificationTargetRuleService
+        
+        mock_db_session.query.return_value.filter.return_value.first.return_value = None
+        
+        service = NotificationTargetRuleService(mock_db_session)
+        
+        with pytest.raises(ValueError, match="规则不存在"):
+            service.delete_rule(999)
 
-        assert rule.name == "New Rule"
-        assert rule.rule_type == "alert_level"
-        assert len(rule.notify_channels) == 2
+    def test_toggle_rule(self, mock_db_session, sample_rule):
+        """测试启用/禁用规则"""
+        from modules.business.notification.target_config import NotificationTargetRuleService
+        
+        mock_db_session.query.return_value.filter.return_value.first.return_value = sample_rule
+        
+        service = NotificationTargetRuleService(mock_db_session)
+        result = service.toggle_rule(1, enabled=False)
+        
+        assert result is not None
+        assert sample_rule.enabled is False
+        mock_db_session.commit.assert_called()
 
-    def test_update_rule_request_model(self):
-        """测试更新规则请求模型"""
-        from api.routes.notification import NotificationTargetRuleUpdate
+    def test_match_rules_by_alert_level(self, mock_db_session, sample_rule):
+        """测试按告警级别匹配规则"""
+        from modules.business.notification.target_config import NotificationTargetRuleService
+        
+        mock_db_session.query.return_value.filter.return_value.order_by.return_value.all.return_value = [sample_rule]
+        
+        service = NotificationTargetRuleService(mock_db_session)
+        result = service.match_rules(alert_level="critical")
+        
+        assert len(result) == 1
+        assert result[0]["id"] == sample_rule.id
 
-        update = NotificationTargetRuleUpdate(
-            name="Updated Rule",
-            enabled=False,
-            notify_interval=1200,
-        )
-
-        assert update.name == "Updated Rule"
-        assert update.enabled is False
-        assert update.notify_interval == 1200
-
-
-class TestNotificationTargetRuleMatching:
-    """通知目标规则匹配测试"""
-
-    def test_match_by_alert_level(self):
-        """测试按告警级别匹配"""
-        rule = NotificationTargetRule(
-            name="Critical Alert Rule",
-            rule_type="alert_level",
-            match_conditions=json.dumps({"levels": ["critical", "high"]}),
-            notify_channels=json.dumps(["email", "dingtalk"]),
-            enabled=True,
-        )
-
-        # 模拟匹配逻辑
-        alert_level = "critical"
-        conditions = json.loads(rule.match_conditions)
-        is_match = alert_level in conditions.get("levels", [])
-
-        assert is_match is True
-
-    def test_match_by_alert_level_no_match(self):
-        """测试告警级别不匹配"""
-        rule = NotificationTargetRule(
-            name="Critical Alert Rule",
-            rule_type="alert_level",
-            match_conditions=json.dumps({"levels": ["critical", "high"]}),
-            notify_channels=json.dumps(["email"]),
-            enabled=True,
-        )
-
-        alert_level = "low"
-        conditions = json.loads(rule.match_conditions)
-        is_match = alert_level in conditions.get("levels", [])
-
-        assert is_match is False
-
-    def test_match_by_device_id(self):
-        """测试按设备ID匹配"""
-        rule = NotificationTargetRule(
-            name="Server Alert Rule",
+    def test_match_rules_by_device_id(self, mock_db_session):
+        """测试按设备ID匹配规则"""
+        from modules.business.notification.target_config import NotificationTargetRuleService
+        
+        device_rule = NotificationTargetRule(
+            id=2,
+            name="Device Rule",
             rule_type="device",
-            match_conditions=json.dumps({"device_ids": [1, 2, 3], "device_types": ["server"]}),
+            match_conditions=json.dumps({"device_ids": [10, 20, 30]}),
             notify_channels=json.dumps(["dingtalk"]),
             enabled=True,
         )
+        mock_db_session.query.return_value.filter.return_value.order_by.return_value.all.return_value = [device_rule]
+        
+        service = NotificationTargetRuleService(mock_db_session)
+        result = service.match_rules(alert_level="critical", device_id=20)
+        
+        assert len(result) == 1
 
-        device_id = 2
-        conditions = json.loads(rule.match_conditions)
-        is_match = device_id in conditions.get("device_ids", [])
-
-        assert is_match is True
-
-    def test_match_by_device_type(self):
-        """测试按设备类型匹配"""
-        rule = NotificationTargetRule(
-            name="Server Alert Rule",
-            rule_type="device",
-            match_conditions=json.dumps({"device_ids": [], "device_types": ["server", "router"]}),
-            notify_channels=json.dumps(["dingtalk"]),
-            enabled=True,
-        )
-
-        device_type = "router"
-        conditions = json.loads(rule.match_conditions)
-        is_match = device_type in conditions.get("device_types", [])
-
-        assert is_match is True
-
-    def test_match_by_category(self):
-        """测试按告警分类匹配"""
-        rule = NotificationTargetRule(
-            name="Performance Alert Rule",
-            rule_type="category",
-            match_conditions=json.dumps({"categories": ["performance", "capacity"]}),
-            notify_channels=json.dumps(["email"]),
-            enabled=True,
-        )
-
-        category = "performance"
-        conditions = json.loads(rule.match_conditions)
-        is_match = category in conditions.get("categories", [])
-
-        assert is_match is True
-
-    def test_disabled_rule_not_matched(self):
-        """测试禁用的规则不匹配"""
-        rule = NotificationTargetRule(
+    def test_match_rules_disabled_rule_not_matched(self, mock_db_session):
+        """测试禁用的规则不会被匹配"""
+        from modules.business.notification.target_config import NotificationTargetRuleService
+        
+        disabled_rule = NotificationTargetRule(
+            id=3,
             name="Disabled Rule",
             rule_type="alert_level",
             match_conditions=json.dumps({"levels": ["critical"]}),
             notify_channels=json.dumps(["email"]),
             enabled=False,  # 禁用
         )
+        
+        # 当filter(enabled==True)调用时返回空列表
+        mock_db_session.query.return_value.filter.return_value.order_by.return_value.all.return_value = []
+        # 单独处理filter().filter()的情况（用于名称唯一性检查）
+        mock_db_session.query.return_value.filter.return_value.filter.return_value.first.return_value = None
+        
+        service = NotificationTargetRuleService(mock_db_session)
+        result = service.match_rules(alert_level="critical")
+        
+        # 禁用的规则不应该匹配
+        assert len(result) == 0
 
-        assert rule.enabled is False
-
-    def test_match_priority_order(self):
-        """测试按优先级排序匹配"""
-        rules = [
-            NotificationTargetRule(id=1, name="Low Priority", priority=100, rule_type="alert_level", notify_channels=json.dumps(["email"])),
-            NotificationTargetRule(id=2, name="High Priority", priority=10, rule_type="alert_level", notify_channels=json.dumps(["sms"])),
-            NotificationTargetRule(id=3, name="Medium Priority", priority=50, rule_type="alert_level", notify_channels=json.dumps(["dingtalk"])),
-        ]
-
-        # 按优先级排序
-        sorted_rules = sorted(rules, key=lambda x: x.priority)
-
-        assert sorted_rules[0].name == "High Priority"
-        assert sorted_rules[1].name == "Medium Priority"
-        assert sorted_rules[2].name == "Low Priority"
-
-
-class TestNotificationTargetRuleQuery:
-    """通知目标规则查询测试"""
-
-    def test_filter_by_rule_type(self):
-        """测试按规则类型过滤"""
+    def test_match_rules_priority_order(self, mock_db_session):
+        """测试规则按优先级排序匹配"""
+        from modules.business.notification.target_config import NotificationTargetRuleService
+        
+        # Rules in sorted order by priority (SQL order_by will sort by priority asc)
+        rule1 = NotificationTargetRule(id=1, name="Low Priority", priority=100, rule_type="alert_level", 
+                                   match_conditions=json.dumps({"levels": ["critical"]}), 
+                                   notify_channels=json.dumps(["email"]), enabled=True)
+        rule2 = NotificationTargetRule(id=2, name="High Priority", priority=10, rule_type="alert_level",
+                                   match_conditions=json.dumps({"levels": ["critical"]}),
+                                   notify_channels=json.dumps(["sms"]), enabled=True)
+        rule3 = NotificationTargetRule(id=3, name="Medium Priority", priority=50, rule_type="alert_level",
+                                   match_conditions=json.dumps({"levels": ["critical"]}),
+                                   notify_channels=json.dumps(["dingtalk"]), enabled=True)
+        
+        # SQL order_by(priority.asc) returns: rule2(10), rule3(50), rule1(100)
+        sorted_rules = [rule2, rule3, rule1]
+        
+        # match_rules uses query.filter(enabled==True).order_by().all()
         mock_query = MagicMock()
-        mock_query.filter.return_value = mock_query
-        mock_query.order_by.return_value = mock_query
-        mock_query.offset.return_value = mock_query
-        mock_query.limit.return_value = mock_query
+        mock_query.filter.return_value.order_by.return_value.all.return_value = sorted_rules
+        mock_db_session.query.return_value = mock_query
+        
+        service = NotificationTargetRuleService(mock_db_session)
+        result = service.match_rules(alert_level="critical")
+        
+        # 结果应该按优先级排序
+        assert result[0]["id"] == 2  # High Priority (priority=10)
+        assert result[1]["id"] == 3  # Medium Priority (priority=50)
+        assert result[2]["id"] == 1  # Low Priority (priority=100)
 
-        mock_query.filter().count.return_value = 5
-        mock_query.filter().order_by().offset().limit().all.return_value = []
+    def test_validate_rule_type(self, mock_db_session):
+        """测试规则类型验证"""
+        from modules.business.notification.target_config import NotificationTargetRuleService
+        
+        valid_types = ["alert_level", "device", "category", "custom"]
+        
+        service = NotificationTargetRuleService(mock_db_session)
+        for rule_type in valid_types:
+            assert service._validate_rule_type(rule_type) is True
 
-        result = mock_query.filter().all()
-        assert isinstance(result, list)
+    def test_validate_rule_type_invalid(self, mock_db_session):
+        """测试无效规则类型验证"""
+        from modules.business.notification.target_config import NotificationTargetRuleService
+        
+        service = NotificationTargetRuleService(mock_db_session)
+        
+        with pytest.raises(ValueError, match="无效的规则类型"):
+            service._validate_rule_type("invalid_type")
 
-    def test_filter_by_enabled_status(self):
-        """测试按启用状态过滤"""
-        mock_query = MagicMock()
-        mock_query.filter.return_value = mock_query
+    def test_validate_notify_channels(self, mock_db_session):
+        """测试通知渠道验证"""
+        from modules.business.notification.target_config import NotificationTargetRuleService
+        
+        valid_channels = ["email", "dingtalk", "feishu", "wechat_work", "webhook", "sms"]
+        
+        service = NotificationTargetRuleService(mock_db_session)
+        for channel in valid_channels:
+            assert service._validate_notify_channel(channel) is True
 
-        enabled_rules = [
-            NotificationTargetRule(id=1, name="Rule 1", enabled=True, rule_type="alert_level", notify_channels=json.dumps(["email"])),
-            NotificationTargetRule(id=2, name="Rule 2", enabled=True, rule_type="alert_level", notify_channels=json.dumps(["dingtalk"])),
-        ]
-        mock_query.filter().all.return_value = enabled_rules
+    def test_validate_notify_channels_invalid(self, mock_db_session):
+        """测试无效通知渠道验证"""
+        from modules.business.notification.target_config import NotificationTargetRuleService
+        
+        service = NotificationTargetRuleService(mock_db_session)
+        
+        with pytest.raises(ValueError, match="无效的通知渠道"):
+            service._validate_notify_channel("invalid_channel")
 
-        result = mock_query.filter().all()
-        assert len(result) == 2
-        assert all(r.enabled for r in result)
 
-    def test_order_by_priority(self):
-        """测试按优先级排序"""
-        mock_query = MagicMock()
-        mock_query.filter.return_value = mock_query
-        mock_query.order_by.return_value = mock_query
+class TestNotificationTargetRuleServiceEdgeCases:
+    """边界情况测试"""
 
-        rules = [
-            NotificationTargetRule(id=3, priority=50),
-            NotificationTargetRule(id=1, priority=10),
-            NotificationTargetRule(id=2, priority=30),
-        ]
+    @pytest.fixture
+    def mock_db_session(self):
+        session = MagicMock()
+        session.query.return_value = session
+        session.filter.return_value = session
+        session.order_by.return_value = session
+        session.commit.return_value = None
+        return session
 
-        mock_query.filter().order_by().all.return_value = sorted(rules, key=lambda x: x.priority)
+    def test_create_rule_with_empty_name(self, mock_db_session):
+        """测试空名称验证"""
+        from modules.business.notification.target_config import NotificationTargetRuleService
+        
+        service = NotificationTargetRuleService(mock_db_session)
+        
+        with pytest.raises(ValueError, match="规则名称不能为空"):
+            service.create_rule({"name": "", "rule_type": "alert_level", "notify_channels": ["email"]})
 
-        result = mock_query.filter().order_by().all()
-        assert result[0].priority == 10
-        assert result[1].priority == 30
-        assert result[2].priority == 50
-
-    def test_check_duplicate_name(self):
-        """测试检查重复名称"""
-        mock_query = MagicMock()
-        mock_query.filter.return_value = mock_query
-
-        existing_rule = NotificationTargetRule(
-            id=1,
-            name="Existing Rule",
-            rule_type="alert_level",
-            notify_channels=json.dumps(["email"]),
-        )
-        mock_query.filter().first.return_value = existing_rule
-
-        # 检查是否存在同名规则
-        result = mock_query.filter().first()
+    def test_create_rule_with_special_characters_in_name(self, mock_db_session):
+        """测试带特殊字符的名称"""
+        from modules.business.notification.target_config import NotificationTargetRuleService
+        
+        mock_db_session.query.return_value.filter.return_value.first.return_value = None
+        
+        service = NotificationTargetRuleService(mock_db_session)
+        result = service.create_rule({
+            "name": "Rule <test> & 'special'",
+            "rule_type": "alert_level",
+            "notify_channels": ["email"]
+        })
+        
         assert result is not None
-        assert result.name == "Existing Rule"
+
+    def test_match_rules_with_multiple_conditions(self, mock_db_session):
+        """测试多条件匹配"""
+        from modules.business.notification.target_config import NotificationTargetRuleService
+        
+        rule = NotificationTargetRule(
+            id=1,
+            name="Multi Match Rule",
+            rule_type="device",
+            match_conditions=json.dumps({"device_ids": [1, 2], "device_types": ["server", "router"]}),
+            notify_channels=json.dumps(["dingtalk"]),
+            enabled=True,
+        )
+        mock_db_session.query.return_value.filter.return_value.order_by.return_value.all.return_value = [rule]
+        
+        service = NotificationTargetRuleService(mock_db_session)
+        
+        # 按device_id匹配
+        result = service.match_rules(alert_level="warning", device_id=1)
+        assert len(result) == 1
+        
+        # 按device_type匹配
+        result = service.match_rules(alert_level="warning", device_type="router")
+        assert len(result) == 1
+
+    def test_match_rules_no_conditions(self, mock_db_session):
+        """测试无匹配条件"""
+        from modules.business.notification.target_config import NotificationTargetRuleService
+        
+        rule = NotificationTargetRule(
+            id=1,
+            name="No Match Rule",
+            rule_type="alert_level",
+            match_conditions=json.dumps({"levels": ["low"]}),
+            notify_channels=json.dumps(["email"]),
+            enabled=True,
+        )
+        mock_db_session.query.return_value.filter.return_value.order_by.return_value.all.return_value = [rule]
+        
+        service = NotificationTargetRuleService(mock_db_session)
+        result = service.match_rules(alert_level="critical")  # 不匹配任何规则
+        
+        assert len(result) == 0
+
+
+class TestNotificationTargetRuleServiceIntegration:
+    """集成测试（模拟真实数据库操作）"""
+
+    def test_full_crud_cycle(self):
+        """测试完整的CRUD周期"""
+        from modules.business.notification.target_config import NotificationTargetRuleService
+        
+        # 创建一个模拟的DB session
+        mock_session = MagicMock()
+        
+        # 存储创建的对象
+        created_rule = None
+        
+        def mock_add(obj):
+            nonlocal created_rule
+            created_rule = obj
+        
+        mock_session.add = mock_add
+        mock_session.commit = MagicMock()
+        mock_session.refresh = MagicMock()
+        mock_session.query.return_value.filter.return_value.first.return_value = None
+        mock_session.query.return_value.filter.return_value.all.return_value = []
+        
+        service = NotificationTargetRuleService(mock_session)
+        
+        # Create
+        rule_data = {
+            "name": "Integration Test Rule",
+            "rule_type": "alert_level",
+            "match_conditions": {"levels": ["critical"]},
+            "notify_channels": ["email", "dingtalk"],
+            "priority": 50,
+        }
+        
+        result = service.create_rule(rule_data)
+        
+        # 验证创建
+        assert created_rule is not None
+        assert created_rule.name == "Integration Test Rule"
+        
+        # 模拟更新后的查询
+        mock_session.query.return_value.filter.return_value.first.return_value = created_rule
+        
+        # Read
+        fetched = service.get_rule_by_id(1)
+        assert fetched is not None
+        
+        # Update
+        service.update_rule(1, {"priority": 30})
+        assert created_rule.priority == 30
+        
+        # Delete
+        mock_session.query.return_value.filter.return_value.first.return_value = created_rule
+        service.delete_rule(1)
+        mock_session.delete.assert_called()
+
+
+# 运行测试
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
