@@ -7,11 +7,8 @@ from sqlalchemy import (
     create_engine, Column, Integer, String, Text, DateTime, Boolean,
     ForeignKey, JSON, Float, Enum as SQLEnum, Index, Table
 )
-from sqlalchemy.orm import sessionmaker, relationship, declarative_base
-from datetime import datetime
-import os
-
-Base = declarative_base()
+from sqlalchemy.orm import sessionmaker, relationship
+from modules.foundation.db_models.base import Base
 
 
 # 文档分类关联表(多对多)
@@ -49,28 +46,25 @@ def get_database_url(config: dict = None) -> str:
     return 'sqlite:///./data/knowledge_base.db'
 
 
-def create_tables(database_url: str = None):
+def create_tables(engine=None, database_url: str = None):
     """
     创建所有知识库表
     
     Args:
-        database_url: 数据库连接URL
+        engine: 已有的数据库引擎（优先使用）
+        database_url: 数据库连接URL（当engine为空时使用）
     """
-    if not database_url:
-        database_url = get_database_url()
-    
-    # 确保目录存在
-    if database_url.startswith('sqlite:///'):
-        db_path = database_url.replace('sqlite:///', '')
-        os.makedirs(os.path.dirname(db_path) if os.path.dirname(db_path) else '.', exist_ok=True)
-    
-    engine = create_engine(database_url)
+    if engine is None:
+        if not database_url:
+            database_url = get_database_url()
+        # 确保目录存在
+        if database_url.startswith('sqlite:///'):
+            db_path = database_url.replace('sqlite:///', '')
+            import os
+            os.makedirs(os.path.dirname(db_path) if os.path.dirname(db_path) else '.', exist_ok=True)
+        engine = create_engine(database_url)
     Base.metadata.create_all(engine)
-    
     return engine
-
-
-def drop_tables(database_url: str = None):
     """
     删除所有知识库表(慎用)
     

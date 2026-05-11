@@ -26,6 +26,7 @@ from api.routes import (
     notification_router,
     device_router,
     auth_router,
+    discovery_router,
 )
 from api.dependencies import get_settings
 from api.middleware.logging import LoggingMiddleware
@@ -186,6 +187,12 @@ def create_app() -> FastAPI:
         auth_router,
         prefix="/api/v1/auth",
         tags=["认证"],
+    )
+
+    app.include_router(
+        discovery_router,
+        prefix="/api/v1/discovery",
+        tags=["设备发现"],
     )
 
     # 前端静态文件服务 - 使用中间件方式避免路由冲突

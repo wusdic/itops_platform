@@ -33,13 +33,10 @@ echo "  线程: $N_THREADS"
 
 cd /home/zcxx/.hermes/projects/itops_platform
 
-# 直接 python3 单进程 + threaded=True
-nohup python3 modules/business/ai_copilot/llm_server.py \
+# 使用 exec 让 Python 进程替代当前 shell，systemd Type=simple 就能正确跟踪 PID
+exec python3 modules/business/ai_copilot/llm_server.py \
     "$MODEL_PATH" \
     "$PORT" \
     "$N_CTX" \
     "$N_THREADS" \
-    > "$LOG_FILE" 2>&1 &
-
-echo $! > "$PID_FILE"
-echo "[LLM 35] PID $(cat $PID_FILE) started. Log: $LOG_FILE"
+    >> "$LOG_FILE" 2>&1

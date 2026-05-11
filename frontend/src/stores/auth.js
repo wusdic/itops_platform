@@ -1,85 +1,38 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
-import { auth as authApi } from '@/api'
+import { ref, computed } from 'vue'
 
 export const useAuthStore = defineStore('auth', () => {
   const userInfo = ref(null)
-  const token = ref(localStorage.getItem('token') || '')
-  const loading = ref(false)
+  const permissions = ref([])
+  const roles = ref([])
 
-  // 登录
-  const login = async (credentials) => {
-    loading.value = true
-    try {
-      const res = await authApi.login(credentials)
-      token.value = res.token
-      userInfo.value = res.user
-      localStorage.setItem('token', res.token)
-      localStorage.setItem('userInfo', JSON.stringify(res.user))
-      return res
-    } finally {
-      loading.value = false
-    }
+  const isAdmin = computed(() => roles.value.includes('admin'))
+  const isOperator = computed(() => roles.value.includes('operator'))
+
+  const hasPermission = (permission) => {
+    return permissions.value.includes(permission) || isAdmin.value
   }
 
-  // 登出
-  const logout = async () => {
-    try {
-      await authApi.logout()
-    } catch (e) {
-      console.error('Logout error:', e)
-    } finally {
-      token.value = ''
-      userInfo.value = null
-      localStorage.removeItem('token')
-      localStorage.removeItem('userInfo')
-    }
+  const setUserInfo = (info) => {
+    userInfo.value = info
+    roles.value = info?.roles || []
+    permissions.value = info?.permissions || []
   }
 
-  // 注册
-  const register = async (data) => {
-    loading.value = true
-    try {
-      return await authApi.register(data)
-    } finally {
-      loading.value = false
-    }
-  }
-
-  // 获取用户信息
-  const fetchUserInfo = async () => {
-    if (!token.value) return null
-    try {
-      const res = await authApi.getUserInfo()
-      userInfo.value = res
-      return res
-    } catch (e) {
-      console.error('Failed to fetch user info:', e)
-      return null
-    }
-  }
-
-  // 刷新Token
-  const refreshToken = async () => {
-    try {
-      const res = await authApi.refreshToken()
-      token.value = res.token
-      localStorage.setItem('token', res.token)
-      return res.token
-    } catch (e) {
-      console.error('Failed to refresh token:', e)
-      return null
-    }
+  const clearAuth = () => {
+    userInfo.value = null
+    roles.value = []
+    permissions.value = []
   }
 
   return {
     userInfo,
-    token,
-    loading,
-    login,
-    logout,
-    register,
-    fetchUserInfo,
-    refreshToken
+    permissions,
+    roles,
+    isAdmin,
+    isOperator,
+    hasPermission,
+    setUserInfo,
+    clearAuth
   }
 })

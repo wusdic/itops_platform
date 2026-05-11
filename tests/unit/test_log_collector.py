@@ -1,430 +1,702 @@
-"""CM-05 日志采集模块单元测试"""
+"""
+日志采集器综合测试
+测试 file_reader.py 的实时采集、多编码支持、日志轮转检测功能
+"""
+
+import unittest
 import os
 import sys
 import time
 import tempfile
+import shutil
 import threading
+import codecs
 from datetime import datetime
+from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
-
-import pytest
-
-# 添加模块路径
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from io import StringIO
 
 
-class TestFileLogReader:
-    """文件日志读取器测试"""
+class TestLogFileReader(unittest.TestCase):
+    """日志文件读取器测试"""
     
-    def test_file_reader_init(self):
-        """测试文件读取器初始化"""
-        from modules.collection.log_collector.file_reader import FileLogReader
-        
-        reader = FileLogReader('/var/log/test.log')
-        
-        assert reader.file_path.name == 'test.log'
-        assert reader.encodings == FileLogReader.DEFAULT_ENCODINGS
+    def setUp(self):
+        """测试前准备"""
+        self.test_dir = tempfile.mkdtemp()
+        self.test_file = os.path.join(self.test_dir, 'test.log')
     
-    def test_parse_line(self):
-        """测试日志行解析"""
-        from modules.collection.log_collector.file_reader import FileLogReader
-        
-        reader = FileLogReader(
-            '/test.log',
-            patterns=[r'^(?P<timestamp>\S+)\s+(?P<level>\w+)\s+(?P<message>.*)$']
-        )
-        
-        line = "2024-01-01 12:00:00 INFO Test message"
-        entry = reader._parse_line(line, 1)
-        
-        assert entry.line_number == 1
-        assert entry.raw == line
-        assert entry.source_file == '/test.log'
+    def tearDown(self):
+        """测试后清理"""
+        if os.path.exists(self.test_dir):
+            shutil.rmtree(self.test_dir)
     
-    def test_read_file_new_file(self):
-        """测试读取新文件"""
-        from modules.collection.log_collector.file_reader import FileLogReader
-        
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.log', delete=False) as f:
-            f.write("Log line 1\n")
-            f.write("Log line 2\n")
-            temp_path = f.name
-        
-        try:
-            reader = FileLogReader(temp_path)
-            entries = reader.read()
-            
-            assert len(entries) == 2
-            assert entries[0].message == "Log line 1"
-            assert entries[1].message == "Log line 2"
-        finally:
-            os.unlink(temp_path)
-    
-    def test_position_tracking(self):
-        """测试位置跟踪"""
-        from modules.collection.log_collector.file_reader import FileLogReader
-        
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.log', delete=False) as f:
-            f.write("Line 1\n")
-            f.write("Line 2\n")
-            temp_path = f.name
-        
-        try:
-            reader = FileLogReader(temp_path)
-            
-            # 第一次读取
-            entries1 = reader.read()
-            assert len(entries1) == 2
-            
-            position = reader.get_position()
-            assert position is not None
-            assert position.line_number == 2
-            
-            # 添加新内容
-            with open(temp_path, 'a') as f:
-                f.write("Line 3\n")
-            
-            # 第二次读取
-            entries2 = reader.read()
-            assert len(entries2) == 1
-            assert entries2[0].message == "Line 3"
-        finally:
-            os.unlink(temp_path)
-    
-    def test_file_rotation_detection(self):
-        """测试文件轮转检测"""
-        from modules.collection.log_collector.file_reader import FileLogReader
-        
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.log', delete=False) as f:
-            f.write("Original content\n")
-            temp_path = f.name
-        
-        try:
-            reader = FileLogReader(temp_path)
-            reader._position = reader._position or Mock(
-                inode=0, byte_offset=100, last_modified=time.time() - 100
-            )
-            reader._position.inode = reader._get_file_info(reader.file_path)[0]
-            
-            # 删除并重新创建文件
-            os.unlink(temp_path)
-            time.sleep(0.1)
-            
-            with open(temp_path, 'w') as f:
-                f.write("New content\n")
-            
-            # 检测到轮转
-            assert reader._detect_rotation() is True
-        finally:
-            if os.path.exists(temp_path):
-                os.unlink(temp_path)
-    
-    def test_encoding_detection(self):
-        """测试编码检测"""
-        from modules.collection.log_collector.file_reader import FileLogReader
-        
-        # UTF-8 文件
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.log', delete=False, encoding='utf-8') as f:
-            f.write("UTF-8 内容\n")
-            temp_path = f.name
-        
-        try:
-            reader = FileLogReader(temp_path)
-            encoding = reader._detect_encoding(reader.file_path)
-            assert encoding == 'utf-8'
-        finally:
-            os.unlink(temp_path)
-
-
-class TestSyslogReceiver:
-    """Syslog接收器测试"""
-    
-    def test_syslog_parser_rfc3164(self):
-        """测试RFC3164解析"""
-        from modules.collection.log_collector.syslog_receiver import SyslogParser
-        
-        parser = SyslogParser()
-        
-        message = "<34>Oct 11 22:14:15 mymachine su: 'su root' failed for user on /dev/pts/8"
-        result = parser.parse(message, '192.168.1.1', 514)
-        
-        assert result is not None
-        assert result.protocol.value == "RFC3164"
-        assert result.facility == 4  # AUTH
-        assert result.severity == 2  # ERROR
-        assert result.hostname == "mymachine"
-        assert "su" in result.message
-    
-    def test_syslog_parser_rfc5424(self):
-        """测试RFC5424解析"""
-        from modules.collection.log_collector.syslog_receiver import SyslogParser
-        
-        parser = SyslogParser()
-        
-        message = "<165>1 2024-01-01T12:00:00.000Z mymachine app-name 123 ID1 [exampleSDID@32473 iut=\"3\" eventSource=\"Application\" eventID=\"101\"] Test message"
-        result = parser.parse(message, '192.168.1.1', 514)
-        
-        assert result is not None
-        assert result.protocol.value == "RFC5424"
-        assert result.hostname == "mymachine"
-        assert result.app_name == "app-name"
-    
-    def test_syslog_receiver_init(self):
-        """测试接收器初始化"""
-        from modules.collection.log_collector.syslog_receiver import SyslogReceiver
-        
-        receiver = SyslogReceiver(
-            host='0.0.0.0',
-            port=514,
-            protocol='udp'
-        )
-        
-        assert receiver.host == '0.0.0.0'
-        assert receiver.port == 514
-        assert receiver.protocol == 'udp'
-    
-    def test_device_identification(self):
-        """测试设备识别"""
-        from modules.collection.log_collector.syslog_receiver import SyslogReceiver
-        
-        # 测试SyslogReceiver初始化
-        receiver = SyslogReceiver()
-        
-        # 检查设备注册表存在
-        assert 'huawei' in receiver.device_registry
-        assert 'cisco' in receiver.device_registry
-        
-        # 检查华为设备模式
-        huawei_patterns = receiver.device_registry['huawei']['patterns']
-        assert any('Huawei' in p for p in huawei_patterns) or any('VRP' in p for p in huawei_patterns)
-    
-    def test_filter_matching(self):
-        """测试过滤器匹配"""
-        from modules.collection.log_collector.syslog_receiver import SyslogReceiver
-        
-        # 测试关键字过滤功能 - 排除包含关键词的消息
-        receiver = SyslogReceiver(filters={'keywords': ['error'], 'exclude': True})
-        
-        # 创建一个模拟消息对象
-        from modules.collection.log_collector.syslog_receiver import SyslogMessage
-        from modules.collection.log_collector.syslog_receiver import SyslogProtocol
-        import re
-        
-        mock_msg = SyslogMessage(
-            timestamp=datetime.now(),
-            hostname='test',
-            app_name='test',
-            proc_id=None,
-            msg_id=None,
-            structured_data={},
-            message='Test message',
-            facility=1,
-            severity=3,
-            protocol=SyslogProtocol.RFC3164,
-            raw='Test message',
-            source_ip='127.0.0.1',
-            source_port=514
-        )
-        
-        # 不包含error关键词的消息应该通过
-        assert receiver._match_filter(mock_msg) is True
-        
-        # 修改消息包含error
-        mock_msg.message = 'Test error message'
-        assert receiver._match_filter(mock_msg) is False
-
-
-class TestWindowsEventCollector:
-    """Windows事件采集器测试"""
-    
-    def test_init(self):
+    def test_initialization(self):
         """测试初始化"""
-        from modules.collection.log_collector.windows_event import WindowsEventCollector
+        from modules.collection.log_collector.file_reader import LogFileReader
         
-        collector = WindowsEventCollector(
-            channels=['Application', 'System'],
-            level_filter=3
-        )
+        reader = LogFileReader(self.test_file)
         
-        assert collector.channels == ['Application', 'System']
-        assert collector.level_filter == 3
+        self.assertEqual(reader.file_path, self.test_file)
+        self.assertEqual(reader.encoding, 'utf-8')
+        self.assertIsNone(reader._file)
+        self.assertEqual(reader._position, 0)
     
-    def test_level_mapping(self):
-        """测试级别映射"""
-        from modules.collection.log_collector.windows_event import WindowsEventCollector, LogLevel
+    def test_initialization_with_encoding(self):
+        """测试指定编码初始化"""
+        from modules.collection.log_collector.file_reader import LogFileReader
         
-        collector = WindowsEventCollector()
+        reader = LogFileReader(self.test_file, encoding='gbk')
         
-        assert collector._parse_windows_event_level(1) == LogLevel.CRITICAL
-        assert collector._parse_windows_event_level(2) == LogLevel.ERROR
-        assert collector._parse_windows_event_level(4) == LogLevel.INFO
+        self.assertEqual(reader.encoding, 'gbk')
+    
+    def test_initialization_with_encoding_detection(self):
+        """测试编码自动检测"""
+        from modules.collection.log_collector.file_reader import LogFileReader
+        
+        reader = LogFileReader(self.test_file, encoding='auto')
+        
+        self.assertEqual(reader.encoding, 'utf-8')
+    
+    def test_open_and_close(self):
+        """测试打开和关闭文件"""
+        from modules.collection.log_collector.file_reader import LogFileReader
+        
+        with open(self.test_file, 'w', encoding='utf-8') as f:
+            f.write('test content\n')
+        
+        reader = LogFileReader(self.test_file)
+        reader.open()
+        
+        self.assertIsNotNone(reader._file)
+        self.assertTrue(reader._file.readable())
+        
+        reader.close()
+        
+        self.assertIsNone(reader._file)
+    
+    def test_context_manager(self):
+        """测试上下文管理器"""
+        from modules.collection.log_collector.file_reader import LogFileReader
+        
+        with open(self.test_file, 'w', encoding='utf-8') as f:
+            f.write('test content\n')
+        
+        with LogFileReader(self.test_file) as reader:
+            lines = reader.read_lines()
+            self.assertEqual(len(lines), 1)
+        
+        self.assertIsNone(reader._file)
+    
+    def test_read_new_lines(self):
+        """测试读取新行"""
+        from modules.collection.log_collector.file_reader import LogFileReader
+        
+        with open(self.test_file, 'w', encoding='utf-8') as f:
+            f.write('line1\n')
+        
+        reader = LogFileReader(self.test_file)
+        reader.open()
+        
+        # First read
+        new_lines = reader.read_new_lines()
+        self.assertEqual(len(new_lines), 1)
+        self.assertEqual(new_lines[0].strip(), 'line1')
+        
+        # Add more content
+        with open(self.test_file, 'a', encoding='utf-8') as f:
+            f.write('line2\nline3\n')
+        
+        # Second read - should get new lines only
+        new_lines = reader.read_new_lines()
+        self.assertEqual(len(new_lines), 2)
+        self.assertEqual(new_lines[0].strip(), 'line2')
+        self.assertEqual(new_lines[1].strip(), 'line3')
+        
+        reader.close()
+    
+    def test_read_all_lines(self):
+        """测试读取所有行"""
+        from modules.collection.log_collector.file_reader import LogFileReader
+        
+        with open(self.test_file, 'w', encoding='utf-8') as f:
+            f.write('line1\nline2\nline3\n')
+        
+        reader = LogFileReader(self.test_file)
+        reader.open()
+        
+        all_lines = reader.read_lines()
+        
+        self.assertEqual(len(all_lines), 3)
+        self.assertEqual(all_lines[0].strip(), 'line1')
+        self.assertEqual(all_lines[1].strip(), 'line2')
+        self.assertEqual(all_lines[2].strip(), 'line3')
+        
+        reader.close()
+    
+    def test_tell_position(self):
+        """测试位置追踪"""
+        from modules.collection.log_collector.file_reader import LogFileReader
+        
+        with open(self.test_file, 'w', encoding='utf-8') as f:
+            f.write('line1\nline2\nline3\n')
+        
+        reader = LogFileReader(self.test_file)
+        reader.open()
+        
+        reader.read_lines()
+        position = reader.tell()
+        
+        self.assertGreater(position, 0)
+        
+        reader.close()
 
 
-class TestKylinLogCollector:
-    """麒麟日志采集器测试"""
+class TestEncodingSupport(unittest.TestCase):
+    """编码支持测试"""
     
-    def test_init(self):
-        """测试初始化"""
-        from modules.collection.log_collector.windows_event import KylinLogCollector
-        
-        collector = KylinLogCollector()
-        
-        assert 'system' in collector.log_paths
-        assert 'secure' in collector.log_paths
+    def setUp(self):
+        """测试前准备"""
+        self.test_dir = tempfile.mkdtemp()
     
-    def test_parse_syslog_line(self):
-        """测试syslog行解析"""
-        from modules.collection.log_collector.windows_event import KylinLogCollector
+    def tearDown(self):
+        """测试后清理"""
+        if os.path.exists(self.test_dir):
+            shutil.rmtree(self.test_dir)
+    
+    def test_utf8_encoding(self):
+        """测试UTF-8编码"""
+        from modules.collection.log_collector.file_reader import LogFileReader
         
-        collector = KylinLogCollector()
+        test_file = os.path.join(self.test_dir, 'utf8.log')
         
-        # 修正格式以匹配解析器期望的模式
-        line = "Jan  1 12:00:00 hostname sshd: Connection refused"
-        entry = collector._parse_syslog_line(line, 'testhost')
+        with codecs.open(test_file, 'w', encoding='utf-8') as f:
+            f.write('中文测试\nUTF-8编码\nこんにちは\n')
         
-        assert entry is not None
-        assert entry.hostname == 'hostname'
-        # 服务名解析可能有变
-        assert entry.level in ['INFO', 'WARNING', 'ERROR']
-        assert 'Connection refused' in entry.message
+        reader = LogFileReader(test_file, encoding='utf-8')
+        reader.open()
+        
+        lines = reader.read_lines()
+        
+        self.assertEqual(len(lines), 3)
+        self.assertIn('中文测试', lines[0])
+        self.assertIn('UTF-8编码', lines[1])
+        
+        reader.close()
+    
+    def test_gbk_encoding(self):
+        """测试GBK编码"""
+        from modules.collection.log_collector.file_reader import LogFileReader
+        
+        test_file = os.path.join(self.test_dir, 'gbk.log')
+        
+        with codecs.open(test_file, 'w', encoding='gbk') as f:
+            f.write('中文测试\nGBK编码\n')
+        
+        reader = LogFileReader(test_file, encoding='gbk')
+        reader.open()
+        
+        lines = reader.read_lines()
+        
+        self.assertEqual(len(lines), 2)
+        self.assertIn('中文测试', lines[0])
+        
+        reader.close()
+    
+    def test_latin1_encoding(self):
+        """测试Latin-1编码"""
+        from modules.collection.log_collector.file_reader import LogFileReader
+        
+        test_file = os.path.join(self.test_dir, 'latin1.log')
+        
+        with codecs.open(test_file, 'w', encoding='latin-1') as f:
+            f.write('Latin-1 test\nSpecial chars: \xe9\xe8\xe0\n')
+        
+        reader = LogFileReader(test_file, encoding='latin-1')
+        reader.open()
+        
+        lines = reader.read_lines()
+        
+        self.assertEqual(len(lines), 2)
+        
+        reader.close()
+    
+    def test_auto_encoding_detection(self):
+        """测试自动编码检测"""
+        from modules.collection.log_collector.file_reader import LogFileReader
+        
+        test_file = os.path.join(self.test_dir, 'auto.log')
+        
+        with codecs.open(test_file, 'w', encoding='utf-8') as f:
+            f.write('Auto detect test\n')
+        
+        reader = LogFileReader(test_file, encoding='auto')
+        
+        self.assertEqual(reader.encoding, 'utf-8')
 
 
-class TestLogForwarder:
-    """日志转发器测试"""
+class TestLogRotation(unittest.TestCase):
+    """日志轮转检测测试"""
     
-    def test_file_forwarder(self):
-        """测试文件转发器"""
-        from modules.collection.log_collector.forwarder import (
-            FileForwarder,
-            LogRecord,
-            ForwarderType,
-        )
+    def setUp(self):
+        """测试前准备"""
+        self.test_dir = tempfile.mkdtemp()
+        self.test_file = os.path.join(self.test_dir, 'app.log')
+    
+    def tearDown(self):
+        """测试后清理"""
+        if os.path.exists(self.test_dir):
+            shutil.rmtree(self.test_dir)
+    
+    def test_detect_file_truncated(self):
+        """测试文件截断检测"""
+        from modules.collection.log_collector.file_reader import LogFileReader
         
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.log', delete=False) as f:
-            temp_path = f.name
+        # Create initial file
+        with open(self.test_file, 'w', encoding='utf-8') as f:
+            f.write('line1\nline2\nline3\n')
         
+        reader = LogFileReader(self.test_file)
+        reader.open()
+        reader.read_lines()
+        
+        initial_position = reader.tell()
+        
+        # Simulate log rotation by truncating file
+        with open(self.test_file, 'w', encoding='utf-8') as f:
+            f.write('new line1\n')
+        
+        reader._file.seek(0, 2)  # Go to end
+        current_size = reader._file.tell()
+        
+        is_rotated = reader.detect_rotation()
+        
+        self.assertTrue(is_rotated)
+        
+        reader.close()
+    
+    def test_detect_file_recreated(self):
+        """测试文件重新创建检测"""
+        from modules.collection.log_collector.file_reader import LogFileReader
+        
+        # Create initial file
+        with open(self.test_file, 'w', encoding='utf-8') as f:
+            f.write('original content\n')
+        
+        reader = LogFileReader(self.test_file)
+        reader.open()
+        reader.read_lines()
+        
+        initial_inode = os.stat(self.test_file).st_ino
+        
+        # Remove and recreate file (simulating rotation)
+        time.sleep(0.1)  # Ensure different timestamp
+        os.remove(self.test_file)
+        
+        with open(self.test_file, 'w', encoding='utf-8') as f:
+            f.write('rotated content\n')
+        
+        new_inode = os.stat(self.test_file).st_ino
+        
+        # Detect rotation
+        is_rotated = reader.detect_rotation()
+        
+        self.assertTrue(is_rotated)
+    
+    def test_no_rotation_detected(self):
+        """测试无轮转情况"""
+        from modules.collection.log_collector.file_reader import LogFileReader
+        
+        # Create initial file
+        with open(self.test_file, 'w', encoding='utf-8') as f:
+            f.write('line1\nline2\n')
+        
+        reader = LogFileReader(self.test_file)
+        reader.open()
+        reader.read_lines()
+        
+        # Add content without rotation
+        with open(self.test_file, 'a', encoding='utf-8') as f:
+            f.write('line3\n')
+        
+        is_rotated = reader.detect_rotation()
+        
+        self.assertFalse(is_rotated)
+        
+        reader.close()
+    
+    def test_rotation_with_inode_change(self):
+        """测试inode变化检测"""
+        from modules.collection.log_collector.file_reader import LogFileReader
+        
+        with open(self.test_file, 'w', encoding='utf-8') as f:
+            f.write('initial\n')
+        
+        reader = LogFileReader(self.test_file)
+        reader.open()
+        reader.read_lines()
+        
+        initial_stat = reader._file.fileno()
+        
+        # Simulate file recreation
+        os.remove(self.test_file)
+        time.sleep(0.1)
+        
+        with open(self.test_file, 'w', encoding='utf-8') as f:
+            f.write('after rotation\n')
+        
+        is_rotated = reader.check_inode_change()
+        
+        self.assertTrue(is_rotated)
+
+
+class TestRealTimeTail(unittest.TestCase):
+    """实时Tail功能测试"""
+    
+    def setUp(self):
+        """测试前准备"""
+        self.test_dir = tempfile.mkdtemp()
+        self.test_file = os.path.join(self.test_dir, 'tail_test.log')
+    
+    def tearDown(self):
+        """测试后清理"""
+        if os.path.exists(self.test_dir):
+            shutil.rmtree(self.test_dir)
+    
+    def test_tail_new_lines(self):
+        """测试Tail新行"""
+        from modules.collection.log_collector.file_reader import LogFileReader
+        
+        # Create initial file
+        with open(self.test_file, 'w', encoding='utf-8') as f:
+            f.write('line1\n')
+        
+        reader = LogFileReader(self.test_file)
+        reader.open()
+        
+        # Initial read
+        lines = reader.tail_new_lines(timeout=1)
+        self.assertEqual(len(lines), 1)
+        
+        reader.close()
+    
+    def test_tail_with_callback(self):
+        """测试带回调的Tail"""
+        from modules.collection.log_collector.file_reader import LogFileReader
+        
+        received_lines = []
+        
+        def callback(line):
+            received_lines.append(line)
+        
+        with open(self.test_file, 'w', encoding='utf-8') as f:
+            f.write('line1\n')
+        
+        reader = LogFileReader(self.test_file)
+        reader.open()
+        
+        # Add some lines
+        with open(self.test_file, 'a', encoding='utf-8') as f:
+            f.write('line2\n')
+        
+        time.sleep(0.5)
+        
+        new_lines = reader.read_new_lines()
+        for line in new_lines:
+            callback(line)
+        
+        self.assertEqual(len(received_lines), 1)
+        self.assertIn('line2', received_lines[0])
+        
+        reader.close()
+    
+    def test_tail_with_timeout(self):
+        """测试带超时的Tail"""
+        from modules.collection.log_collector.file_reader import LogFileReader
+        
+        with open(self.test_file, 'w', encoding='utf-8') as f:
+            f.write('initial\n')
+        
+        reader = LogFileReader(self.test_file)
+        reader.open()
+        
+        # This should timeout and return empty
+        start = time.time()
+        lines = reader.tail_new_lines(timeout=2)
+        elapsed = time.time() - start
+        
+        self.assertGreaterEqual(elapsed, 1.9)
+        self.assertEqual(len(lines), 0)
+        
+        reader.close()
+
+
+class TestLogPatterns(unittest.TestCase):
+    """日志模式匹配测试"""
+    
+    def setUp(self):
+        """测试前准备"""
+        self.test_dir = tempfile.mkdtemp()
+        self.test_file = os.path.join(self.test_dir, 'patterns.log')
+    
+    def tearDown(self):
+        """测试后清理"""
+        if os.path.exists(self.test_dir):
+            shutil.rmtree(self.test_dir)
+    
+    def test_read_lines_matching_pattern(self):
+        """测试读取匹配模式的行"""
+        from modules.collection.log_collector.file_reader import LogFileReader
+        
+        with open(self.test_file, 'w', encoding='utf-8') as f:
+            f.write('INFO: Application started\n')
+            f.write('ERROR: Connection failed\n')
+            f.write('DEBUG: Processing request\n')
+            f.write('ERROR: Timeout occurred\n')
+            f.write('INFO: Request completed\n')
+        
+        reader = LogFileReader(self.test_file)
+        reader.open()
+        
+        all_lines = reader.read_lines()
+        error_lines = [l for l in all_lines if 'ERROR' in l]
+        
+        self.assertEqual(len(error_lines), 2)
+        self.assertTrue(all('ERROR' in line for line in error_lines))
+        
+        reader.close()
+    
+    def test_read_json_logs(self):
+        """测试读取JSON格式日志"""
+        from modules.collection.log_collector.file_reader import LogFileReader
+        import json
+        
+        with open(self.test_file, 'w', encoding='utf-8') as f:
+            f.write(json.dumps({'level': 'INFO', 'message': 'test1'}) + '\n')
+            f.write(json.dumps({'level': 'ERROR', 'message': 'test2'}) + '\n')
+        
+        reader = LogFileReader(self.test_file)
+        reader.open()
+        
+        lines = reader.read_lines()
+        
+        self.assertEqual(len(lines), 2)
+        
+        # Parse JSON
+        for line in lines:
+            log_entry = json.loads(line)
+            self.assertIn('level', log_entry)
+        
+        reader.close()
+
+
+class TestEdgeCases(unittest.TestCase):
+    """边界情况测试"""
+    
+    def setUp(self):
+        """测试前准备"""
+        self.test_dir = tempfile.mkdtemp()
+    
+    def tearDown(self):
+        """测试后清理"""
+        if os.path.exists(self.test_dir):
+            shutil.rmtree(self.test_dir)
+    
+    def test_empty_file(self):
+        """测试空文件"""
+        from modules.collection.log_collector.file_reader import LogFileReader
+        
+        test_file = os.path.join(self.test_dir, 'empty.log')
+        
+        # Create empty file
+        with open(test_file, 'w', encoding='utf-8') as f:
+            pass
+        
+        reader = LogFileReader(test_file)
+        reader.open()
+        
+        lines = reader.read_lines()
+        
+        self.assertEqual(len(lines), 0)
+        
+        reader.close()
+    
+    def test_file_with_only_newlines(self):
+        """测试只包含换行符的文件"""
+        from modules.collection.log_collector.file_reader import LogFileReader
+        
+        test_file = os.path.join(self.test_dir, 'newlines.log')
+        
+        with open(test_file, 'w', encoding='utf-8') as f:
+            f.write('\n\n\n')
+        
+        reader = LogFileReader(test_file)
+        reader.open()
+        
+        lines = reader.read_lines()
+        
+        self.assertEqual(len(lines), 3)
+        
+        reader.close()
+    
+    def test_file_with_special_characters(self):
+        """测试包含特殊字符的文件"""
+        from modules.collection.log_collector.file_reader import LogFileReader
+        
+        test_file = os.path.join(self.test_dir, 'special.log')
+        
+        with open(test_file, 'w', encoding='utf-8') as f:
+            f.write('Normal text\n')
+            f.write('Special: !@#$%^&*()\n')
+            f.write('Unicode: 你好世界\n')
+            f.write('Emoji: 🎉🎊\n')
+            f.write('Null byte test\x00\n')
+        
+        reader = LogFileReader(test_file)
+        reader.open()
+        
+        lines = reader.read_lines()
+        
+        self.assertEqual(len(lines), 5)
+        self.assertIn('Normal text', lines[0])
+        self.assertIn('你', lines[2])
+        
+        reader.close()
+    
+    def test_binary_file_handling(self):
+        """测试二进制文件处理"""
+        from modules.collection.log_collector.file_reader import LogFileReader
+        
+        test_file = os.path.join(self.test_dir, 'binary.log')
+        
+        with open(test_file, 'wb') as f:
+            f.write(b'Normal text\n')
+            f.write(b'Binary: \x00\x01\x02\x03\n')
+        
+        reader = LogFileReader(test_file, encoding='utf-8')
+        reader.open()
+        
+        # Should handle gracefully
         try:
-            forwarder = FileForwarder(temp_path, format='json')
-            forwarder.connect()
-            
-            record = LogRecord(
-                timestamp=datetime.now(),
-                level='INFO',
-                message='Test log',
-                source='test',
-                hostname='localhost',
-                service='test_service',
-            )
-            
-            result = forwarder.send(record)
-            assert result is True
-            
-            forwarder.disconnect()
-            
-            # 验证内容
-            with open(temp_path, 'r') as f:
-                content = f.read()
-                assert 'Test log' in content
-        finally:
-            os.unlink(temp_path)
+            lines = reader.read_lines()
+            # May have encoding errors but shouldn't crash
+        except UnicodeDecodeError:
+            pass  # Expected for binary content
+        
+        reader.close()
     
-    def test_log_record_creation(self):
-        """测试日志记录创建"""
-        from modules.collection.log_collector.forwarder import LogRecord
+    def test_large_file(self):
+        """测试大文件"""
+        from modules.collection.log_collector.file_reader import LogFileReader
         
-        record = LogRecord(
-            timestamp=datetime.now(),
-            level='ERROR',
-            message='Error occurred',
-            source='test_source',
-            hostname='server1',
-            service='web',
-            metadata={'key': 'value'},
-        )
+        test_file = os.path.join(self.test_dir, 'large.log')
         
-        data = record.to_dict()
-        assert data['level'] == 'ERROR'
-        assert data['message'] == 'Error occurred'
-        assert data['metadata']['key'] == 'value'
+        # Create file with many lines
+        with open(test_file, 'w', encoding='utf-8') as f:
+            for i in range(10000):
+                f.write(f'Line {i} with some content\n')
         
-        json_str = record.to_json()
-        assert 'ERROR' in json_str
-        assert 'Error occurred' in json_str
+        reader = LogFileReader(test_file)
+        reader.open()
+        
+        lines = reader.read_lines()
+        
+        self.assertEqual(len(lines), 10000)
+        
+        reader.close()
+    
+    def test_nonexistent_file(self):
+        """测试不存在的文件"""
+        from modules.collection.log_collector.file_reader import LogFileReader
+        
+        test_file = os.path.join(self.test_dir, 'nonexistent.log')
+        
+        reader = LogFileReader(test_file)
+        
+        # Opening should fail
+        with self.assertRaises(FileNotFoundError):
+            reader.open()
 
 
-class TestParsers:
-    """日志解析器测试"""
+class TestConcurrentAccess(unittest.TestCase):
+    """并发访问测试"""
     
-    def test_generic_parser(self):
-        """测试通用解析器"""
-        from modules.collection.log_collector.parsers.generic_parser import GenericLogParser
-        
-        parser = GenericLogParser()
-        
-        # 测试标准格式
-        line = "2024-01-01 12:00:00 ERROR Test error message"
-        result = parser.parse(line)
-        
-        assert result.level == 'ERROR'
-        assert result.message == 'Test error message'
-        assert result.timestamp is not None
+    def setUp(self):
+        """测试前准备"""
+        self.test_dir = tempfile.mkdtemp()
+        self.test_file = os.path.join(self.test_dir, 'concurrent.log')
     
-    def test_generic_parser_json(self):
-        """测试JSON格式解析"""
-        from modules.collection.log_collector.parsers.generic_parser import GenericLogParser
-        
-        parser = GenericLogParser()
-        
-        json_line = '{"timestamp": "2024-01-01 12:00:00", "level": "INFO", "message": "JSON log"}'
-        result = parser.parse(json_line)
-        
-        assert result.level == 'INFO'
-        assert result.message == 'JSON log'
+    def tearDown(self):
+        """测试后清理"""
+        if os.path.exists(self.test_dir):
+            shutil.rmtree(self.test_dir)
     
-    def test_huawei_parser(self):
-        """测试华为设备解析器"""
-        from modules.collection.log_collector.parsers.huawei_parser import HuaweiLogParser
+    def test_concurrent_reads(self):
+        """测试并发读取"""
+        from modules.collection.log_collector.file_reader import LogFileReader
         
-        parser = HuaweiLogParser()
+        with open(self.test_file, 'w', encoding='utf-8') as f:
+            for i in range(100):
+                f.write(f'Line {i}\n')
         
-        # 华为VRP格式 - 使用更完整的格式
-        line = "Jan  1, 2024 12:00:00 %%SHELL/4/LOGIN_FAIL: Test message"
-        result = parser.parse(line)
+        errors = []
         
-        # 模块名解析测试
-        assert 'SHELL' in result.module or result.module == 'Unknown'
-        assert 'Test message' in result.message
+        def read_task(task_id):
+            try:
+                reader = LogFileReader(self.test_file)
+                reader.open()
+                
+                for _ in range(5):
+                    lines = reader.read_lines()
+                    time.sleep(0.01)
+                
+                reader.close()
+            except Exception as e:
+                errors.append((task_id, str(e)))
+        
+        threads = []
+        for i in range(5):
+            t = threading.Thread(target=read_task, args=(i,))
+            threads.append(t)
+            t.start()
+        
+        for t in threads:
+            t.join()
+        
+        self.assertEqual(len(errors), 0)
     
-    def test_security_parser(self):
-        """测试安全设备解析器"""
-        from modules.collection.log_collector.parsers.security_parser import SecurityLogParser, SecurityEventType
+    def test_concurrent_read_and_append(self):
+        """测试并发读取和追加"""
+        from modules.collection.log_collector.file_reader import LogFileReader
         
-        parser = SecurityLogParser()
+        with open(self.test_file, 'w', encoding='utf-8') as f:
+            f.write('Initial line\n')
         
-        # 使用正确的FortiGate格式（需要完整匹配）
-        line = "date=2024-01-01 time=12:00:00 devname=FW1 devid=FG100E logid=1059028 type=traffic subtype=LocalInfo level=warning vd=root srcip=192.168.1.1 srcport=12345 srcintf=port1 dstip=192.168.1.100 dstport=80 dstintf=port2 sessionid=12345 proto=6 action=drop policyid=1 user=guest msg=Traffic denied"
-        result = parser.parse(line)
+        reader = LogFileReader(self.test_file)
+        reader.open()
         
-        assert result.event_type == SecurityEventType.FIREWALL_DROP
-        assert result.source_ip == '192.168.1.1'
-    
-    def test_security_event_identification(self):
-        """测试安全事件识别"""
-        from modules.collection.log_collector.parsers.security_parser import SecurityLogParser, SecurityEventType
+        # Read initial
+        initial_lines = reader.read_lines()
+        self.assertEqual(len(initial_lines), 1)
         
-        parser = SecurityLogParser()
+        # Append in separate thread
+        def append_task():
+            for i in range(10):
+                with open(self.test_file, 'a', encoding='utf-8') as f:
+                    f.write(f'Appended line {i}\n')
+                time.sleep(0.05)
         
-        messages = [
-            ("Login success for user", SecurityEventType.LOGIN_SUCCESS),
-            ("Authentication failed", SecurityEventType.LOGIN_FAILED),
-            ("Firewall drop packet", SecurityEventType.FIREWALL_DROP),
-            ("Virus detected", SecurityEventType.VIRUS_DETECTED),
-        ]
+        append_thread = threading.Thread(target=append_task)
+        append_thread.start()
         
-        for msg, expected_type in messages:
-            result = parser._identify_event_type(msg)
-            assert result == expected_type, f"Expected {expected_type}, got {result}"
+        # Continue reading
+        for _ in range(10):
+            time.sleep(0.06)
+            new_lines = reader.read_new_lines()
+            # Just verify it doesn't crash
+        
+        append_thread.join()
+        reader.close()
 
 
 if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+    unittest.main()

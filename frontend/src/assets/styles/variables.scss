@@ -1,0 +1,96 @@
+// 主题变量
+$primary: #165dff;
+$primary-light: #4080ff;
+$primary-dark: #003eb3;
+$success: #00b42a;
+$warning: #ff7d00;
+$danger: #f53f3f;
+$info: #86909c;
+
+// 背景色
+$bg-page: #f7f8fa;
+$bg-container: #ffffff;
+$bg-overlay: #ffffff;
+
+// 文字色
+$text-primary: #1d2129;
+$text-secondary: #4b4f59;
+$text-placeholder: #86909c;
+$text-disabled: #c9cdd4;
+
+// 边框色
+$border: #e5e6eb;
+$border-light: #f2f3f5;
+
+// 圆角
+$radius-sm: 4px;
+$radius-md: 8px;
+$radius-lg: 12px;
+$radius-xl: 16px;
+$radius-round: 50%;
+
+// 阴影
+$shadow-base: 0 2px 8px rgba(0, 0, 0, 0.08);
+$shadow-light: 0 1px 3px rgba(0, 0, 0, 0.05);
+
+// 间距
+$spacing-xs: 8px;
+$spacing-sm: 12px;
+$spacing-md: 16px;
+$spacing-lg: 20px;
+$spacing-xl: 24px;
+
+// 字体大小
+$font-size-xs: 12px;
+$font-size-sm: 13px;
+$font-size-base: 14px;
+$font-size-md: 15px;
+$font-size-lg: 16px;
+$font-size-xl: 18px;
+$font-size-xxl: 20px;
+$font-size-hero: 28px;
+
+// 字体粗细
+$font-weight-normal: 400;
+$font-weight-medium: 500;
+$font-weight-bold: 600;
+
+// 侧边栏
+$sidebar-width: 220px;
+$sidebar-collapsed-width: 64px;
+$sidebar-bg: #001529;
+
+// 头部高度
+$navbar-height: 60px;
+
+// 混入
+@mixin card-base {
+  background: $bg-container;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-light;
+  border: 1px solid $border-light;
+}
+
+@mixin text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin glass-effect {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+}
+
+$space-1: 4px;
+$space-2: 8px;
+$success-lighter: #e8ffea;
+$danger-lighter: #fff1f0;
+$warning-lighter: #fff7e6;
+$info-lighter: #e8f0ff;

@@ -14,6 +14,7 @@ from .admin import router as admin_router
 from .notification import router as notification_router
 from .device_api import router as device_router
 from .auth import router as auth_router
+from .discovery import router as discovery_router
 
 __all__ = [
     "monitoring_router",

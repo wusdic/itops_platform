@@ -69,7 +69,7 @@ def app(db_session, mock_user):
     from api.dependencies import get_db, get_current_user, CurrentUser
     
     app = FastAPI()
-    app.include_router(router)
+    app.include_router(router, prefix="")
     
     # 覆盖依赖
     def override_get_db():

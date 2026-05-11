@@ -373,3 +373,310 @@ async def get_notification_history(
         "page": page,
         "page_size": page_size,
     }
+
+
+# ============== 通知目标规则接口 ==============
+
+class NotificationTargetRuleCreate(BaseModel):
+    """创建通知目标规则"""
+    name: str = Field(..., description="规则名称")
+    description: Optional[str] = Field(None, description="规则描述")
+    rule_type: str = Field(..., description="规则类型: alert_level, device, category, custom")
+    match_conditions: Optional[dict] = Field(None, description="匹配条件")
+    notify_channels: List[str] = Field(..., description="通知渠道列表")
+    notify_receivers: Optional[List[str]] = Field(None, description="通知接收人")
+    notify_interval: int = Field(300, description="重复通知间隔(秒)")
+    max_notify_count: int = Field(3, description="最大通知次数")
+    escalation_config: Optional[dict] = Field(None, description="升级配置")
+    suppress_enabled: bool = Field(False, description="是否启用抑制")
+    suppress_until: Optional[datetime] = Field(None, description="抑制截止时间")
+    time_windows: Optional[List[dict]] = Field(None, description="通知时段")
+    priority: int = Field(100, description="优先级")
+
+
+class NotificationTargetRuleUpdate(BaseModel):
+    """更新通知目标规则"""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    enabled: Optional[bool] = None
+    match_conditions: Optional[dict] = None
+    notify_channels: Optional[List[str]] = None
+    notify_receivers: Optional[List[str]] = None
+    notify_interval: Optional[int] = None
+    max_notify_count: Optional[int] = None
+    escalation_config: Optional[dict] = None
+    suppress_enabled: Optional[bool] = None
+    suppress_until: Optional[datetime] = None
+    time_windows: Optional[List[dict]] = None
+    priority: Optional[int] = None
+
+
+@router.get("/target-rules", summary="获取通知目标规则列表")
+async def get_target_rules(
+    rule_type: Optional[str] = Query(None, description="规则类型过滤"),
+    enabled: Optional[bool] = Query(None, description="启用状态过滤"),
+    pagination: PaginationParams = Depends(PaginationParams),
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """获取通知目标规则列表"""
+    from modules.foundation.db_models.notification.notification_model import NotificationTargetRule
+
+    query = db.query(NotificationTargetRule)
+
+    if rule_type:
+        query = query.filter(NotificationTargetRule.rule_type == rule_type)
+
+    if enabled is not None:
+        query = query.filter(NotificationTargetRule.enabled == enabled)
+
+    total = query.count()
+    rules = query.order_by(NotificationTargetRule.priority.asc(), NotificationTargetRule.id.asc()).offset(pagination.offset).limit(pagination.limit).all()
+
+    return {
+        "items": [
+            {
+                "id": r.id,
+                "name": r.name,
+                "description": r.description,
+                "rule_type": r.rule_type,
+                "match_conditions": json.loads(r.match_conditions) if r.match_conditions else None,
+                "notify_channels": json.loads(r.notify_channels) if r.notify_channels else [],
+                "notify_receivers": json.loads(r.notify_receivers) if r.notify_receivers else [],
+                "notify_interval": r.notify_interval,
+                "max_notify_count": r.max_notify_count,
+                "escalation_config": json.loads(r.escalation_config) if r.escalation_config else None,
+                "suppress_enabled": r.suppress_enabled,
+                "suppress_until": r.suppress_until.isoformat() if r.suppress_until else None,
+                "time_windows": json.loads(r.time_windows) if r.time_windows else None,
+                "priority": r.priority,
+                "enabled": r.enabled,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+                "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+                "created_by": r.created_by,
+            }
+            for r in rules
+        ],
+        "total": total,
+        "page": pagination.page,
+        "page_size": pagination.page_size,
+    }
+
+
+@router.post("/target-rules", summary="创建通知目标规则")
+async def create_target_rule(
+    rule: NotificationTargetRuleCreate,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """创建新的通知目标规则"""
+    from modules.foundation.db_models.notification.notification_model import NotificationTargetRule
+
+    # 检查名称是否重复
+    existing = db.query(NotificationTargetRule).filter(NotificationTargetRule.name == rule.name).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="规则名称已存在")
+
+    db_rule = NotificationTargetRule(
+        name=rule.name,
+        description=rule.description,
+        rule_type=rule.rule_type,
+        match_conditions=json.dumps(rule.match_conditions) if rule.match_conditions else None,
+        notify_channels=json.dumps(rule.notify_channels),
+        notify_receivers=json.dumps(rule.notify_receivers) if rule.notify_receivers else None,
+        notify_interval=rule.notify_interval,
+        max_notify_count=rule.max_notify_count,
+        escalation_config=json.dumps(rule.escalation_config) if rule.escalation_config else None,
+        suppress_enabled=rule.suppress_enabled,
+        suppress_until=rule.suppress_until,
+        time_windows=json.dumps(rule.time_windows) if rule.time_windows else None,
+        priority=rule.priority,
+        enabled=True,
+        created_by=current_user.username,
+    )
+
+    db.add(db_rule)
+    db.commit()
+    db.refresh(db_rule)
+
+    return {
+        "id": db_rule.id,
+        "name": db_rule.name,
+        "message": "通知目标规则创建成功",
+    }
+
+
+@router.get("/target-rules/{rule_id}", summary="获取通知目标规则详情")
+async def get_target_rule(
+    rule_id: int,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """获取指定通知目标规则的详细信息"""
+    from modules.foundation.db_models.notification.notification_model import NotificationTargetRule
+
+    rule = db.query(NotificationTargetRule).filter(NotificationTargetRule.id == rule_id).first()
+
+    if not rule:
+        raise HTTPException(status_code=404, detail="规则不存在")
+
+    return {
+        "id": rule.id,
+        "name": rule.name,
+        "description": rule.description,
+        "rule_type": rule.rule_type,
+        "match_conditions": json.loads(rule.match_conditions) if rule.match_conditions else None,
+        "notify_channels": json.loads(rule.notify_channels) if rule.notify_channels else [],
+        "notify_receivers": json.loads(rule.notify_receivers) if rule.notify_receivers else [],
+        "notify_interval": rule.notify_interval,
+        "max_notify_count": rule.max_notify_count,
+        "escalation_config": json.loads(rule.escalation_config) if rule.escalation_config else None,
+        "suppress_enabled": rule.suppress_enabled,
+        "suppress_until": rule.suppress_until.isoformat() if rule.suppress_until else None,
+        "time_windows": json.loads(rule.time_windows) if rule.time_windows else None,
+        "priority": rule.priority,
+        "enabled": rule.enabled,
+        "created_at": rule.created_at.isoformat() if rule.created_at else None,
+        "updated_at": rule.updated_at.isoformat() if rule.updated_at else None,
+        "created_by": rule.created_by,
+        "updated_by": rule.updated_by,
+    }
+
+
+@router.put("/target-rules/{rule_id}", summary="更新通知目标规则")
+async def update_target_rule(
+    rule_id: int,
+    rule_update: NotificationTargetRuleUpdate,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """更新通知目标规则"""
+    from modules.foundation.db_models.notification.notification_model import NotificationTargetRule
+
+    rule = db.query(NotificationTargetRule).filter(NotificationTargetRule.id == rule_id).first()
+
+    if not rule:
+        raise HTTPException(status_code=404, detail="规则不存在")
+
+    # 更新字段
+    update_data = rule_update.model_dump(exclude_unset=True)
+
+    for key, value in update_data.items():
+        if value is not None:
+            if key in ['match_conditions', 'notify_channels', 'notify_receivers', 'escalation_config', 'time_windows']:
+                setattr(rule, key, json.dumps(value))
+            else:
+                setattr(rule, key, value)
+
+    rule.updated_by = current_user.username
+    db.commit()
+
+    return {"status": "success", "message": "规则更新成功"}
+
+
+@router.delete("/target-rules/{rule_id}", summary="删除通知目标规则")
+async def delete_target_rule(
+    rule_id: int,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """删除通知目标规则"""
+    from modules.foundation.db_models.notification.notification_model import NotificationTargetRule
+
+    rule = db.query(NotificationTargetRule).filter(NotificationTargetRule.id == rule_id).first()
+
+    if not rule:
+        raise HTTPException(status_code=404, detail="规则不存在")
+
+    db.delete(rule)
+    db.commit()
+
+    return {"status": "success", "message": "规则删除成功"}
+
+
+@router.post("/target-rules/{rule_id}/toggle", summary="启用/禁用通知目标规则")
+async def toggle_target_rule(
+    rule_id: int,
+    enabled: bool = Query(..., description="是否启用"),
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """启用或禁用通知目标规则"""
+    from modules.foundation.db_models.notification.notification_model import NotificationTargetRule
+
+    rule = db.query(NotificationTargetRule).filter(NotificationTargetRule.id == rule_id).first()
+
+    if not rule:
+        raise HTTPException(status_code=404, detail="规则不存在")
+
+    rule.enabled = enabled
+    rule.updated_by = current_user.username
+    db.commit()
+
+    return {"status": "success", "message": f"规则已{'启用' if enabled else '禁用'}"}
+
+
+@router.get("/target-rules/match", summary="匹配通知目标规则")
+async def match_target_rules(
+    alert_level: str = Query(..., description="告警级别"),
+    device_id: Optional[int] = Query(None, description="设备ID"),
+    device_name: Optional[str] = Query(None, description="设备名称"),
+    device_type: Optional[str] = Query(None, description="设备类型"),
+    category: Optional[str] = Query(None, description="告警分类"),
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """根据告警信息匹配通知目标规则"""
+    from modules.foundation.db_models.notification.notification_model import NotificationTargetRule
+
+    # 获取所有启用的规则
+    rules = db.query(NotificationTargetRule).filter(
+        NotificationTargetRule.enabled == True
+    ).order_by(NotificationTargetRule.priority.asc()).all()
+
+    matched_rules = []
+
+    for rule in rules:
+        is_match = False
+
+        # 按规则类型匹配
+        if rule.rule_type == "alert_level":
+            conditions = json.loads(rule.match_conditions) if rule.match_conditions else {}
+            levels = conditions.get("levels", [])
+            if alert_level in levels:
+                is_match = True
+
+        elif rule.rule_type == "device":
+            conditions = json.loads(rule.match_conditions) if rule.match_conditions else {}
+            device_ids = conditions.get("device_ids", [])
+            device_types = conditions.get("device_types", [])
+            if device_id and device_id in device_ids:
+                is_match = True
+            if device_type and device_type in device_types:
+                is_match = True
+
+        elif rule.rule_type == "category":
+            conditions = json.loads(rule.match_conditions) if rule.match_conditions else {}
+            categories = conditions.get("categories", [])
+            if category and category in categories:
+                is_match = True
+
+        elif rule.rule_type == "custom":
+            # 自定义规则暂不实现，需要表达式引擎
+            is_match = False
+
+        if is_match:
+            matched_rules.append({
+                "id": rule.id,
+                "name": rule.name,
+                "notify_channels": json.loads(rule.notify_channels) if rule.notify_channels else [],
+                "notify_receivers": json.loads(rule.notify_receivers) if rule.notify_receivers else [],
+                "notify_interval": rule.notify_interval,
+                "max_notify_count": rule.max_notify_count,
+            })
+
+    return {
+        "alert_level": alert_level,
+        "matched_count": len(matched_rules),
+        "matched_rules": matched_rules,
+    }

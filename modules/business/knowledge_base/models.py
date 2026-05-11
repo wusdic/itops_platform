@@ -11,9 +11,8 @@ from sqlalchemy import (
     Column, Integer, String, Text, DateTime, Boolean, 
     ForeignKey, JSON, Float, Enum as SQLEnum, Index
 )
-from sqlalchemy.orm import relationship, declarative_base
-
-Base = declarative_base()
+from sqlalchemy.orm import relationship
+from modules.foundation.db_models.base import Base
 
 
 class DocumentType(str, Enum):

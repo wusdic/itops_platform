@@ -81,7 +81,7 @@ class TestDeviceListAPI:
         mock_loader_instance.get_devices.return_value = []
         mock_loader.return_value = mock_loader_instance
         
-        response = client.get("/")
+        response = client.get("/api/v1/devices/")
         assert response.status_code == 200
         data = response.json()
         assert "items" in data

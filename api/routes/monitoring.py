@@ -14,7 +14,7 @@ from sqlalchemy import or_, func
 
 from api.dependencies import get_db, get_current_user, CurrentUser, PaginationParams
 from modules.foundation.db_models.alert import Alert, AlertLevel, AlertStatus, AlertCategory
-from modules.foundation.db_models.monitoring import PerformanceMetric
+from modules.foundation.db_models.monitoring import PerformanceMetric, DeviceMetricConfig
 from modules.foundation.db_models.device import Device
 
 
@@ -549,6 +549,170 @@ async def delete_alert(
     return {"status": "success", "message": "Alert deleted"}
 
 
+# ============== 告警审计日志接口 ==============
+
+class AlertAuditLogCreate(BaseModel):
+    """创建告警审计日志"""
+    action: str = Field(..., description="操作类型")
+    field_name: Optional[str] = Field(None, description="字段名")
+    old_value: Optional[str] = Field(None, description="旧值")
+    new_value: Optional[str] = Field(None, description="新值")
+    reason: Optional[str] = Field(None, description="原因")
+
+
+class AlertAuditLogResponse(BaseModel):
+    """告警审计日志响应"""
+    id: int
+    alert_id: int
+    alert_key: Optional[str] = None
+    action: str
+    operator: Optional[str] = None
+    operator_ip: Optional[str] = None
+    field_name: Optional[str] = None
+    old_value: Optional[str] = None
+    new_value: Optional[str] = None
+    reason: Optional[str] = None
+    workorder_id: Optional[int] = None
+    created_at: datetime
+
+
+@router.get("/alerts/{alert_id}/audit-logs", summary="获取告警审计日志")
+async def get_alert_audit_logs(
+    alert_id: int,
+    pagination: PaginationParams = Depends(PaginationParams),
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """获取指定告警的所有审计日志"""
+    from modules.foundation.db_models.alert import AlertAuditLog
+
+    query = db.query(AlertAuditLog).filter(AlertAuditLog.alert_id == alert_id)
+
+    total = query.count()
+    logs = query.order_by(AlertAuditLog.created_at.desc()).offset(pagination.offset).limit(pagination.limit).all()
+
+    return {
+        "items": [
+            {
+                "id": log.id,
+                "alert_id": log.alert_id,
+                "alert_key": log.alert_key,
+                "action": log.action,
+                "operator": log.operator,
+                "operator_ip": log.operator_ip,
+                "field_name": log.field_name,
+                "old_value": log.old_value,
+                "new_value": log.new_value,
+                "reason": log.reason,
+                "workorder_id": log.workorder_id,
+                "created_at": log.created_at.isoformat() if log.created_at else None,
+            }
+            for log in logs
+        ],
+        "total": total,
+        "page": pagination.page,
+        "page_size": pagination.page_size,
+    }
+
+
+@router.post("/alerts/{alert_id}/audit-logs", summary="创建告警审计日志")
+async def create_alert_audit_log(
+    alert_id: int,
+    audit_log: AlertAuditLogCreate,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """为告警创建审计日志记录"""
+    from modules.foundation.db_models.alert import AlertAuditLog
+
+    # 检查告警是否存在
+    alert = db.query(Alert).filter(Alert.id == alert_id).first()
+    if not alert:
+        raise HTTPException(status_code=404, detail="告警不存在")
+
+    # 创建审计日志
+    db_audit_log = AlertAuditLog(
+        alert_id=alert_id,
+        alert_key=alert.alert_key,
+        action=audit_log.action,
+        operator=current_user.username,
+        field_name=audit_log.field_name,
+        old_value=audit_log.old_value,
+        new_value=audit_log.new_value,
+        reason=audit_log.reason,
+    )
+
+    db.add(db_audit_log)
+    db.commit()
+    db.refresh(db_audit_log)
+
+    return {
+        "id": db_audit_log.id,
+        "alert_id": db_audit_log.alert_id,
+        "action": db_audit_log.action,
+        "operator": db_audit_log.operator,
+        "created_at": db_audit_log.created_at.isoformat() if db_audit_log.created_at else None,
+    }
+
+
+@router.get("/audit-logs", summary="获取告警审计日志列表")
+async def get_audit_logs(
+    alert_id: Optional[int] = Query(None, description="告警ID过滤"),
+    action: Optional[str] = Query(None, description="操作类型过滤"),
+    operator: Optional[str] = Query(None, description="操作人过滤"),
+    start_date: Optional[datetime] = Query(None, description="开始时间"),
+    end_date: Optional[datetime] = Query(None, description="结束时间"),
+    pagination: PaginationParams = Depends(PaginationParams),
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """获取所有告警审计日志（支持多条件过滤）"""
+    from modules.foundation.db_models.alert import AlertAuditLog
+
+    query = db.query(AlertAuditLog)
+
+    if alert_id:
+        query = query.filter(AlertAuditLog.alert_id == alert_id)
+
+    if action:
+        query = query.filter(AlertAuditLog.action == action)
+
+    if operator:
+        query = query.filter(AlertAuditLog.operator == operator)
+
+    if start_date:
+        query = query.filter(AlertAuditLog.created_at >= start_date)
+
+    if end_date:
+        query = query.filter(AlertAuditLog.created_at <= end_date)
+
+    total = query.count()
+    logs = query.order_by(AlertAuditLog.created_at.desc()).offset(pagination.offset).limit(pagination.limit).all()
+
+    return {
+        "items": [
+            {
+                "id": log.id,
+                "alert_id": log.alert_id,
+                "alert_key": log.alert_key,
+                "action": log.action,
+                "operator": log.operator,
+                "operator_ip": log.operator_ip,
+                "field_name": log.field_name,
+                "old_value": log.old_value,
+                "new_value": log.new_value,
+                "reason": log.reason,
+                "workorder_id": log.workorder_id,
+                "created_at": log.created_at.isoformat() if log.created_at else None,
+            }
+            for log in logs
+        ],
+        "total": total,
+        "page": pagination.page,
+        "page_size": pagination.page_size,
+    }
+
+
 # ============== 告警规则接口 ==============
 
 @router.get("/rules", summary="获取告警规则列表")
@@ -682,4 +846,517 @@ async def get_dashboard(
         "host": hosts.device_name,
         "ip": hosts.device_ip,
         "panels": panels
+    }
+
+
+# ============== 告警触发规则接口 ==============
+
+class TriggerRuleCreate(BaseModel):
+    """创建触发规则请求"""
+    name: str = Field(..., description="规则名称")
+    description: str = Field("", description="规则描述")
+    enabled: bool = True
+    condition_type: str = Field("threshold", description="条件类型: threshold, change, rate, constant, expression")
+    match_conditions: dict = Field(..., description="匹配条件")
+    alert_level: str = Field("warning", description="告警级别: critical, high, medium, low, info")
+    alert_title_template: str = Field("{metric}告警", description="告警标题模板")
+    alert_message_template: str = Field("{metric}超过阈值，当前值:{value}，阈值:{threshold}", description="告警消息模板")
+    device_ids: List[int] = Field(default_factory=list, description="设备ID列表")
+    device_types: List[str] = Field(default_factory=list, description="设备类型列表")
+    tags_filter: dict = Field(default_factory=dict, description="标签过滤")
+    suppress_enabled: bool = False
+    suppress_duration: int = 300
+    suppress_key: Optional[str] = None
+    trigger_interval: int = 60
+    actions: List[dict] = Field(default_factory=list, description="触发动作")
+    time_windows: List[dict] = Field(default_factory=list, description="时间窗口")
+    priority: int = 100
+
+
+class TriggerRuleUpdate(BaseModel):
+    """更新触发规则请求"""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    enabled: Optional[bool] = None
+    condition_type: Optional[str] = None
+    match_conditions: Optional[dict] = None
+    alert_level: Optional[str] = None
+    alert_title_template: Optional[str] = None
+    alert_message_template: Optional[str] = None
+    device_ids: Optional[List[int]] = None
+    device_types: Optional[List[str]] = None
+    tags_filter: Optional[dict] = None
+    suppress_enabled: Optional[bool] = None
+    suppress_duration: Optional[int] = None
+    suppress_key: Optional[str] = None
+    trigger_interval: Optional[int] = None
+    actions: Optional[List[dict]] = None
+    time_windows: Optional[List[dict]] = None
+    priority: Optional[int] = None
+
+
+@router.get("/trigger-rules", summary="获取触发规则列表")
+async def get_trigger_rules(
+    enabled: Optional[bool] = Query(None, description="启用状态过滤"),
+    condition_type: Optional[str] = Query(None, description="条件类型过滤"),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """获取告警触发规则列表"""
+    from modules.business.monitoring.alert_trigger import (
+        get_trigger_engine, TriggerCondition
+    )
+    
+    engine = get_trigger_engine()
+    rules = engine.list_rules(enabled_only=False)
+    
+    if enabled is not None:
+        rules = [r for r in rules if r.enabled == enabled]
+    
+    if condition_type:
+        rules = [r for r in rules if r.condition_type.value == condition_type]
+    
+    return {
+        "items": [r.to_dict() for r in rules],
+        "total": len(rules),
+    }
+
+
+@router.post("/trigger-rules", summary="创建触发规则")
+async def create_trigger_rule(
+    rule: TriggerRuleCreate,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """创建新的触发规则"""
+    from modules.business.monitoring.alert_trigger import (
+        get_trigger_engine, TriggerRule, TriggerCondition
+    )
+    
+    engine = get_trigger_engine()
+    
+    import uuid
+    trigger_rule = TriggerRule(
+        id=str(uuid.uuid4()),
+        name=rule.name,
+        description=rule.description,
+        enabled=rule.enabled,
+        condition_type=TriggerCondition(rule.condition_type),
+        match_conditions=rule.match_conditions,
+        alert_level=rule.alert_level,
+        alert_title_template=rule.alert_title_template,
+        alert_message_template=rule.alert_message_template,
+        device_ids=rule.device_ids,
+        device_types=rule.device_types,
+        tags_filter=rule.tags_filter,
+        suppress_enabled=rule.suppress_enabled,
+        suppress_duration=rule.suppress_duration,
+        suppress_key=rule.suppress_key,
+        trigger_interval=rule.trigger_interval,
+        actions=rule.actions,
+        time_windows=rule.time_windows,
+        priority=rule.priority,
+        created_by=current_user.username,
+    )
+    
+    engine.add_rule(trigger_rule)
+    
+    return {"id": trigger_rule.id, "message": "创建成功"}
+
+
+@router.get("/trigger-rules/{rule_id}", summary="获取触发规则详情")
+async def get_trigger_rule(
+    rule_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """获取指定触发规则的详细信息"""
+    from modules.business.monitoring.alert_trigger import get_trigger_engine
+    
+    engine = get_trigger_engine()
+    rule = engine.get_rule(rule_id)
+    
+    if not rule:
+        raise HTTPException(status_code=404, detail="触发规则不存在")
+    
+    return rule.to_dict()
+
+
+@router.put("/trigger-rules/{rule_id}", summary="更新触发规则")
+async def update_trigger_rule(
+    rule_id: str,
+    rule_update: TriggerRuleUpdate,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """更新触发规则"""
+    from modules.business.monitoring.alert_trigger import (
+        get_trigger_engine, TriggerCondition
+    )
+    
+    engine = get_trigger_engine()
+    rule = engine.get_rule(rule_id)
+    
+    if not rule:
+        raise HTTPException(status_code=404, detail="触发规则不存在")
+    
+    update_data = rule_update.model_dump(exclude_unset=True)
+    
+    if 'condition_type' in update_data and update_data['condition_type']:
+        update_data['condition_type'] = TriggerCondition(update_data['condition_type'])
+    
+    for key, value in update_data.items():
+        if value is not None and hasattr(rule, key):
+            setattr(rule, key, value)
+    
+    engine.update_rule(rule)
+    
+    return {"message": "更新成功"}
+
+
+@router.delete("/trigger-rules/{rule_id}", summary="删除触发规则")
+async def delete_trigger_rule(
+    rule_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """删除触发规则"""
+    from modules.business.monitoring.alert_trigger import get_trigger_engine
+    
+    engine = get_trigger_engine()
+    
+    if not engine.delete_rule(rule_id):
+        raise HTTPException(status_code=404, detail="触发规则不存在")
+    
+    return {"message": "删除成功"}
+
+
+@router.post("/trigger-rules/{rule_id}/test", summary="测试触发规则")
+async def test_trigger_rule(
+    rule_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """测试触发规则（模拟触发）"""
+    from modules.business.monitoring.alert_trigger import get_trigger_engine
+    
+    engine = get_trigger_engine()
+    rule = engine.get_rule(rule_id)
+    
+    if not rule:
+        raise HTTPException(status_code=404, detail="触发规则不存在")
+    
+    # 模拟一个测试事件
+    conditions = rule.match_conditions
+    test_value = conditions.get('value', 90) + 10  # 超过阈值
+    
+    events = await engine.evaluate_and_trigger(
+        metric_name=conditions.get('metric', 'cpu_usage'),
+        value=test_value,
+        device_id=1,
+        device_name='test-server',
+        device_ip='192.168.1.1',
+    )
+    
+    return {
+        "success": len(events) > 0,
+        "triggered": len(events) > 0,
+        "events": [e.to_dict() for e in events],
+        "message": f"测试{'触发成功' if events else '未触发'}"
+    }
+
+
+@router.get("/trigger-events", summary="获取触发事件列表")
+async def get_trigger_events(
+    rule_id: Optional[str] = Query(None, description="规则ID过滤"),
+    status: Optional[str] = Query(None, description="状态过滤"),
+    start_time: Optional[datetime] = Query(None, description="开始时间"),
+    end_time: Optional[datetime] = Query(None, description="结束时间"),
+    limit: int = Query(100, le=1000, description="返回数量"),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """获取触发事件历史"""
+    from modules.business.monitoring.alert_trigger import (
+        get_trigger_engine, TriggerStatus
+    )
+    
+    engine = get_trigger_engine()
+    
+    status_enum = None
+    if status:
+        try:
+            status_enum = TriggerStatus(status)
+        except ValueError:
+            pass
+    
+    events = engine.list_events(
+        rule_id=rule_id,
+        status=status_enum,
+        start_time=start_time,
+        end_time=end_time,
+        limit=limit
+    )
+    
+    return {
+        "items": [e.to_dict() for e in events],
+        "total": len(events),
+    }
+
+
+@router.post("/trigger/evaluate", summary="评估指标触发条件")
+async def evaluate_trigger(
+    metric_name: str = Query(..., description="指标名称"),
+    value: float = Query(..., description="指标值"),
+    device_id: int = Query(..., description="设备ID"),
+    device_name: str = Query(..., description="设备名称"),
+    device_ip: str = Query(..., description="设备IP"),
+    previous_value: Optional[float] = Query(None, description="前一个值"),
+    duration_seconds: Optional[int] = Query(None, description="持续秒数"),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """评估指标是否触发告警"""
+    from modules.business.monitoring.alert_trigger import get_trigger_engine
+    
+    engine = get_trigger_engine()
+    
+    events = await engine.evaluate_and_trigger(
+        metric_name=metric_name,
+        value=value,
+        device_id=device_id,
+        device_name=device_name,
+        device_ip=device_ip,
+        previous_value=previous_value,
+        duration_seconds=duration_seconds,
+    )
+    
+    return {
+        "triggered": len(events) > 0,
+        "events": [e.to_dict() for e in events],
+        "count": len(events),
+    }
+
+
+# ============== 设备采集项单项开关接口 ==============
+
+class DeviceMetricConfigCreate(BaseModel):
+    """创建设备采集项配置"""
+    device_id: int = Field(..., description="设备ID")
+    device_name: Optional[str] = Field(None, description="设备名称")
+    metric_category: str = Field(..., description="指标类别，如 cpu, memory, disk, network")
+    metric_name: str = Field(..., description="指标名称")
+    enabled: bool = Field(True, description="是否启用")
+    collect_interval: int = Field(0, description="采集间隔(秒)，0表示使用默认")
+    alert_thresholds: Optional[str] = Field(None, description="告警阈值JSON")
+    remark: Optional[str] = Field(None, description="备注")
+
+
+class DeviceMetricConfigUpdate(BaseModel):
+    """更新设备采集项配置"""
+    enabled: Optional[bool] = Field(None, description="是否启用")
+    collect_interval: Optional[int] = Field(None, description="采集间隔(秒)")
+    alert_thresholds: Optional[str] = Field(None, description="告警阈值JSON")
+    remark: Optional[str] = Field(None, description="备注")
+
+
+class DeviceMetricConfigResponse(BaseModel):
+    """设备采集项配置响应"""
+    id: int
+    device_id: int
+    device_name: Optional[str]
+    metric_category: str
+    metric_name: str
+    enabled: bool
+    collect_interval: int
+    alert_thresholds: Optional[str]
+    created_at: Optional[str]
+    updated_at: Optional[str]
+    created_by: Optional[str]
+    updated_by: Optional[str]
+    remark: Optional[str]
+
+
+@router.get("/metric-configs", summary="获取设备采集项配置列表")
+async def get_metric_configs(
+    device_id: Optional[int] = Query(None, description="设备ID"),
+    metric_category: Optional[str] = Query(None, description="指标类别"),
+    enabled: Optional[bool] = Query(None, description="启用状态"),
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    获取设备采集项配置列表
+    支持按设备ID、指标类别、启用状态过滤
+    """
+    query = db.query(DeviceMetricConfig)
+    
+    if device_id is not None:
+        query = query.filter(DeviceMetricConfig.device_id == device_id)
+    if metric_category:
+        query = query.filter(DeviceMetricConfig.metric_category == metric_category)
+    if enabled is not None:
+        query = query.filter(DeviceMetricConfig.enabled == enabled)
+    
+    configs = query.order_by(DeviceMetricConfig.device_id, DeviceMetricConfig.metric_category, DeviceMetricConfig.metric_name).all()
+    
+    return {
+        "items": [c.to_dict() for c in configs],
+        "total": len(configs),
+    }
+
+
+@router.get("/metric-configs/{config_id}", summary="获取采集项配置详情")
+async def get_metric_config(
+    config_id: int,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """获取指定采集项配置的详细信息"""
+    config = db.query(DeviceMetricConfig).filter(DeviceMetricConfig.id == config_id).first()
+    
+    if not config:
+        raise HTTPException(status_code=404, detail="采集项配置不存在")
+    
+    return config.to_dict()
+
+
+@router.post("/metric-configs", summary="创建设备采集项配置")
+async def create_metric_config(
+    config: DeviceMetricConfigCreate,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    创建设备采集项配置
+    用于启用/禁用特定设备的特定指标采集
+    """
+    # 检查是否已存在
+    existing = db.query(DeviceMetricConfig).filter(
+        DeviceMetricConfig.device_id == config.device_id,
+        DeviceMetricConfig.metric_category == config.metric_category,
+        DeviceMetricConfig.metric_name == config.metric_name,
+    ).first()
+    
+    if existing:
+        raise HTTPException(status_code=400, detail="采集项配置已存在，请使用PATCH更新")
+    
+    db_config = DeviceMetricConfig(
+        device_id=config.device_id,
+        device_name=config.device_name,
+        metric_category=config.metric_category,
+        metric_name=config.metric_name,
+        enabled=config.enabled,
+        collect_interval=config.collect_interval,
+        alert_thresholds=config.alert_thresholds,
+        remark=config.remark,
+        created_by=current_user.username,
+    )
+    
+    db.add(db_config)
+    db.commit()
+    db.refresh(db_config)
+    
+    return {
+        "status": "success",
+        "message": "采集项配置创建成功",
+        "config": db_config.to_dict(),
+    }
+
+
+@router.patch("/metric-configs/{config_id}", summary="更新采集项配置(单项开关)")
+async def update_metric_config(
+    config_id: int,
+    update: DeviceMetricConfigUpdate,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    更新采集项配置
+    主要用于启用/禁用特定指标的采集
+    """
+    config = db.query(DeviceMetricConfig).filter(DeviceMetricConfig.id == config_id).first()
+    
+    if not config:
+        raise HTTPException(status_code=404, detail="采集项配置不存在")
+    
+    # 更新字段
+    if update.enabled is not None:
+        config.enabled = update.enabled
+    if update.collect_interval is not None:
+        config.collect_interval = update.collect_interval
+    if update.alert_thresholds is not None:
+        config.alert_thresholds = update.alert_thresholds
+    if update.remark is not None:
+        config.remark = update.remark
+    
+    config.updated_by = current_user.username
+    db.commit()
+    db.refresh(config)
+    
+    return {
+        "status": "success",
+        "message": "采集项配置更新成功",
+        "config": config.to_dict(),
+    }
+
+
+@router.patch("/metric-configs/{config_id}/toggle", summary="切换采集项开关状态")
+async def toggle_metric_config(
+    config_id: int,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    快速切换采集项启用/禁用状态
+    """
+    config = db.query(DeviceMetricConfig).filter(DeviceMetricConfig.id == config_id).first()
+    
+    if not config:
+        raise HTTPException(status_code=404, detail="采集项配置不存在")
+    
+    config.enabled = not config.enabled
+    config.updated_by = current_user.username
+    db.commit()
+    db.refresh(config)
+    
+    return {
+        "status": "success",
+        "message": f"采集项已{'启用' if config.enabled else '禁用'}",
+        "config": config.to_dict(),
+    }
+
+
+@router.delete("/metric-configs/{config_id}", summary="删除采集项配置")
+async def delete_metric_config(
+    config_id: int,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """删除采集项配置"""
+    config = db.query(DeviceMetricConfig).filter(DeviceMetricConfig.id == config_id).first()
+    
+    if not config:
+        raise HTTPException(status_code=404, detail="采集项配置不存在")
+    
+    db.delete(config)
+    db.commit()
+    
+    return {
+        "status": "success",
+        "message": "采集项配置已删除",
+    }
+
+
+@router.get("/metric-configs/device/{device_id}", summary="获取设备的所有采集项配置")
+async def get_device_metric_configs(
+    device_id: int,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    获取指定设备的所有采集项配置
+    """
+    configs = db.query(DeviceMetricConfig).filter(
+        DeviceMetricConfig.device_id == device_id
+    ).order_by(DeviceMetricConfig.metric_category, DeviceMetricConfig.metric_name).all()
+    
+    return {
+        "device_id": device_id,
+        "items": [c.to_dict() for c in configs],
+        "total": len(configs),
+        "enabled_count": len([c for c in configs if c.enabled]),
+        "disabled_count": len([c for c in configs if not c.enabled]),
     }

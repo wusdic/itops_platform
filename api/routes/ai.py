@@ -312,26 +312,82 @@ async def get_conversation(
 ):
     """
     获取指定会话的消息历史
-    注意：会话历史需要配置外部存储（如Redis）才能持久化
     """
-    # TODO: 从Redis或数据库获取会话历史
+    from modules.foundation.db_models.ai import AIConversation, AIMessage
+
+    # 查找会话
+    conversation = db.query(AIConversation).filter(
+        AIConversation.conversation_id == conversation_id,
+        AIConversation.is_deleted == False
+    ).first()
+
+    if not conversation:
+        raise HTTPException(status_code=404, detail="会话不存在")
+
+    # 获取消息列表
+    messages = db.query(AIMessage).filter(
+        AIMessage.conversation_id == conversation_id
+    ).order_by(AIMessage.created_at.asc()).limit(limit).all()
+
     return {
         "conversation_id": conversation_id,
-        "messages": [],
-        "message": "会话历史存储功能待配置"
+        "title": conversation.title,
+        "conversation_type": conversation.conversation_type,
+        "message_count": len(messages),
+        "messages": [msg.to_dict() for msg in messages],
+        "created_at": conversation.created_at.isoformat() if conversation.created_at else None,
+        "last_message_at": conversation.last_message_at.isoformat() if conversation.last_message_at else None,
     }
 
 
 @router.get("/conversations", summary="获取会话列表")
 async def get_conversations(
     conversation_type: Optional[str] = Query(None, description="对话类型过滤"),
+    is_pinned: Optional[bool] = Query(None, description="置顶状态过滤"),
+    keyword: Optional[str] = Query(None, description="关键词搜索"),
     limit: int = Query(20, le=50, description="返回数量限制"),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """获取用户的会话列表"""
-    # TODO: 从数据库获取会话列表
-    return {"items": [], "total": 0}
+    from modules.foundation.db_models.ai import AIConversation
+
+    query = db.query(AIConversation).filter(
+        AIConversation.user_id == current_user.user_id,
+        AIConversation.is_deleted == False
+    )
+
+    if conversation_type:
+        query = query.filter(AIConversation.conversation_type == conversation_type)
+
+    if is_pinned is not None:
+        query = query.filter(AIConversation.is_pinned == is_pinned)
+
+    if keyword:
+        query = query.filter(
+            (AIConversation.title.ilike(f"%{keyword}%")) |
+            (AIConversation.summary.ilike(f"%{keyword}%"))
+        )
+
+    total = query.count()
+    conversations = query.order_by(AIConversation.is_pinned.desc(), AIConversation.last_message_at.desc()).limit(limit).all()
+
+    return {
+        "items": [
+            {
+                "conversation_id": conv.conversation_id,
+                "title": conv.title,
+                "summary": conv.summary,
+                "conversation_type": conv.conversation_type,
+                "message_count": conv.message_count,
+                "is_pinned": conv.is_pinned,
+                "created_at": conv.created_at.isoformat() if conv.created_at else None,
+                "last_message_at": conv.last_message_at.isoformat() if conv.last_message_at else None,
+            }
+            for conv in conversations
+        ],
+        "total": total,
+    }
 
 
 @router.delete("/conversation/{conversation_id}", summary="删除会话")
@@ -340,11 +396,122 @@ async def delete_conversation(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """删除指定的会话"""
-    # TODO: 从数据库删除会话
+    """删除指定的会话（软删除）"""
+    from modules.foundation.db_models.ai import AIConversation, AIMessage
+
+    conversation = db.query(AIConversation).filter(
+        AIConversation.conversation_id == conversation_id,
+        AIConversation.is_deleted == False
+    ).first()
+
+    if not conversation:
+        raise HTTPException(status_code=404, detail="会话不存在")
+
+    # 软删除会话
+    conversation.is_deleted = True
+    conversation.updated_at = datetime.now()
+
+    db.commit()
+
     return {
         "status": "success",
         "message": "Conversation deleted"
+    }
+
+
+@router.put("/conversation/{conversation_id}/pin", summary="置顶/取消置顶会话")
+async def pin_conversation(
+    conversation_id: str,
+    is_pinned: bool = Query(..., description="是否置顶"),
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """置顶或取消置顶会话"""
+    from modules.foundation.db_models.ai import AIConversation
+
+    conversation = db.query(AIConversation).filter(
+        AIConversation.conversation_id == conversation_id,
+        AIConversation.is_deleted == False
+    ).first()
+
+    if not conversation:
+        raise HTTPException(status_code=404, detail="会话不存在")
+
+    conversation.is_pinned = is_pinned
+    conversation.updated_at = datetime.now()
+
+    db.commit()
+
+    return {
+        "status": "success",
+        "message": f"会话已{'置顶' if is_pinned else '取消置顶'}"
+    }
+
+
+@router.post("/conversation/{conversation_id}/messages", summary="保存消息到会话")
+async def save_message_to_conversation(
+    conversation_id: str,
+    role: str = Query(..., description="消息角色: user, assistant, system"),
+    content: str = Query(..., description="消息内容"),
+    model: Optional[str] = Query(None, description="使用的模型"),
+    suggestions: Optional[List[str]] = Query(None, description="建议列表"),
+    references: Optional[str] = Query(None, description="参考资料(JSON)"),
+    token_count: Optional[int] = Query(None, description="Token数量"),
+    error_message: Optional[str] = Query(None, description="错误信息"),
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """保存消息到指定会话（用于对话历史持久化）"""
+    from modules.foundation.db_models.ai import AIConversation, AIMessage
+    import json
+
+    # 查找或创建会话
+    conversation = db.query(AIConversation).filter(
+        AIConversation.conversation_id == conversation_id
+    ).first()
+
+    if not conversation:
+        # 创建新会话
+        conversation = AIConversation(
+            conversation_id=conversation_id,
+            user_id=current_user.user_id,
+            username=current_user.username,
+            conversation_type="chat",
+            message_count=0,
+        )
+        db.add(conversation)
+
+    # 创建消息
+    message = AIMessage(
+        conversation_id=conversation_id,
+        user_id=current_user.user_id,
+        role=role,
+        content=content,
+        model=model,
+        suggestions=json.dumps(suggestions) if suggestions else None,
+        references=json.dumps(references) if references else None,
+        token_count=token_count,
+        error_message=error_message,
+    )
+    db.add(message)
+
+    # 更新会话统计
+    conversation.message_count = (conversation.message_count or 0) + 1
+    conversation.last_message_at = datetime.now()
+    conversation.updated_at = datetime.now()
+
+    # 如果是用户第一条消息，设置标题
+    if conversation.message_count == 1 and role == "user":
+        conversation.title = content[:50] + ("..." if len(content) > 50 else "")
+
+    db.commit()
+    db.refresh(message)
+
+    return {
+        "status": "success",
+        "message_id": message.id,
+        "conversation_id": conversation_id,
+        "message_count": conversation.message_count,
     }
 
 

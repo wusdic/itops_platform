@@ -223,3 +223,48 @@ class AlertNotification(Base):
     
     def __repr__(self):
         return f"<AlertNotification(id={self.id}, channel='{self.channel}', status='{self.status}')>"
+
+
+class AlertAuditLog(Base):
+    """
+    告警审计日志模型
+    记录告警的所有操作历史，用于审计追溯
+    """
+    __tablename__ = 'alert_audit_logs'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # 关联告警
+    alert_id = Column(Integer, ForeignKey('alerts.id'), index=True, nullable=False, comment='告警ID')
+    alert_key = Column(String(256), comment='告警标识')
+
+    # 操作信息
+    action = Column(String(64), nullable=False, comment='操作类型: create, acknowledge, resolve, close, update, delete')
+    operator = Column(String(64), comment='操作人')
+    operator_ip = Column(String(64), comment='操作人IP')
+
+    # 操作详情
+    field_name = Column(String(64), comment='被修改的字段名')
+    old_value = Column(Text, comment='旧值')
+    new_value = Column(Text, comment='新值')
+    reason = Column(Text, comment='操作原因/备注')
+
+    # 关联工单
+    workorder_id = Column(Integer, ForeignKey('work_orders.id'), comment='关联工单ID')
+
+    # 时间戳
+    created_at = Column(DateTime, default=datetime.now, comment='操作时间')
+
+    # 元数据
+    user_agent = Column(String(256), comment='用户代理')
+    request_id = Column(String(64), comment='请求ID')
+
+    # 索引
+    __table_args__ = (
+        Index('idx_audit_alert_time', 'alert_id', 'created_at'),
+        Index('idx_audit_operator_time', 'operator', 'created_at'),
+        Index('idx_audit_action', 'action', 'created_at'),
+    )
+
+    def __repr__(self):
+        return f"<AlertAuditLog(id={self.id}, alert_id={self.alert_id}, action='{self.action}')>"

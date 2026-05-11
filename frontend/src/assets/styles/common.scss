@@ -1,0 +1,125 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: $font-size-base;
+  color: $text-primary;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#app {
+  height: 100%;
+}
+
+a {
+  color: $primary;
+  text-decoration: none;
+  transition: color 0.2s;
+
+  &:hover {
+    color: $primary-light;
+  }
+}
+
+.page-container {
+  padding: $spacing-xl;
+  min-height: calc(100vh - 60px);
+  background: $bg-page;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: $spacing-xl;
+  padding-bottom: $spacing-lg;
+  border-bottom: 1px solid $border-light;
+
+  .page-title {
+    font-size: $font-size-xxl;
+    font-weight: $font-weight-bold;
+    color: $text-primary;
+    margin: 0;
+  }
+
+  .page-subtitle {
+    font-size: $font-size-sm;
+    color: $text-secondary;
+    margin: 4px 0 0;
+  }
+
+  .page-actions {
+    display: flex;
+    gap: $spacing-sm;
+  }
+}
+
+.card {
+  @include card-base;
+  padding: $spacing-lg;
+  margin-bottom: $spacing-lg;
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: $spacing-md;
+    padding-bottom: $spacing-md;
+    border-bottom: 1px solid $border-light;
+
+    .card-title {
+      font-size: $font-size-lg;
+      font-weight: $font-weight-medium;
+      color: $text-primary;
+    }
+  }
+
+  .card-body {
+    color: $text-secondary;
+  }
+}
+
+.table-container {
+  @include card-base;
+  padding: $spacing-lg;
+}
+
+.form-container {
+  @include card-base;
+  padding: $spacing-xl;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: $text-placeholder;
+
+  .empty-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    color: $text-disabled;
+  }
+
+  .empty-text {
+    font-size: $font-size-base;
+  }
+}
+
+.text-primary { color: $text-primary; }
+.text-secondary { color: $text-secondary; }
+.text-placeholder { color: $text-placeholder; }
+.text-success { color: $success; }
+.text-warning { color: $warning; }
+.text-danger { color: $danger; }
+
+.bg-primary { background: $primary; }
+.bg-success { background: $success; }
+.bg-warning { background: $warning; }
+.bg-danger { background: $danger; }

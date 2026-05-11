@@ -6,6 +6,7 @@
 from typing import Optional, List
 from datetime import datetime
 import secrets
+import json
 
 from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel, Field
@@ -642,4 +643,597 @@ async def system_health_check(
             "monitoring": {"status": "healthy"},
         },
         "checked_at": datetime.now().isoformat(),
+    }
+
+
+# ============== API Key管理接口 ==============
+
+import secrets
+import hashlib
+import string
+
+
+def _generate_api_key(prefix: str = "sk") -> tuple:
+    """
+    生成API Key
+    Returns: (full_key, key_hash, key_prefix)
+    """
+    # 生成随机字符串
+    random_part = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(48))
+    full_key = f"{prefix}-{random_part}"
+    key_hash = hashlib.sha256(full_key.encode()).hexdigest()
+    key_prefix = f"{prefix}-{random_part[:8]}"
+    return full_key, key_hash, key_prefix
+
+
+def _mask_api_key(key: str) -> str:
+    """掩码API Key，只显示前8位"""
+    if len(key) > 12:
+        return f"{key[:12]}{'***'}"
+    return f"{key[:4]}{'***'}"
+
+
+class APIKeyCreate(BaseModel):
+    """创建API Key"""
+    name: str = Field(..., description="API Key名称")
+    user_id: Optional[str] = Field(None, description="关联用户ID")
+    username: Optional[str] = Field(None, description="关联用户名")
+    scopes: List[str] = Field(default_factory=list, description="权限范围")
+    expires_days: Optional[int] = Field(None, description="过期天数，为空表示永不过期")
+    max_requests: Optional[int] = Field(None, description="最大请求数，为空表示无限制")
+    rate_limit: Optional[int] = Field(100, description="每分钟请求数限制")
+    rate_limit_window: Optional[int] = Field(60, description="速率限制时间窗口(秒)")
+
+
+class APIKeyUpdate(BaseModel):
+    """更新API Key"""
+    name: Optional[str] = None
+    enabled: Optional[bool] = None
+    scopes: Optional[List[str]] = None
+    expires_days: Optional[int] = None
+    max_requests: Optional[int] = None
+    rate_limit: Optional[int] = None
+
+
+@router.get("/api-keys", summary="获取API Key列表")
+async def get_api_keys(
+    keyword: Optional[str] = Query(None, description="关键词搜索"),
+    is_active: Optional[bool] = Query(None, description="启用状态过滤"),
+    pagination: PaginationParams = Depends(PaginationParams),
+    current_user: CurrentUser = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    """获取API Key列表"""
+    from modules.foundation.db_models.system import APIKey
+
+    query = db.query(APIKey)
+
+    if keyword:
+        query = query.filter(
+            (APIKey.name.ilike(f"%{keyword}%")) |
+            (APIKey.key_id.ilike(f"%{keyword}%")) |
+            (APIKey.username.ilike(f"%{keyword}%"))
+        )
+
+    if is_active is not None:
+        query = query.filter(APIKey.is_active == (1 if is_active else 0))
+
+    total = query.count()
+    keys = query.order_by(APIKey.created_at.desc()).offset(pagination.offset).limit(pagination.limit).all()
+
+    return {
+        "items": [
+            {
+                "id": k.id,
+                "key_id": k.key_id,
+                "key_prefix": k.key_prefix,
+                "name": k.name,
+                "username": k.username,
+                "scopes": json.loads(k.scopes) if k.scopes else [],
+                "is_active": bool(k.is_active),
+                "is_revoked": bool(k.is_revoked),
+                "expires_at": k.expires_at.isoformat() if k.expires_at else None,
+                "max_requests": k.max_requests,
+                "request_count": k.request_count,
+                "rate_limit": k.rate_limit,
+                "last_used_at": k.last_used_at.isoformat() if k.last_used_at else None,
+                "created_at": k.created_at.isoformat() if k.created_at else None,
+                "created_by": k.created_by,
+            }
+            for k in keys
+        ],
+        "total": total,
+        "page": pagination.page,
+        "page_size": pagination.page_size,
+    }
+
+
+@router.post("/api-keys", summary="创建API Key")
+async def create_api_key(
+    api_key_data: APIKeyCreate,
+    current_user: CurrentUser = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    """创建新的API Key"""
+    from modules.foundation.db_models.system import APIKey
+
+    # 生成API Key
+    full_key, key_hash, key_prefix = _generate_api_key()
+
+    # 计算过期时间
+    expires_at = None
+    if api_key_data.expires_days:
+        from datetime import timedelta
+        expires_at = datetime.now() + timedelta(days=api_key_data.expires_days)
+
+    # 创建记录
+    api_key_record = APIKey(
+        key_id=f"key_{secrets.token_hex(8)}",
+        key_hash=key_hash,
+        key_prefix=key_prefix,
+        name=api_key_data.name,
+        user_id=api_key_data.user_id,
+        username=api_key_data.username,
+        scopes=json.dumps(api_key_data.scopes) if api_key_data.scopes else None,
+        is_active=1,
+        is_revoked=0,
+        expires_at=expires_at,
+        max_requests=api_key_data.max_requests or -1,
+        rate_limit=api_key_data.rate_limit or 100,
+        rate_limit_window=api_key_data.rate_limit_window or 60,
+        created_by=current_user.username,
+    )
+
+    db.add(api_key_record)
+    db.commit()
+    db.refresh(api_key_record)
+
+    return {
+        "id": api_key_record.id,
+        "key_id": api_key_record.key_id,
+        "api_key": full_key,  # 只在创建时返回一次
+        "key_prefix": key_prefix,
+        "name": api_key_data.name,
+        "scopes": api_key_data.scopes,
+        "expires_at": expires_at.isoformat() if expires_at else None,
+        "max_requests": api_key_data.max_requests,
+        "rate_limit": api_key_data.rate_limit,
+        "created_at": api_key_record.created_at.isoformat() if api_key_record.created_at else None,
+        "message": "请妥善保管API Key，仅在创建时显示完整Key"
+    }
+
+
+@router.get("/api-keys/{key_id}", summary="获取API Key详情")
+async def get_api_key(
+    key_id: str,
+    current_user: CurrentUser = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    """获取指定API Key的详细信息"""
+    from modules.foundation.db_models.system import APIKey
+
+    api_key_record = db.query(APIKey).filter(APIKey.key_id == key_id).first()
+
+    if not api_key_record:
+        raise HTTPException(status_code=404, detail="API Key不存在")
+
+    return {
+        "id": api_key_record.id,
+        "key_id": api_key_record.key_id,
+        "key_prefix": api_key_record.key_prefix,
+        "name": api_key_record.name,
+        "user_id": api_key_record.user_id,
+        "username": api_key_record.username,
+        "scopes": json.loads(api_key_record.scopes) if api_key_record.scopes else [],
+        "is_active": bool(api_key_record.is_active),
+        "is_revoked": bool(api_key_record.is_revoked),
+        "expires_at": api_key_record.expires_at.isoformat() if api_key_record.expires_at else None,
+        "max_requests": api_key_record.max_requests,
+        "request_count": api_key_record.request_count,
+        "rate_limit": api_key_record.rate_limit,
+        "rate_limit_window": api_key_record.rate_limit_window,
+        "last_used_at": api_key_record.last_used_at.isoformat() if api_key_record.last_used_at else None,
+        "last_used_ip": api_key_record.last_used_ip,
+        "created_at": api_key_record.created_at.isoformat() if api_key_record.created_at else None,
+        "created_by": api_key_record.created_by,
+    }
+
+
+@router.put("/api-keys/{key_id}", summary="更新API Key")
+async def update_api_key(
+    key_id: str,
+    api_key_data: APIKeyUpdate,
+    current_user: CurrentUser = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    """更新API Key"""
+    from modules.foundation.db_models.system import APIKey
+
+    api_key_record = db.query(APIKey).filter(APIKey.key_id == key_id).first()
+
+    if not api_key_record:
+        raise HTTPException(status_code=404, detail="API Key不存在")
+
+    # 更新字段
+    if api_key_data.name is not None:
+        api_key_record.name = api_key_data.name
+
+    if api_key_data.enabled is not None:
+        api_key_record.is_active = 1 if api_key_data.enabled else 0
+
+    if api_key_data.scopes is not None:
+        api_key_record.scopes = json.dumps(api_key_data.scopes)
+
+    if api_key_data.expires_days is not None:
+        from datetime import timedelta
+        if api_key_data.expires_days > 0:
+            api_key_record.expires_at = datetime.now() + timedelta(days=api_key_data.expires_days)
+        else:
+            api_key_record.expires_at = None
+
+    if api_key_data.max_requests is not None:
+        api_key_record.max_requests = api_key_data.max_requests
+
+    if api_key_data.rate_limit is not None:
+        api_key_record.rate_limit = api_key_data.rate_limit
+
+    api_key_record.updated_at = datetime.now()
+
+    db.commit()
+
+    return {"status": "success", "message": "API Key更新成功"}
+
+
+@router.delete("/api-keys/{key_id}", summary="删除API Key")
+async def delete_api_key(
+    key_id: str,
+    current_user: CurrentUser = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    """删除API Key"""
+    from modules.foundation.db_models.system import APIKey
+
+    api_key_record = db.query(APIKey).filter(APIKey.key_id == key_id).first()
+
+    if not api_key_record:
+        raise HTTPException(status_code=404, detail="API Key不存在")
+
+    db.delete(api_key_record)
+    db.commit()
+
+    return {"status": "success", "message": "API Key删除成功"}
+
+
+@router.post("/api-keys/{key_id}/revoke", summary="撤销API Key")
+async def revoke_api_key(
+    key_id: str,
+    current_user: CurrentUser = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    """撤销API Key（软删除）"""
+    from modules.foundation.db_models.system import APIKey
+
+    api_key_record = db.query(APIKey).filter(APIKey.key_id == key_id).first()
+
+    if not api_key_record:
+        raise HTTPException(status_code=404, detail="API Key不存在")
+
+    if api_key_record.is_revoked:
+        raise HTTPException(status_code=400, detail="API Key已被撤销")
+
+    api_key_record.is_revoked = 1
+    api_key_record.is_active = 0
+    api_key_record.updated_at = datetime.now()
+
+    db.commit()
+
+    return {"status": "success", "message": "API Key已撤销"}
+
+
+@router.post("/api-keys/{key_id}/activate", summary="激活API Key")
+async def activate_api_key(
+    key_id: str,
+    current_user: CurrentUser = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    """激活被禁用的API Key"""
+    from modules.foundation.db_models.system import APIKey
+
+    api_key_record = db.query(APIKey).filter(APIKey.key_id == key_id).first()
+
+    if not api_key_record:
+        raise HTTPException(status_code=404, detail="API Key不存在")
+
+    if api_key_record.is_revoked:
+        raise HTTPException(status_code=400, detail="已撤销的API Key无法激活，请重新创建")
+
+    api_key_record.is_active = 1
+    api_key_record.updated_at = datetime.now()
+
+    db.commit()
+
+    return {"status": "success", "message": "API Key已激活"}
+
+
+@router.post("/api-keys/{key_id}/rotate", summary="轮换API Key")
+async def rotate_api_key(
+    key_id: str,
+    current_user: CurrentUser = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    """轮换API Key（创建新的Key并禁用旧的）"""
+    from modules.foundation.db_models.system import APIKey
+
+    api_key_record = db.query(APIKey).filter(APIKey.key_id == key_id).first()
+
+    if not api_key_record:
+        raise HTTPException(status_code=404, detail="API Key不存在")
+
+    # 生成新Key
+    full_key, key_hash, key_prefix = _generate_api_key()
+
+    # 更新旧Key为禁用
+    api_key_record.is_active = 0
+    api_key_record.is_revoked = 1
+    api_key_record.updated_at = datetime.now()
+
+    # 创建新Key（复制原Key的大部分属性）
+    new_key_record = APIKey(
+        key_id=f"key_{secrets.token_hex(8)}",
+        key_hash=key_hash,
+        key_prefix=key_prefix,
+        name=api_key_record.name + " (轮换)",
+        user_id=api_key_record.user_id,
+        username=api_key_record.username,
+        scopes=api_key_record.scopes,
+        is_active=1,
+        is_revoked=0,
+        expires_at=api_key_record.expires_at,
+        max_requests=api_key_record.max_requests,
+        rate_limit=api_key_record.rate_limit,
+        rate_limit_window=api_key_record.rate_limit_window,
+        created_by=current_user.username,
+    )
+
+    db.add(new_key_record)
+    db.commit()
+    db.refresh(new_key_record)
+
+    return {
+        "status": "success",
+        "message": "API Key已轮换，旧Key已禁用",
+        "old_key_id": key_id,
+        "new_key_id": new_key_record.key_id,
+        "new_api_key": full_key,
+        "key_prefix": key_prefix,
+    }
+
+
+# ============== 备份恢复接口 ==============
+
+class BackupCreateRequest(BaseModel):
+    """创建备份请求"""
+    name: str = Field(..., description="备份名称")
+    backup_type: str = Field("full", description="备份类型: full, incremental, differential")
+    targets: List[str] = Field(default_factory=list, description="备份目标: database, config, files, all")
+    description: str = Field("", description="备份描述")
+
+
+class BackupRestoreRequest(BaseModel):
+    """恢复备份请求"""
+    target: str = Field("all", description="恢复目标: database, config, files, all")
+    target_path: Optional[str] = Field(None, description="恢复路径")
+    create_pre_backup: bool = Field(True, description="恢复前是否创建备份")
+
+
+@router.get("/backups", summary="获取备份列表")
+async def get_backups(
+    status: Optional[str] = Query(None, description="状态过滤"),
+    backup_type: Optional[str] = Query(None, description="备份类型过滤"),
+    limit: int = Query(100, le=500),
+    current_user: CurrentUser = Depends(require_role("admin")),
+):
+    """获取备份列表"""
+    from modules.business.backup_manager import (
+        get_backup_manager, BackupStatus, BackupType
+    )
+    
+    manager = get_backup_manager()
+    
+    status_enum = None
+    if status:
+        try:
+            status_enum = BackupStatus(status)
+        except ValueError:
+            pass
+    
+    type_enum = None
+    if backup_type:
+        try:
+            type_enum = BackupType(backup_type)
+        except ValueError:
+            pass
+    
+    backups = manager.list_backups(status=status_enum, backup_type=type_enum, limit=limit)
+    
+    return {
+        "items": [b.to_dict() for b in backups],
+        "total": len(backups),
+    }
+
+
+@router.post("/backups", summary="创建备份")
+async def create_backup(
+    request: BackupCreateRequest,
+    current_user: CurrentUser = Depends(require_role("admin")),
+):
+    """创建新的备份"""
+    from modules.business.backup_manager import (
+        get_backup_manager, BackupType, BackupTarget
+    )
+    
+    manager = get_backup_manager()
+    
+    # 解析备份类型
+    backup_type = BackupType(request.backup_type)
+    
+    # 解析目标
+    targets = []
+    if not request.targets or 'all' in request.targets:
+        targets = [BackupTarget.ALL]
+    else:
+        for t in request.targets:
+            try:
+                targets.append(BackupTarget(t))
+            except ValueError:
+                pass
+    
+    record = await manager.create_backup(
+        name=request.name,
+        backup_type=backup_type,
+        targets=targets,
+        description=request.description,
+    )
+    
+    return {
+        "id": record.id,
+        "status": record.status.value if isinstance(record.status, BackupStatus) else record.status,
+        "message": "备份创建成功" if record.status == BackupStatus.SUCCESS else "备份创建失败",
+        "record": record.to_dict(),
+    }
+
+
+@router.get("/backups/{backup_id}", summary="获取备份详情")
+async def get_backup(
+    backup_id: str,
+    current_user: CurrentUser = Depends(require_role("admin")),
+):
+    """获取备份详细信息"""
+    from modules.business.backup_manager import get_backup_manager
+    
+    manager = get_backup_manager()
+    backup = manager.get_backup(backup_id)
+    
+    if not backup:
+        raise HTTPException(status_code=404, detail="备份不存在")
+    
+    return backup.to_dict()
+
+
+@router.delete("/backups/{backup_id}", summary="删除备份")
+async def delete_backup(
+    backup_id: str,
+    current_user: CurrentUser = Depends(require_role("admin")),
+):
+    """删除备份"""
+    from modules.business.backup_manager import get_backup_manager
+    
+    manager = get_backup_manager()
+    
+    if not manager.delete_backup(backup_id):
+        raise HTTPException(status_code=404, detail="备份不存在")
+    
+    return {"status": "success", "message": "备份已删除"}
+
+
+@router.post("/backups/{backup_id}/restore", summary="恢复备份")
+async def restore_backup(
+    backup_id: str,
+    request: BackupRestoreRequest,
+    current_user: CurrentUser = Depends(require_role("admin")),
+):
+    """从备份恢复数据"""
+    from modules.business.backup_manager import (
+        get_backup_manager, BackupTarget
+    )
+    
+    manager = get_backup_manager()
+    
+    backup = manager.get_backup(backup_id)
+    if not backup:
+        raise HTTPException(status_code=404, detail="备份不存在")
+    
+    target = BackupTarget(request.target)
+    
+    record = await manager.restore(
+        backup_id=backup_id,
+        target=target,
+        target_path=request.target_path,
+        create_pre_backup=request.create_pre_backup,
+    )
+    
+    return {
+        "id": record.id,
+        "status": record.status.value if isinstance(record.status, RestoreStatus) else record.status,
+        "message": "恢复成功" if record.status == RestoreStatus.SUCCESS else "恢复失败",
+        "record": record.to_dict(),
+    }
+
+
+@router.get("/restores", summary="获取恢复记录列表")
+async def get_restores(
+    limit: int = Query(100, le=500),
+    current_user: CurrentUser = Depends(require_role("admin")),
+):
+    """获取恢复记录列表"""
+    from modules.business.backup_manager import get_backup_manager
+    
+    manager = get_backup_manager()
+    restores = manager.list_restores(limit=limit)
+    
+    return {
+        "items": [r.to_dict() for r in restores],
+        "total": len(restores),
+    }
+
+
+@router.get("/restores/{restore_id}", summary="获取恢复记录详情")
+async def get_restore(
+    restore_id: str,
+    current_user: CurrentUser = Depends(require_role("admin")),
+):
+    """获取恢复记录详细信息"""
+    from modules.business.backup_manager import get_backup_manager
+    
+    manager = get_backup_manager()
+    restore = manager.get_restore(restore_id)
+    
+    if not restore:
+        raise HTTPException(status_code=404, detail="恢复记录不存在")
+    
+    return restore.to_dict()
+
+
+@router.post("/backups/cleanup", summary="清理过期备份")
+async def cleanup_backups(
+    current_user: CurrentUser = Depends(require_role("admin")),
+):
+    """清理过期的备份文件"""
+    from modules.business.backup_manager import get_backup_manager
+    
+    manager = get_backup_manager()
+    count = manager.cleanup_old_backups()
+    
+    return {"status": "success", "message": f"已清理 {count} 个过期备份"}
+
+
+@router.get("/backup/config", summary="获取备份配置")
+async def get_backup_config(
+    current_user: CurrentUser = Depends(require_role("admin")),
+):
+    """获取备份配置信息"""
+    from modules.business.backup_manager import get_backup_manager
+    
+    manager = get_backup_manager()
+    config = manager.config
+    
+    return {
+        "backup_dir": config.backup_dir,
+        "retention_days": config.retention_days,
+        "max_backups": config.max_backups,
+        "compression_enabled": config.compression_enabled,
+        "compression_level": config.compression_level,
+        "encryption_enabled": config.encryption_enabled,
+        "auto_backup_enabled": config.auto_backup_enabled,
+        "backup_schedule": config.backup_schedule,
     }

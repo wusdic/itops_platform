@@ -20,6 +20,10 @@ from .monitoring import PerformanceMetric
 from .system import OperationLog, BackupRecord
 from .workorder import WorkOrder, WorkOrderType, WorkOrderStatus
 from .report_template import ReportTemplate, ReportTemplateType, ReportFormat, Report, ReportSchedule
+from .ai import AIConversation
+from .notification.notification_model import (
+    NotificationChannelModel, NotificationLog, NotificationTargetRule
+)
 
 __all__ = [
     'Base',
@@ -45,7 +49,11 @@ __all__ = [
     'ReportTemplateType',
     'ReportFormat',
     'Report',
-    'ReportSchedule'
+    'ReportSchedule',
+    'AIConversation',
+    'NotificationChannelModel',
+    'NotificationLog',
+    'NotificationTargetRule',
 ]
 
 __version__ = '1.0.0'

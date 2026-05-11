@@ -16,7 +16,7 @@ from api.dependencies import get_db, get_current_user, CurrentUser, PaginationPa
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["设备管理"])
+router = APIRouter(tags=["设备管理"], prefix="/api/v1/devices")
 
 
 # ============== 请求/响应模型 ==============

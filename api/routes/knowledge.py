@@ -669,3 +669,355 @@ async def get_knowledge_stats(
         "tag_count": total_tags,
         "top_tags": [{"name": t.name, "count": t.usage_count} for t in top_tags],
     }
+
+
+# ============== 文档多级审核接口 ==============
+
+class ReviewFlowCreate(BaseModel):
+    """创建审核流程请求"""
+    name: str = Field(..., description="流程名称")
+    description: str = Field("", description="流程描述")
+    levels: List[dict] = Field(..., description="审核级别配置列表")
+    enable_timeout_notification: bool = True
+    timeout_notification_interval: int = 24
+    allow_withdraw_after_approve: bool = False
+    applicable_doc_types: List[str] = Field(default_factory=list, description="适用文档类型")
+    applicable_categories: List[int] = Field(default_factory=list, description="适用分类")
+
+
+class ReviewFlowUpdate(BaseModel):
+    """更新审核流程请求"""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    levels: Optional[List[dict]] = None
+    enable_timeout_notification: Optional[bool] = None
+    timeout_notification_interval: Optional[int] = None
+    allow_withdraw_after_approve: Optional[bool] = None
+    applicable_doc_types: Optional[List[str]] = None
+    applicable_categories: Optional[List[int]] = None
+
+
+class ReviewSubmitRequest(BaseModel):
+    """提交审核请求"""
+    flow_id: str = Field(..., description="审核流程ID")
+    document_id: int = Field(..., description="文档ID")
+    document_type: str = Field(..., description="文档类型")
+    document_title: str = Field(..., description="文档标题")
+    comment: str = Field("", description="提交说明")
+
+
+@router.get("/review-flows", summary="获取审核流程列表")
+async def get_review_flows(
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """获取文档审核流程列表"""
+    from modules.business.knowledge_base.document_review import get_review_flow
+    
+    flow_manager = get_review_flow()
+    flows = flow_manager.list_flows()
+    
+    return {
+        "items": [f.to_dict() for f in flows],
+        "total": len(flows),
+    }
+
+
+@router.post("/review-flows", summary="创建审核流程")
+async def create_review_flow(
+    flow: ReviewFlowCreate,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """创建新的文档审核流程"""
+    from modules.business.knowledge_base.document_review import (
+        get_review_flow, ReviewFlowConfig, ReviewLevelConfig, ReviewLevel
+    )
+    
+    flow_manager = get_review_flow()
+    
+    import uuid
+    levels = []
+    for i, level_config in enumerate(flow.levels):
+        levels.append(ReviewLevelConfig(
+            level=ReviewLevel(f"level_{i+1}"),
+            name=level_config.get('name', f'Level {i+1}'),
+            description=level_config.get('description', ''),
+            reviewer_role=level_config.get('reviewer_role', ''),
+            specific_reviewers=level_config.get('specific_reviewers', []),
+            require_all_approved=level_config.get('require_all_approved', True),
+            auto_assign=level_config.get('auto_assign', True),
+            allow_skip=level_config.get('allow_skip', False),
+            timeout_hours=level_config.get('timeout_hours', 48),
+        ))
+    
+    flow_config = ReviewFlowConfig(
+        id=str(uuid.uuid4()),
+        name=flow.name,
+        description=flow.description,
+        levels=levels,
+        enable_timeout_notification=flow.enable_timeout_notification,
+        timeout_notification_interval=flow.timeout_notification_interval,
+        allow_withdraw_after_approve=flow.allow_withdraw_after_approve,
+        applicable_doc_types=flow.applicable_doc_types,
+        applicable_categories=flow.applicable_categories,
+        created_by=current_user.username,
+    )
+    
+    flow_manager.add_flow(flow_config)
+    
+    return {"id": flow_config.id, "message": "创建成功"}
+
+
+@router.get("/review-flows/{flow_id}", summary="获取审核流程详情")
+async def get_review_flow_detail(
+    flow_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """获取审核流程详细信息"""
+    from modules.business.knowledge_base.document_review import get_review_flow
+    
+    flow_manager = get_review_flow()
+    flow = flow_manager.get_flow(flow_id)
+    
+    if not flow:
+        raise HTTPException(status_code=404, detail="审核流程不存在")
+    
+    return flow.to_dict()
+
+
+@router.put("/review-flows/{flow_id}", summary="更新审核流程")
+async def update_review_flow(
+    flow_id: str,
+    flow_update: ReviewFlowUpdate,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """更新审核流程"""
+    from modules.business.knowledge_base.document_review import (
+        get_review_flow, ReviewLevelConfig, ReviewLevel
+    )
+    
+    flow_manager = get_review_flow()
+    flow = flow_manager.get_flow(flow_id)
+    
+    if not flow:
+        raise HTTPException(status_code=404, detail="审核流程不存在")
+    
+    update_data = flow_update.model_dump(exclude_unset=True)
+    
+    if 'levels' in update_data and update_data['levels']:
+        levels = []
+        for i, level_config in enumerate(update_data['levels']):
+            levels.append(ReviewLevelConfig(
+                level=ReviewLevel(f"level_{i+1}"),
+                name=level_config.get('name', f'Level {i+1}'),
+                description=level_config.get('description', ''),
+                reviewer_role=level_config.get('reviewer_role', ''),
+                specific_reviewers=level_config.get('specific_reviewers', []),
+                require_all_approved=level_config.get('require_all_approved', True),
+                auto_assign=level_config.get('auto_assign', True),
+                allow_skip=level_config.get('allow_skip', False),
+                timeout_hours=level_config.get('timeout_hours', 48),
+            ))
+        flow.levels = levels
+    
+    for key, value in update_data.items():
+        if key != 'levels' and value is not None and hasattr(flow, key):
+            setattr(flow, key, value)
+    
+    flow_manager.update_flow(flow)
+    
+    return {"message": "更新成功"}
+
+
+@router.delete("/review-flows/{flow_id}", summary="删除审核流程")
+async def delete_review_flow(
+    flow_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """删除审核流程"""
+    from modules.business.knowledge_base.document_review import get_review_flow
+    
+    flow_manager = get_review_flow()
+    
+    if not flow_manager.delete_flow(flow_id):
+        raise HTTPException(status_code=404, detail="审核流程不存在")
+    
+    return {"message": "删除成功"}
+
+
+@router.post("/reviews/submit", summary="提交文档审核")
+async def submit_document_review(
+    request: ReviewSubmitRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """提交文档进行多级审核"""
+    from modules.business.knowledge_base.document_review import get_review_flow
+    
+    flow_manager = get_review_flow()
+    
+    record = flow_manager.submit_for_review(
+        flow_id=request.flow_id,
+        document_id=request.document_id,
+        document_type=request.document_type,
+        document_title=request.document_title,
+        submitter=current_user.username,
+        comment=request.comment,
+    )
+    
+    if not record:
+        raise HTTPException(status_code=400, detail="提交审核失败，可能已有活跃审核")
+    
+    return {"id": record.id, "message": "提交成功"}
+
+
+@router.get("/reviews", summary="获取审核记录列表")
+async def get_reviews(
+    status: Optional[str] = Query(None, description="状态过滤"),
+    flow_id: Optional[str] = Query(None, description="流程ID过滤"),
+    submitted_by: Optional[str] = Query(None, description="提交人过滤"),
+    document_type: Optional[str] = Query(None, description="文档类型过滤"),
+    limit: int = Query(100, le=1000),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """获取审核记录列表"""
+    from modules.business.knowledge_base.document_review import get_review_flow, ReviewStatus
+    
+    flow_manager = get_review_flow()
+    
+    status_enum = None
+    if status:
+        try:
+            status_enum = ReviewStatus(status)
+        except ValueError:
+            pass
+    
+    reviews = flow_manager.list_reviews(
+        status=status_enum,
+        flow_id=flow_id,
+        submitted_by=submitted_by,
+        document_type=document_type,
+        limit=limit,
+    )
+    
+    return {
+        "items": [r.to_dict() for r in reviews],
+        "total": len(reviews),
+    }
+
+
+@router.get("/reviews/{review_id}", summary="获取审核记录详情")
+async def get_review_detail(
+    review_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """获取审核记录详情"""
+    from modules.business.knowledge_base.document_review import get_review_flow
+    
+    flow_manager = get_review_flow()
+    record = flow_manager.get_review(review_id)
+    
+    if not record:
+        raise HTTPException(status_code=404, detail="审核记录不存在")
+    
+    return record.to_dict()
+
+
+@router.post("/reviews/{review_id}/approve", summary="批准审核")
+async def approve_review(
+    review_id: str,
+    comment: str = Query("", description="审核意见"),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """批准当前审核级别或完成审核"""
+    from modules.business.knowledge_base.document_review import get_review_flow
+    
+    flow_manager = get_review_flow()
+    
+    if not flow_manager.approve(review_id, current_user.username, comment):
+        raise HTTPException(status_code=400, detail="批准失败")
+    
+    return {"message": "批准成功"}
+
+
+@router.post("/reviews/{review_id}/reject", summary="拒绝审核")
+async def reject_review(
+    review_id: str,
+    comment: str = Query("", description="拒绝原因"),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """拒绝审核"""
+    from modules.business.knowledge_base.document_review import get_review_flow
+    
+    flow_manager = get_review_flow()
+    
+    if not flow_manager.reject(review_id, current_user.username, comment):
+        raise HTTPException(status_code=400, detail="拒绝失败")
+    
+    return {"message": "拒绝成功"}
+
+
+@router.post("/reviews/{review_id}/request-revision", summary="要求修订")
+async def request_revision(
+    review_id: str,
+    comment: str = Query("", description="修订说明"),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """要求提交人修订文档"""
+    from modules.business.knowledge_base.document_review import get_review_flow
+    
+    flow_manager = get_review_flow()
+    
+    if not flow_manager.request_revision(review_id, current_user.username, comment):
+        raise HTTPException(status_code=400, detail="操作失败")
+    
+    return {"message": "已要求修订"}
+
+
+@router.post("/reviews/{review_id}/withdraw", summary="撤回审核")
+async def withdraw_review(
+    review_id: str,
+    comment: str = Query("", description="撤回说明"),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """撤回审核提交"""
+    from modules.business.knowledge_base.document_review import get_review_flow
+    
+    flow_manager = get_review_flow()
+    
+    if not flow_manager.withdraw(review_id, current_user.username, comment):
+        raise HTTPException(status_code=400, detail="撤回失败")
+    
+    return {"message": "撤回成功"}
+
+
+@router.post("/reviews/{review_id}/resubmit", summary="重新提交审核")
+async def resubmit_review(
+    review_id: str,
+    comment: str = Query("", description="重新提交说明"),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """修订后重新提交审核"""
+    from modules.business.knowledge_base.document_review import get_review_flow
+    
+    flow_manager = get_review_flow()
+    
+    if not flow_manager.resubmit(review_id, current_user.username, comment):
+        raise HTTPException(status_code=400, detail="重新提交失败")
+    
+    return {"message": "重新提交成功"}
+
+
+@router.get("/reviews/pending", summary="获取待审核列表")
+async def get_pending_reviews(
+    reviewer_role: Optional[str] = Query(None, description="审核人角色"),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """获取当前用户待审核的文档列表"""
+    from modules.business.knowledge_base.document_review import get_review_flow
+    
+    flow_manager = get_review_flow()
+    pending = flow_manager.get_pending_reviews(reviewer_role)
+    
+    return {
+        "items": [r.to_dict() for r in pending],
+        "total": len(pending),
+    }

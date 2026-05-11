@@ -2,7 +2,7 @@
 通知渠道数据库模型
 """
 
-from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, JSON
+from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, JSON, Index
 from sqlalchemy.sql import func
 from modules.foundation.db_models.base import Base
 
@@ -77,3 +77,66 @@ class NotificationLog(Base):
     # 时间戳
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     duration_ms = Column(Integer)  # 发送耗时
+
+
+class NotificationTargetRule(Base):
+    """
+    通知目标规则模型
+    定义告警通知的目标规则和接收者配置
+    """
+    __tablename__ = "notification_target_rules"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    # 规则基本信息
+    name = Column(String(128), nullable=False, unique=True, comment='规则名称')
+    description = Column(String(512), comment='规则描述')
+
+    # 启用状态
+    enabled = Column(Boolean, default=True, comment='是否启用')
+
+    # 规则类型
+    rule_type = Column(String(32), nullable=False, comment='规则类型: alert_level, device, category, custom')
+    
+    # 匹配条件 (JSON格式)
+    # alert_level: {"levels": ["critical", "high"]}
+    # device: {"device_ids": [1, 2], "device_types": ["server"]}
+    # category: {"categories": ["performance", "fault"]}
+    # custom: {"expression": "level == critical && device_name.startswith(prod-)"}
+    match_conditions = Column(Text, comment='匹配条件(JSON)')
+
+    # 通知配置
+    notify_channels = Column(Text, nullable=False, comment='通知渠道(JSON): ["email", "dingtalk"]')
+    notify_receivers = Column(Text, comment='通知接收人(JSON)')
+    
+    # 通知策略
+    notify_interval = Column(Integer, default=300, comment='重复通知间隔(秒), 0表示不重复')
+    max_notify_count = Column(Integer, default=3, comment='最大通知次数')
+    
+    # 升级策略 (JSON)
+    escalation_config = Column(Text, comment='升级配置(JSON)')
+    # 例如: {"critical": [{"after_seconds": 300, "channels": ["sms"]}]}
+
+    # 抑制配置
+    suppress_enabled = Column(Boolean, default=False, comment='是否启用抑制')
+    suppress_until = Column(DateTime, comment='抑制截止时间')
+
+    # 时段配置 (JSON)
+    time_windows = Column(Text, comment='允许的通知时段(JSON)')
+    # 例如: [{"days": [1,2,3,4,5], "start_hour": 9, "end_hour": 18}]
+
+    # 元数据
+    priority = Column(Integer, default=100, comment='优先级, 数字越小优先级越高')
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_by = Column(String(64))
+    updated_by = Column(String(64))
+
+    # 索引
+    __table_args__ = (
+        Index('idx_target_rule_enabled', 'enabled', 'priority'),
+        Index('idx_target_rule_type', 'rule_type', 'enabled'),
+    )
+
+    def __repr__(self):
+        return f"<NotificationTargetRule(id={self.id}, name='{self.name}', rule_type='{self.rule_type}')>"
