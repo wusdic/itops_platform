@@ -212,11 +212,12 @@ ITOPS_DB_PASSWORD=your-secure-db-password
 #### 3. AI 配置（如需 AI 功能）
 
 ```bash
-# Ollama 服务地址（Docker 环境使用 host.docker.internal）
-AI_MODEL=qwen2.5:7b
+# LLM 服务地址（llama-cpp-python，端口 11435）
+AI_MODEL=qwen3.5-9b-deepseek-v4-flash-q8_0
+AI_BASE_URL=http://127.0.0.1:11435
 
 # 或使用 OpenAI（需要互联网）
-# OPENAI_API_KEY=sk-your-openai-key
+# OPENAI_API_KEY=***
 ```
 
 详细配置说明请参考 [CONFIG_GUIDE.md](CONFIG_GUIDE.md)。
@@ -279,26 +280,64 @@ frontend (Node 18 - Vite dev server)
 
 ### AI 模型配置
 
-#### 本地 Ollama（推荐，内网使用）
+本平台使用 **llama-cpp-python** 直接加载 GGUF 模型，无需 Ollama 二进制。
+
+#### 1. 下载模型
+
+模型文件：`Qwen3.5-9B-DeepSeek-V4-Flash-Q8_0.gguf`
+
+可从以下途径获取：
+- ModelScope: qwen/Qwen3-8B-GGUF（Q4_K_M 量化版本）
+- HuggingFace（国内需代理）
 
 ```bash
-# 1. 安装 Ollama
-# https://ollama.ai/
+# 创建目录
+mkdir -p /tmp/model_cache_35
 
-# 2. 拉取模型
-ollama pull qwen2.5:7b
-ollama pull nomic-embed-text
-
-# 3. 验证
-ollama list
+# 将 GGUF 模型文件放入
+# 文件名应为：qwen3.5-9b-deepseek-v4-flash-q8_0.gguf
 ```
 
-#### 云端 OpenAI（需要互联网）
+#### 2. 启动 LLM 服务
 
 ```bash
-# .env 中配置
-OPENAI_API_KEY=sk-your-key
+cd ~/.hermes/projects/itops_platform
+
+# 启动服务（端口11435，n_ctx=8192）
+./start_llm_server_35.sh
+
+# 或指定模型路径和端口
+./start_llm_server_35.sh /path/to/model.gguf 11435 8192 8
 ```
+
+#### 3. 验证服务
+
+```bash
+curl http://127.0.0.1:11435/health
+# 应返回：{"status":"ok"}
+
+# 测试推理
+curl -X POST http://127.0.0.1:11435/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"messages":[{"role":"user","content":"Hello"}],"model":"qwen3.5-9b-deepseek-v4-flash-q8_0"}'
+```
+
+#### 4. API 端点（Ollama 兼容）
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/health` | GET | 健康检查 |
+| `/v1/chat/completions` | POST | 聊天补全（非流式） |
+| `/v1/embeddings` | POST | 向量嵌入 |
+
+#### 5. 配置参数说明
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| 端口 | 11435 | LLM 服务监听端口 |
+| n_ctx | 8192 | 上下文窗口大小 |
+| n_threads | 1 | CPU 推理线程数 |
+| n_gpu_layers | 0 | GPU 加速层数（CPU 模式为 0） |
 
 ---
 
@@ -374,9 +413,10 @@ cat config/devices/devices.yaml
 A: 使用 `host.docker.internal`（已在 docker-compose.yml 中配置）：
 
 ```yaml
-# 示例：Ollama 配置
+# 示例：LLM 服务配置（Docker 环境使用 host.docker.internal）
 ai:
-  base_url: http://host.docker.internal:11434
+  base_url: http://host.docker.internal:11435
+  model: qwen3.5-9b-deepseek-v4-flash-q8_0
 ```
 
 ### Q: 如何启用 InfluxDB 替代 TDengine？
@@ -585,8 +625,8 @@ __all__ = ['MyService']
    - 查看浏览器控制台
 
 3. **AI助手无响应**
-   - 确认Ollama服务是否运行
-   - 检查模型是否已下载: `ollama list`
+   - 确认LLM服务是否运行: `curl http://127.0.0.1:11435/health`
+   - 检查GGUF模型文件是否存在
    - 验证AI配置中的URL和模型名称
 
 4. **告警不触发**
