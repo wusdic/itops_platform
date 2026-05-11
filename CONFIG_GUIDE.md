@@ -39,7 +39,7 @@ docker-compose logs -f api
 # - Redis (localhost:6379)
 # - TDengine (localhost:6030) 或 InfluxDB (localhost:8086)
 # - Qdrant (localhost:6333)
-# - Ollama (localhost:11434)
+# - LLM 服务 (localhost:11435)
 
 # 2. 复制环境变量模板
 cp .env.example .env
@@ -110,7 +110,8 @@ itops_platform/
 | 变量名 | 说明 | 默认值 | 示例 |
 |--------|------|--------|------|
 | `AI_ENABLED` | 启用 AI 功能 | `true` | `true` |
-| `AI_MODEL` | AI 模型名称 | `qwen2.5:7b` | `qwen2.5:7b` |
+| `AI_MODEL` | AI 模型名称 | `qwen3.5-9b-deepseek-v4-flash-q8_0` | `qwen3.5-9b-deepseek-v4-flash-q8_0` |
+| `AI_BASE_URL` | LLM 服务地址 | `http://127.0.0.1:11435` | `http://127.0.0.1:11435` |
 
 #### 告警通知配置（可选）
 
@@ -233,25 +234,24 @@ minio:
     - "9001:9001"   # Console
 ```
 
-### AI 服务 (Ollama)
+### AI 服务 (llama-cpp-python)
 
-**注意**：Ollama 默认已注释，如需启用：
+本平台使用 llama-cpp-python 直接加载 GGUF 模型，**不依赖 Ollama**。
 
-```yaml
-# 取消 docker-compose.yml 中的 ollama 服务注释
-ollama:
-  image: ollama/ollama:latest
-  ports:
-    - "11434:11434"
-  volumes:
-    - ollama_data:/root/.ollama
-  deploy:
-    resources:
-      reservations:
-        devices:
-          - driver: nvidia
-            count: all
-            capabilities: [gpu]
+```bash
+# 1. 安装 llama-cpp-python
+pip install llama-cpp-python
+
+# 2. 下载 GGUF 模型文件
+# 模型：Qwen3.5-9B-DeepSeek-V4-Flash-Q8_0.gguf
+mkdir -p /tmp/model_cache_35
+# 将模型文件放入上述目录
+
+# 3. 启动 LLM 服务
+./start_llm_server_35.sh
+
+# 4. 验证
+curl http://127.0.0.1:11435/health
 ```
 
 ---
@@ -288,43 +288,29 @@ vim config/devices/devices.yaml
 
 ### AI 模型配置
 
-如使用本地 Ollama：
+本平台使用 **llama-cpp-python** 直接加载 GGUF 模型，无需 Ollama。
 
 ```bash
-# 1. 安装 Ollama
-# https://ollama.ai/
+# 1. 下载 GGUF 模型
+mkdir -p /tmp/model_cache_35
+# 将 Qwen3.5-9B-DeepSeek-V4-Flash-Q8_0.gguf 放入上述目录
 
-# 2. 拉取模型
-ollama pull qwen2.5:7b
-ollama pull nomic-embed-text
+# 2. 启动 LLM 服务
+./start_llm_server_35.sh
 
-# 3. 验证运行
-ollama list
+# 3. 环境变量配置
+AI_BASE_URL=http://127.0.0.1:11435
+AI_MODEL=qwen3.5-9b-deepseek-v4-flash-q8_0
 ```
 
----
+### 本地开发（Docker 环境）
 
-## 配置文件优先级
-
-配置加载顺序（后者覆盖前者）：
-
-1. `config/default.yaml`
-2. `config/{environment}.yaml` (dev/prod)
-3. `config/local.yaml` (本地覆盖)
-4. 环境变量 `.env`
-
----
-
-## 常见问题
-
-### Q: Docker 环境下如何访问宿主机服务？
-
-A: 使用 `host.docker.internal`（已在 docker-compose.yml 中配置）
+Docker Compose 部署时，宿主机 LLM 服务通过 `host.docker.internal` 访问：
 
 ```yaml
-# 示例：Ollama 配置
 ai:
-  base_url: http://host.docker.internal:11434
+  base_url: http://host.docker.internal:11435
+  model: qwen3.5-9b-deepseek-v4-flash-q8_0
 ```
 
 ### Q: 如何启用 InfluxDB 替代 TDengine？
