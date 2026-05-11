@@ -26,7 +26,7 @@ class ScenarioType(Enum):
 @dataclass
 class ScenarioConfig:
     """场景配置"""
-    model: str = "qwen3.5:8b"
+    model: str = "qwen3.5-9b-deepseek-v4-flash-q8_0"
     temperature: float = 0.7
     max_tokens: int = 8192
     enable_rag: bool = False
@@ -83,7 +83,7 @@ class BaseScenario:
         scenario_cfg = scenarios_config.get(self.scenario_type, {})
         
         return ScenarioConfig(
-            model=scenario_cfg.get("model", "qwen3.5:8b"),
+            model=scenario_cfg.get("model", "qwen3.5-9b-deepseek-v4-flash-q8_0"),
             temperature=scenario_cfg.get("temperature", self.default_temperature),
             max_tokens=scenario_cfg.get("max_tokens", self.default_max_tokens),
             enable_rag=scenario_cfg.get("enable_rag", False),

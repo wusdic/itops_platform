@@ -56,7 +56,7 @@ class Conversation:
         recent = self.messages[-max_messages:] if max_messages > 0 else self.messages
         return [{"role": m.role, "content": m.content} for m in recent]
     
-    def get_token_count(self, model: str = "qwen3.5:8b") -> int:
+    def get_token_count(self, model: str = "qwen3.5-9b-deepseek-v4-flash-q8_0") -> int:
         """估算token数量"""
         total = 0
         for msg in self.messages:
@@ -81,14 +81,14 @@ class LLMClient:
         self.model_config = config.get("models", {})
         self.conv_config = config.get("conversation", {})
         
-        self.base_url = self.ollama_config.get("base_url", "http://localhost:11434")
+        self.base_url = self.ollama_config.get("base_url", "http://localhost:11435")
         self.timeout = self.ollama_config.get("timeout", 300)
         self.retry_count = self.ollama_config.get("retry_count", 3)
         self.retry_delay = self.ollama_config.get("retry_delay", 5)
         
         self._models: Dict[str, ModelInfo] = {}
         self._conversations: Dict[str, Conversation] = {}
-        self._default_model = self.model_config.get("default", "qwen3.5:8b")
+        self._default_model = self.model_config.get("default", "qwen3.5-9b-deepseek-v4-flash-q8_0")
         
         self._init_models()
         

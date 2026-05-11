@@ -150,18 +150,18 @@ def init_ai(config: dict):
         project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         copilot_config_path = os.path.join(project_root, "config", "templates", "ai_copilot.yaml")
 
-        ai_config = {"ollama": {}, "models": {"default": "qwen3.6-27b-q4-k-m"}, "conversation": {}}
+        ai_config = {"ollama": {}, "models": {"default": "qwen3.5-9b-deepseek-v4-flash-q8_0"}, "conversation": {}}
         if os.path.exists(copilot_config_path):
             with open(copilot_config_path, "r") as f:
                 loaded = yaml.safe_load(f) or {}
                 ai_config["ollama"] = loaded.get("ollama", {})
-                ai_config["models"] = loaded.get("models", {"default": "qwen3.6-27b-q4-k-m"})
+                ai_config["models"] = loaded.get("models", {"default": "qwen3.5-9b-deepseek-v4-flash-q8_0"})
                 ai_config["conversation"] = loaded.get("conversation", {})
 
         # base_url 优先用 dev.yaml 里的 ai.base_url（运行时通过环境变量传入）
         # 检查环境变量或传入的 config
-        base_url = os.getenv("AI_BASE_URL", "http://127.0.0.1:11434")
-        model = os.getenv("AI_MODEL", ai_config["models"].get("default", "qwen3.6-27b-q4-k-m"))
+        base_url = os.getenv("AI_BASE_URL", "http://127.0.0.1:11435")
+        model = os.getenv("AI_MODEL", ai_config["models"].get("default", "qwen3.5-9b-deepseek-v4-flash-q8_0"))
         ai_config["ollama"]["base_url"] = base_url
         ai_config["models"]["default"] = model
 

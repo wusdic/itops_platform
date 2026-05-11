@@ -101,7 +101,7 @@ class RAGRetriever:
         
         # 嵌入模型配置
         embedding_config = self.rag_config.get("embedding", {})
-        self.embedding_url = embedding_config.get("base_url", "http://localhost:11434")
+        self.embedding_url = embedding_config.get("base_url", "http://localhost:11435")
         self.embedding_model = embedding_config.get("model", "nomic-embed-text")
         self.embedding_timeout = embedding_config.get("timeout", 30)
         

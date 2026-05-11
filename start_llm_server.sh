@@ -4,8 +4,8 @@
 
 set -e
 
-MODEL_PATH="${1:-/tmp/model_cache/unsloth/Qwen3___6-27B-GGUF/Qwen3.6-27B-Q4_K_M.gguf}"
-PORT="${2:-11434}"
+MODEL_PATH="${1:-/tmp/model_cache_35/qwen3.5-9b-deepseek-v4-flash-q8_0.gguf}"
+PORT="${2:-11435}"
 N_CTX="${3:-2048}"
 N_THREADS="${4:-1}"
 

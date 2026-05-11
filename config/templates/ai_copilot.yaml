@@ -1,42 +1,23 @@
 # BM-05 AI Copilot Configuration
 # AI助手模块配置
+# 使用 llama-cpp-python 直接加载 GGUF 模型
 
-# Ollama配置
+# LLM 服务配置
 ollama:
-  base_url: "http://localhost:11434"
+  base_url: "http://localhost:11435"
   timeout: 300
   retry_count: 3
   retry_delay: 5
-  
+
 # 模型配置
 models:
-  default: "qwen3.6-27b-q4-k-m"
+  default: "qwen3.5-9b-deepseek-v4-flash-q8_0"
   available:
-    - name: "qwen3.6-27b-q4-k-m"
-      display_name: "通义千问3.6 27B Q4"
+    - name: "qwen3.5-9b-deepseek-v4-flash-q8_0"
+      display_name: "Qwen3.5-9B-DeepSeek-V4-Flash-Q8_0"
       max_tokens: 8192
       context_window: 32768
       enabled: true
-    - name: "qwen3.5:8b"
-      display_name: "通义千问3.5 8B"
-      max_tokens: 8192
-      context_window: 32768
-      enabled: false
-    - name: "qwen3.5:14b"
-      display_name: "通义千问3.5 14B"
-      max_tokens: 8192
-      context_window: 32768
-      enabled: false
-    - name: "qwen2.5:7b"
-      display_name: "通义千问2.5 7B"
-      max_tokens: 8192
-      context_window: 32768
-      enabled: false
-    - name: "llama3.1:8b"
-      display_name: "Llama 3.1 8B"
-      max_tokens: 8192
-      context_window: 32768
-      enabled: false
 
 # 对话配置
 conversation:
@@ -55,12 +36,12 @@ prompts:
     - 标准操作流程(SOP)生成
     - 变更评审支持
     - 智能问答
-    
+
     请始终保持专业、准确、简洁的回答风格。
-    
+
   # 模板目录
   template_dir: "templates"
-  
+
   # 内置模板
   templates:
     fault_diagnosis:
@@ -96,7 +77,7 @@ rag:
     host: "localhost"
     port: 6333
     collection_name: "itops_knowledge"
-    
+
   # 检索配置
   retrieval:
     top_k: 10
@@ -104,7 +85,7 @@ rag:
     max_context_length: 4000
     rerank_enabled: true
     rerank_top_k: 5
-    
+
   # 知识库配置
   knowledge_base:
     sources:
@@ -130,35 +111,35 @@ chain_of_thought:
 # 场景配置
 scenarios:
   fault_diagnosis:
-    model: "qwen3.5:8b"
+    model: "qwen3.5-9b-deepseek-v4-flash-q8_0"
     temperature: 0.3
     enable_rag: true
     rag_top_k: 5
-    
+
   daily_report:
-    model: "qwen3.5:8b"
+    model: "qwen3.5-9b-deepseek-v4-flash-q8_0"
     temperature: 0.5
     enable_rag: false
-    
+
   weekly_report:
-    model: "qwen3.5:8b"
+    model: "qwen3.5-9b-deepseek-v4-flash-q8_0"
     temperature: 0.5
     enable_rag: false
-    
+
   sop_generation:
-    model: "qwen3.5:8b"
+    model: "qwen3.5-9b-deepseek-v4-flash-q8_0"
     temperature: 0.4
     enable_rag: true
     rag_top_k: 3
-    
+
   change_review:
-    model: "qwen3.5:8b"
+    model: "qwen3.5-9b-deepseek-v4-flash-q8_0"
     temperature: 0.3
     enable_rag: true
     rag_top_k: 5
-    
+
   qa:
-    model: "qwen3.5:8b"
+    model: "qwen3.5-9b-deepseek-v4-flash-q8_0"
     temperature: 0.7
     enable_rag: true
     rag_top_k: 10

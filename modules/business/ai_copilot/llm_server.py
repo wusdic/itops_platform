@@ -268,7 +268,7 @@ def reload_model():
         return jsonify({"error": str(e)}), 500
 
 
-def start_server(model_path: str, host: str = "0.0.0.0", port: int = 11434,
+def start_server(model_path: str, host: str = "0.0.0.0", port: int = 11435,
                  n_ctx: int = 2048, n_threads: int = 1):
     """启动服务"""
     global _executor, _model_path
@@ -286,7 +286,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     model_path = sys.argv[1]
-    port = int(sys.argv[2]) if len(sys.argv) > 2 else 11434
+    port = int(sys.argv[2]) if len(sys.argv) > 2 else 11435
     n_ctx = int(sys.argv[3]) if len(sys.argv) > 3 else 2048
     n_threads = int(sys.argv[4]) if len(sys.argv) > 4 else 1
 
