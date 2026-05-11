@@ -53,7 +53,7 @@ def load_config() -> dict:
         
         # AI配置
         "ai_enabled": os.getenv("AI_ENABLED", "true").lower() == "true",
-        "ai_model": os.getenv("AI_MODEL", "gpt-4"),
+        "ai_model": os.getenv("AI_MODEL", "qwen3.5-9b-deepseek-v4-flash-q8_0"),
     }
     
     return config

@@ -96,13 +96,12 @@ knowledge:
 # AI配置
 ai:
   enabled: true
-  
-  # 大语言模型配置
+
+  # 大语言模型配置（llama-cpp-python）
   llm:
-    provider: "openai"
-    model: "gpt-4"
-    api_key: "${OPENAI_API_KEY}"
-    base_url: "https://api.openai.com/v1"
+    provider: "llama_cpp"
+    model: "qwen3.5-9b-deepseek-v4-flash-q8_0"
+    base_url: "http://host.docker.internal:11435"
     temperature: 0.7
     max_tokens: 2000
   
