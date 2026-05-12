@@ -187,7 +187,7 @@ class TestAlertTriggerEngine:
         
         # 简单表达式
         assert self.engine.evaluate_expression('value > 80', context) is True
-        assert self.engine.evaluate_expression('value < 80', context) is True
+        assert self.engine.evaluate_expression('value < 90', context) is True  # 85 < 90
         assert self.engine.evaluate_expression('value == 85', context) is True
         
         # 复合表达式

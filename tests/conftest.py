@@ -309,14 +309,97 @@ class DataFactory:
         return data
 
     def trigger_rule(self, **overrides) -> dict:
-        """生成触发规则数据"""
+        """生成触发规则数据 (AUTO-020 告警触发自动化)"""
+        condition_types = ["threshold", "change", "rate", "constant", "expression"]
+        alert_levels = ["critical", "high", "medium", "low", "warning", "info"]
+        operators = [">", "<", ">=", "<=", "==", "!="]
+        
+        condition_type = random.choice(condition_types)
+        
+        if condition_type == "threshold":
+            match_conditions = {
+                "metric": random.choice(["cpu_usage", "memory_usage", "disk_usage", "network_in", "network_out"]),
+                "operator": random.choice(operators),
+                "value": random.choice([70, 75, 80, 85, 90, 95]),
+            }
+        elif condition_type == "change":
+            match_conditions = {
+                "metric": random.choice(["cpu_usage", "memory_usage"]),
+                "change_percent": random.choice([30, 50, 70, 100]),
+            }
+        elif condition_type == "rate":
+            match_conditions = {
+                "metric": random.choice(["cpu_usage", "memory_usage"]),
+                "threshold": random.choice([5, 10, 15, 20]),
+            }
+        elif condition_type == "constant":
+            match_conditions = {
+                "metric": random.choice(["cpu_usage", "memory_usage"]),
+                "duration_seconds": random.choice([60, 180, 300, 600]),
+            }
+        else:  # expression
+            match_conditions = {
+                "expr": random.choice([
+                    "value > 80",
+                    "value >= 90",
+                    "value < 20",
+                    "value > 80 and previous_value > 70",
+                ]),
+            }
+        
         data = {
+            "id": f"rule-{uuid.uuid4().hex[:12]}",
             "name": f"规则_{self._uid()}",
-            "condition": '{"severity": "critical"}',
-            "action": "execute_script",
-            "target_id": f"script_{self._uid()}",
+            "description": f"告警触发规则 - {uuid.uuid4().hex[:8]}",
             "enabled": random.choice([True, False]),
-            "cooldown": random.randint(60, 3600),
+            "condition_type": condition_type,
+            "match_conditions": match_conditions,
+            "alert_level": random.choice(alert_levels),
+            "alert_title_template": "{metric}告警",
+            "alert_message_template": "{metric}超过阈值，当前值:{value}，阈值:{threshold}",
+            "device_ids": random.sample(range(1, 100), k=random.randint(0, 5)),
+            "device_types": random.sample(["server", "router", "switch", "storage"], k=random.randint(0, 2)),
+            "tags_filter": {},
+            "suppress_enabled": random.choice([True, False]),
+            "suppress_duration": random.choice([60, 180, 300, 600]),
+            "suppress_key": f"suppress-{uuid.uuid4().hex[:8]}",
+            "trigger_interval": random.choice([30, 60, 180, 300, 600]),
+            "actions": [
+                {"type": "notify", "channels": random.sample(["email", "dingtalk", "feishu"], k=random.randint(1, 2))}
+            ] if random.random() > 0.3 else [],
+            "time_windows": [
+                {"days": [0, 1, 2, 3, 4, 5, 6], "start_hour": 0, "end_hour": 23}
+            ] if random.random() > 0.5 else [],
+            "priority": random.randint(1, 200),
+            "created_at": datetime.now(),
+            "updated_at": datetime.now(),
+            "created_by": f"user_{random.randint(1, 100)}",
+        }
+        data.update(overrides)
+        return data
+
+    def trigger_event(self, **overrides) -> dict:
+        """生成触发事件数据 (AUTO-020)"""
+        statuses = ["pending", "triggered", "suppressed", "expired"]
+        alert_levels = ["critical", "high", "medium", "low", "warning", "info"]
+        
+        data = {
+            "id": f"event-{uuid.uuid4().hex[:12]}",
+            "rule_id": f"rule-{uuid.uuid4().hex[:12]}",
+            "rule_name": f"规则_{self._uid()}",
+            "status": random.choice(statuses),
+            "trigger_time": datetime.now() - timedelta(minutes=random.randint(0, 60)),
+            "metric_name": random.choice(["cpu_usage", "memory_usage", "disk_usage"]),
+            "metric_value": random.uniform(70.0, 99.0),
+            "threshold_value": random.choice([70, 80, 85, 90, 95]),
+            "device_id": random.randint(1, 100),
+            "device_name": self.hostname(),
+            "device_ip": self.ip_address(),
+            "alert_level": random.choice(alert_levels),
+            "alert_title": f"{random.choice(['CPU', 'Memory', 'Disk'])}告警",
+            "alert_message": f"检测到异常，当前值超过阈值",
+            "conditions_snapshot": {"metric": "cpu_usage", "operator": ">", "value": 80},
+            "created_at": datetime.now() - timedelta(minutes=random.randint(0, 60)),
         }
         data.update(overrides)
         return data

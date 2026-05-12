@@ -298,7 +298,7 @@ class AlertTriggerEngine:
         try:
             # 简单表达式评估，支持基本操作符
             # 实际生产环境应使用安全的表达式引擎
-            allowed_chars = set('0123456789.+-*/%<>=!&|()三角函数sqrt pow cos sin tan abs ')
+            allowed_chars = set('0123456789.+-*/%<>=!&|()三角函数sqrt pow cos sin tan abs _')
             if not all(c in allowed_chars or c.isalnum() or c.isspace() for c in expr):
                 return False
             result = eval(expr, {"__builtins__": {}}, context)

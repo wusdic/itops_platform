@@ -3,6 +3,11 @@
 ## 2026-05-12
 
 ### 下午工作
+- [13:15] AUTO-020 完成 - 告警触发自动化 DataFactory + 表达式评估修复
+  - 修复 evaluate_expression 中下划线 `_` 不被允许的 bug
+  - 修复测试断言错误 `value < 80` -> `value < 90`（85不小于80）
+  - 增强 conftest.py DataFactory: trigger_rule + trigger_event 方法
+  - test_alert_trigger.py 26个测试 100%通过率
 - [13:00] WKO-021/WKO-022/WKO-033 完成 - SLA计时器 + 自动升级 + 工单导出 TDD测试
   - 创建 test_workorder_wko021_wko022_wko033.py (44个测试, 100%通过率)
   - 使用 WorkOrderDataFactory 和 SLATrackerDataFactory 生成真实感测试数据
