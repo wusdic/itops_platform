@@ -7,6 +7,10 @@
   - 创建 test_workorder_wko021_wko022_wko033.py (44个测试, 100%通过率)
   - 使用 WorkOrderDataFactory 和 SLATrackerDataFactory 生成真实感测试数据
   - 修复 workorder_export.py 中 Font color aRGB 格式 bug
+- [12:55] MON-032 完成 - 自定义仪表盘布局 TDD 测试
+  - 创建 test_dashboard_layout_mon032.py (46个测试, 100%通过率)
+  - 使用 DashboardLayoutDataFactory 生成真实感测试数据
+  - conftest.py 添加 dashboard_layout/dashboard_widget/dashboard_layout_item DataFactory 方法
 - [12:30] MON-028 开始 - 告警审计日志完成实现
   - 增强 test_alert_audit_log.py 使用 DataFactory 生成测试数据
   - 创建 alert_audit_service.py 服务层

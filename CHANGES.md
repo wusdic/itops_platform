@@ -17,6 +17,7 @@
 | 2026-05-12 | WKO-022 SLA自动升级TDD测试 | 工单模块 | DataFactory + 9个测试用例 | ✅ 已验证 |
 | 2026-05-12 | WKO-033 工单导出TDD测试 | 工单模块 | DataFactory + 20个测试用例 | ✅ 已验证 |
 | 2026-05-12 | workorder_export.py Font修复 | 工单导出 | Font color需aRGB格式 | ✅ 已验证 |
+| 2026-05-12 | MON-032 自定义仪表盘布局TDD测试 | 监控模块 | DataFactory + 46个TDD测试用例 | ✅ 已验证 |
 
 ## 模块级修改日志
 
@@ -31,6 +32,8 @@
 |------|------|------|
 | 2026-05-12 | alert_audit_service.py - 新增服务层 | MON-028审计日志服务 |
 | 2026-05-12 | monitoring.py - 告警API集成审计日志 | 创建/确认/解决/删除自动记录 |
+| 2026-05-12 | test_dashboard_layout_mon032.py - TDD测试 | MON-032自定义仪表盘布局测试 |
+| 2026-05-12 | conftest.py - dashboard布局DataFactory方法 | MON-032测试数据工厂 |
 
 ### 设备管理
 | 时间 | 修改 | 原因 |

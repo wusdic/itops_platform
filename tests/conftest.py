@@ -337,6 +337,118 @@ class DataFactory:
         data.update(overrides)
         return data
 
+    # ----- 仪表盘布局相关 -----
+    def dashboard_layout(self, **overrides) -> dict:
+        """生成仪表盘布局数据"""
+        widget_types = [
+            "alert_count", "alert_list", "device_status", "metric_chart",
+            "topn_table", "availabilityGauge", "trend_line", "pie_chart",
+            "heatmap", "stat_card", "sla_timer", "workorder_list"
+        ]
+        grid_sizes = ["small", "medium", "large", "xlarge"]
+        themes = ["default", "dark", "light", "custom"]
+
+        # 生成组件
+        items = []
+        for _ in range(random.randint(2, 6)):
+            widget = {
+                "widget_id": f"widget-{uuid.uuid4().hex[:12]}",
+                "widget_type": random.choice(widget_types),
+                "title": f"组件-{self._uid()}",
+                "metric_names": random.sample(
+                    ["cpu", "memory", "disk", "network", "response_time", "error_rate"],
+                    k=random.randint(1, 3)
+                ),
+                "time_range": random.choice(["1h", "6h", "24h", "7d", "30d"]),
+                "refresh_interval": random.choice([30, 60, 300, 600]),
+                "config": {
+                    "show_legend": random.choice([True, False]),
+                    "show_grid": random.choice([True, False]),
+                    "color_scheme": random.choice(["default", "dark", "light", "custom"]),
+                    "chart_type": random.choice(["line", "bar", "area", "pie"]),
+                },
+            }
+            position = {
+                "x": random.randint(0, 11),
+                "y": random.randint(0, 19),
+                "width": random.choice([1, 2, 3, 4, 6, 8]),
+                "height": random.choice([1, 2, 3, 4]),
+                "z_index": random.randint(0, 100),
+            }
+            items.append({
+                "item_id": f"item-{uuid.uuid4().hex[:12]}",
+                "widget": widget,
+                "position": position,
+                "visibility": random.choice([True, True, True, False]),
+                "locked": random.choice([False, False, True]),
+                "collapsed": random.choice([False, False, True]),
+            })
+
+        data = {
+            "layout_id": f"layout-{uuid.uuid4().hex[:12]}",
+            "name": f"布局-{self._uid()}",
+            "description": f"自定义仪表盘布局 - {uuid.uuid4().hex[:8]}",
+            "version": 1,
+            "grid_size": random.choice(grid_sizes),
+            "columns": random.choice([12, 24]),
+            "row_height": random.choice([50, 80, 100]),
+            "items": items,
+            "theme": random.choice(themes),
+            "is_default": random.choice([False, False, True]),
+            "is_shared": random.choice([False, True]),
+            "owner_id": f"user_{random.randint(1, 100)}",
+            "tags": random.sample(["默认", "核心监控", "运维视图", "管理视图"], k=random.randint(0, 2)),
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat(),
+        }
+        data.update(overrides)
+        return data
+
+    def dashboard_widget(self, **overrides) -> dict:
+        """生成仪表盘组件数据"""
+        widget_types = [
+            "alert_count", "alert_list", "device_status", "metric_chart",
+            "topn_table", "availabilityGauge", "trend_line", "pie_chart"
+        ]
+        data = {
+            "widget_id": f"widget-{uuid.uuid4().hex[:12]}",
+            "widget_type": random.choice(widget_types),
+            "title": f"组件-{self._uid()}",
+            "metric_names": random.sample(
+                ["cpu", "memory", "disk", "network", "response_time", "error_rate"],
+                k=random.randint(1, 3)
+            ),
+            "time_range": random.choice(["1h", "6h", "24h", "7d", "30d"]),
+            "refresh_interval": random.choice([30, 60, 300, 600]),
+            "config": {
+                "show_legend": random.choice([True, False]),
+                "show_grid": random.choice([True, False]),
+                "color_scheme": random.choice(["default", "dark", "light", "custom"]),
+                "chart_type": random.choice(["line", "bar", "area", "pie"]),
+            },
+        }
+        data.update(overrides)
+        return data
+
+    def dashboard_layout_item(self, **overrides) -> dict:
+        """生成仪表盘布局项数据"""
+        data = {
+            "item_id": f"item-{uuid.uuid4().hex[:12]}",
+            "widget": self.dashboard_widget(),
+            "position": {
+                "x": random.randint(0, 11),
+                "y": random.randint(0, 19),
+                "width": random.choice([1, 2, 3, 4, 6, 8]),
+                "height": random.choice([1, 2, 3, 4]),
+                "z_index": random.randint(0, 100),
+            },
+            "visibility": random.choice([True, True, True, False]),
+            "locked": random.choice([False, False, True]),
+            "collapsed": random.choice([False, False, True]),
+        }
+        data.update(overrides)
+        return data
+
 
 # ============================================================================
 # 全局工厂实例
