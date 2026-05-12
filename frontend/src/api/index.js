@@ -1,4 +1,8 @@
 import request from './request'
+import { devices, alerts, performance } from './monitoring'
+import { auth, user, role, menu, dict, config } from './system'
+import { assets } from './assets'
+import { scheduler, reports } from './scheduler'
 
 export const workorder = {
   getList: (params) => request.get('/workorder/list', { params }),
@@ -66,3 +70,6 @@ export const notification = {
   getConfig: () => request.get('/notification/config'),
   updateConfig: (data) => request.put('/notification/config', data)
 }
+
+export { devices, alerts, performance, auth, user, role, menu, dict, config, assets, scheduler, reports }
+
