@@ -96,7 +96,7 @@ class TestConfigLoader:
         """测试加载配置文件"""
         from modules.collection.config_loader import ConfigLoader
         
-        loader = ConfigLoader(config_file=temp_config_file)
+        loader = ConfigLoader(config_dir=temp_config_file)
         assert loader.config is not None
         assert "devices" in loader.config
     
@@ -104,7 +104,7 @@ class TestConfigLoader:
         """测试获取所有设备"""
         from modules.collection.config_loader import ConfigLoader
         
-        loader = ConfigLoader(config_file=temp_config_file)
+        loader = ConfigLoader(config_dir=temp_config_file)
         devices = loader.get_devices()
         assert len(devices) == 2
     
@@ -112,7 +112,7 @@ class TestConfigLoader:
         """测试根据名称获取设备"""
         from modules.collection.config_loader import ConfigLoader
         
-        loader = ConfigLoader(config_file=temp_config_file)
+        loader = ConfigLoader(config_dir=temp_config_file)
         device = loader.get_device_by_name("server-01")
         assert device is not None
         assert device["ip"] == "192.168.1.10"
@@ -121,7 +121,7 @@ class TestConfigLoader:
         """测试根据IP获取设备"""
         from modules.collection.config_loader import ConfigLoader
         
-        loader = ConfigLoader(config_file=temp_config_file)
+        loader = ConfigLoader(config_dir=temp_config_file)
         device = loader.get_device_by_ip("192.168.1.11")
         assert device is not None
         assert device["name"] == "server-02"
@@ -130,7 +130,7 @@ class TestConfigLoader:
         """测试按类型获取设备"""
         from modules.collection.config_loader import ConfigLoader
         
-        loader = ConfigLoader(config_file=temp_config_file)
+        loader = ConfigLoader(config_dir=temp_config_file)
         linux_devices = loader.get_devices(device_type="linux")
         windows_devices = loader.get_devices(device_type="windows")
         
@@ -144,7 +144,7 @@ class TestConfigLoader:
         """测试按厂商获取设备"""
         from modules.collection.config_loader import ConfigLoader
         
-        loader = ConfigLoader(config_file=temp_config_file)
+        loader = ConfigLoader(config_dir=temp_config_file)
         dell_devices = loader.get_devices(vendor="dell")
         hp_devices = loader.get_devices(vendor="hp")
         
@@ -155,7 +155,7 @@ class TestConfigLoader:
         """测试只获取已启用的设备"""
         from modules.collection.config_loader import ConfigLoader
         
-        loader = ConfigLoader(config_file=temp_config_file)
+        loader = ConfigLoader(config_dir=temp_config_file)
         enabled_devices = loader.get_devices(enabled_only=True)
         
         # server-01 enabled=True, server-02 enabled=False
@@ -166,7 +166,7 @@ class TestConfigLoader:
         """测试按标签过滤设备"""
         from modules.collection.config_loader import ConfigLoader
         
-        loader = ConfigLoader(config_file=temp_config_file)
+        loader = ConfigLoader(config_dir=temp_config_file)
         
         prod_devices = loader.get_devices(tag="env:production")
         dev_devices = loader.get_devices(tag="env:development")
@@ -181,7 +181,7 @@ class TestConfigLoader:
         """测试获取设备凭据"""
         from modules.collection.config_loader import ConfigLoader
         
-        loader = ConfigLoader(config_file=temp_config_file)
+        loader = ConfigLoader(config_dir=temp_config_file)
         creds = loader.get_device_credentials("server-01", "ssh")
         
         assert creds is not None
@@ -191,7 +191,7 @@ class TestConfigLoader:
         """测试获取设备协议配置"""
         from modules.collection.config_loader import ConfigLoader
         
-        loader = ConfigLoader(config_file=temp_config_file)
+        loader = ConfigLoader(config_dir=temp_config_file)
         protocol_config = loader.get_device_protocol_config("server-01", "ssh")
         
         assert protocol_config is not None
@@ -202,7 +202,7 @@ class TestConfigLoader:
         """测试获取采集配置"""
         from modules.collection.config_loader import ConfigLoader
         
-        loader = ConfigLoader(config_file=temp_config_file)
+        loader = ConfigLoader(config_dir=temp_config_file)
         collect_config = loader.get_collect_config("server-01")
         
         assert collect_config is not None
@@ -213,7 +213,7 @@ class TestConfigLoader:
         """测试重新加载配置"""
         from modules.collection.config_loader import ConfigLoader
         
-        loader = ConfigLoader(config_file=temp_config_file)
+        loader = ConfigLoader(config_dir=temp_config_file)
         initial_devices = loader.get_devices()
         assert len(initial_devices) == 2
         
@@ -261,7 +261,7 @@ class TestDeviceFiltering:
             import yaml
             yaml.dump(config, f)
         
-        loader = ConfigLoader(config_file=path)
+        loader = ConfigLoader(config_dir=path)
         yield loader
         os.unlink(path)
     
@@ -300,7 +300,7 @@ class TestConfigStats:
             import yaml
             yaml.dump(config, f)
         
-        loader = ConfigLoader(config_file=path)
+        loader = ConfigLoader(config_dir=path)
         stats = loader.get_stats()
         
         assert "total_devices" in stats
