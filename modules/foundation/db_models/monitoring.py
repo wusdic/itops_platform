@@ -82,6 +82,9 @@ class DeviceMetricConfig(Base):
     # 告警阈值配置（JSON格式）
     alert_thresholds = Column(Text)  # JSON: {"max": 90, "min": 10}
     
+    # 自定义参数配置（JSON格式）- 用于采集器自定义配置
+    params = Column(Text)  # JSON: {"timeout": 30, "retries": 3, "threshold": 90}
+    
     # 元数据
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -111,6 +114,7 @@ class DeviceMetricConfig(Base):
             'enabled': self.enabled,
             'collect_interval': self.collect_interval,
             'alert_thresholds': self.alert_thresholds,
+            'params': self.params,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'created_by': self.created_by,

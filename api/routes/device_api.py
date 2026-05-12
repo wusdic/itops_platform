@@ -381,6 +381,167 @@ async def get_device_metrics(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ============== 采集项配置接口 ==============
+
+class MetricConfigUpdateRequest(BaseModel):
+    """采集项配置更新请求"""
+    enabled: Optional[bool] = Field(None, description="是否启用采集")
+    collect_interval: Optional[int] = Field(None, description="采集间隔(秒)")
+    params: Optional[str] = Field(None, description="自定义参数配置(JSON)")
+
+
+class MetricConfigResponse(BaseModel):
+    """采集项配置响应"""
+    id: int
+    device_id: int
+    device_name: str
+    metric_category: str
+    metric_name: str
+    enabled: bool
+    collect_interval: int
+    params: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+@router.patch("/{device_id}/metrics/{metric}", summary="更新设备指标采集配置")
+async def update_device_metric_config(
+    device_id: int,
+    metric: str,
+    request: MetricConfigUpdateRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """
+    更新设备特定指标采集项的配置
+    支持启用/禁用采集、调整采集间隔、自定义参数
+    """
+    try:
+        from modules.foundation.db_models.monitoring import DeviceMetricConfig
+        from modules.foundation.db.client import get_db_session
+        
+        with get_db_session() as session:
+            # 查找现有配置
+            config = session.query(DeviceMetricConfig).filter(
+                DeviceMetricConfig.device_id == device_id,
+                DeviceMetricConfig.metric_name == metric
+            ).first()
+            
+            if config is None:
+                # 如果不存在，创建新配置
+                config = DeviceMetricConfig(
+                    device_id=device_id,
+                    device_name=f"device_{device_id}",  # 后续可通过device manager获取真实名称
+                    metric_category='general',  # 默认分类
+                    metric_name=metric,
+                    enabled=request.enabled if request.enabled is not None else True,
+                    collect_interval=request.collect_interval if request.collect_interval else 0,
+                    params=request.params,
+                    created_by=current_user.username,
+                    updated_by=current_user.username,
+                )
+                session.add(config)
+                session.commit()
+                session.refresh(config)
+                status = "created"
+            else:
+                # 更新现有配置
+                if request.enabled is not None:
+                    config.enabled = request.enabled
+                if request.collect_interval is not None:
+                    config.collect_interval = request.collect_interval
+                if request.params is not None:
+                    config.params = request.params
+                config.updated_by = current_user.username
+                session.commit()
+                session.refresh(config)
+                status = "success"
+            
+            return {
+                "status": status,
+                "message": f"Metric {metric} configuration updated",
+                "data": config.to_dict()
+            }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"更新设备指标配置失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{device_id}/metrics/{metric}/config", summary="获取设备指标配置")
+async def get_device_metric_config(
+    device_id: int,
+    metric: str,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """
+    获取设备特定指标的采集配置
+    """
+    try:
+        from modules.foundation.db_models.monitoring import DeviceMetricConfig
+        from modules.foundation.db.client import get_db_session
+        
+        with get_db_session() as session:
+            config = session.query(DeviceMetricConfig).filter(
+                DeviceMetricConfig.device_id == device_id,
+                DeviceMetricConfig.metric_name == metric
+            ).first()
+            
+            if not config:
+                raise HTTPException(status_code=404, detail=f"Metric config not found for device {device_id}, metric {metric}")
+            
+            return {
+                "status": "success",
+                "data": config.to_dict()
+            }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取设备指标配置失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{device_id}/metrics/configs", summary="获取设备所有指标配置")
+async def list_device_metric_configs(
+    device_id: int,
+    metric_category: Optional[str] = Query(None, description="指标类别过滤"),
+    enabled: Optional[bool] = Query(None, description="启用状态过滤"),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """
+    获取设备所有指标的采集配置
+    """
+    try:
+        from modules.foundation.db_models.monitoring import DeviceMetricConfig
+        from modules.foundation.db.client import get_db_session
+        
+        with get_db_session() as session:
+            query = session.query(DeviceMetricConfig).filter(
+                DeviceMetricConfig.device_id == device_id
+            )
+            
+            if metric_category:
+                query = query.filter(DeviceMetricConfig.metric_category == metric_category)
+            if enabled is not None:
+                query = query.filter(DeviceMetricConfig.enabled == enabled)
+            
+            configs = query.all()
+            
+            return {
+                "status": "success",
+                "data": [c.to_dict() for c in configs],
+                "total": len(configs)
+            }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取设备指标配置列表失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ============== 适配器接口 ==============
 
 @router.get("/adapters/list", summary="获取支持的适配器列表")

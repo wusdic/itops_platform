@@ -16,13 +16,18 @@ from fastapi import FastAPI, Depends
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from modules.foundation.db_models.base import Base as FoundationBase
 from modules.business.knowledge_base.models import Base as KBBases
 
 # 合并所有 declarative base
 import modules.business.knowledge_base.models  # 确保模块加载
-all_bases = FoundationBase.__bases__ + (KBBases,)
+
+# 导入所有模型以确保元数据包含所有表
+import modules.foundation.db_models as db_models_module
+
+all_models_bases = (FoundationBase, KBBases)
 
 # 测试数据库配置
 TEST_DB_URL = 'sqlite:///:memory:'
@@ -31,9 +36,25 @@ TEST_DB_URL = 'sqlite:///:memory:'
 @pytest.fixture
 def db_engine():
     """创建测试数据库引擎（Mock模式下仅用于满足fixture依赖链）"""
-    engine = create_engine(TEST_DB_URL, echo=False)
-    FoundationBase.metadata.create_all(engine)
-    KBBases.metadata.create_all(engine)
+    engine = create_engine(
+        TEST_DB_URL,
+        echo=False,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    # 导入所有模型以确保 Base.metadata 包含所有表
+    from modules.foundation.db_models.base import Base
+    import modules.foundation.db_models.ai
+    import modules.foundation.db_models.notification.notification_model
+    import modules.foundation.db_models.monitoring
+    import modules.foundation.db_models.workorder
+    import modules.foundation.db_models.device
+    import modules.foundation.db_models.alert
+    import modules.foundation.db_models.system
+    import modules.foundation.db_models.report_template
+    import modules.business.knowledge_base.models
+    
+    Base.metadata.create_all(engine)
     return engine
 
 

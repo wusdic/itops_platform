@@ -30,7 +30,12 @@ TEST_DB_URL = 'sqlite:///:memory:'
 @pytest.fixture
 def db_engine():
     """创建测试数据库引擎"""
-    engine = create_engine(TEST_DB_URL, echo=False)
+    engine = create_engine(
+        TEST_DB_URL,
+        echo=False,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
     Base.metadata.create_all(engine)
     return engine
 

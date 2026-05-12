@@ -473,6 +473,91 @@ class DeviceManager:
             task.cancel()
         self._executor.shutdown(wait=False)
 
+    def is_metric_enabled(self, device_id: int, metric_name: str) -> bool:
+        """
+        检查设备指标是否启用采集
+        
+        Args:
+            device_id: 设备ID
+            metric_name: 指标名称
+            
+        Returns:
+            是否启用采集，未配置则默认启用
+        """
+        try:
+            from modules.foundation.db_models.monitoring import DeviceMetricConfig
+            from modules.foundation.db.client import get_db_session
+            
+            with get_db_session() as session:
+                config = session.query(DeviceMetricConfig).filter(
+                    DeviceMetricConfig.device_id == device_id,
+                    DeviceMetricConfig.metric_name == metric_name
+                ).first()
+                
+                if config is None:
+                    # 未配置则默认启用
+                    return True
+                return config.enabled
+        except Exception as e:
+            logger.warning(f"检查指标启用状态失败: {e}")
+            return True  # 出错时默认启用
+    
+    def get_metric_interval(self, device_id: int, metric_name: str) -> Optional[int]:
+        """
+        获取设备指标采集间隔
+        
+        Args:
+            device_id: 设备ID
+            metric_name: 指标名称
+            
+        Returns:
+            采集间隔(秒)，未配置返回None
+        """
+        try:
+            from modules.foundation.db_models.monitoring import DeviceMetricConfig
+            from modules.foundation.db.client import get_db_session
+            
+            with get_db_session() as session:
+                config = session.query(DeviceMetricConfig).filter(
+                    DeviceMetricConfig.device_id == device_id,
+                    DeviceMetricConfig.metric_name == metric_name
+                ).first()
+                
+                if config is None:
+                    return None
+                return config.collect_interval if config.collect_interval > 0 else None
+        except Exception as e:
+            logger.warning(f"获取指标采集间隔失败: {e}")
+            return None
+    
+    def get_metric_params(self, device_id: int, metric_name: str) -> Optional[str]:
+        """
+        获取设备指标自定义参数
+        
+        Args:
+            device_id: 设备ID
+            metric_name: 指标名称
+            
+        Returns:
+            自定义参数字符串，未配置返回None
+        """
+        try:
+            from modules.foundation.db_models.monitoring import DeviceMetricConfig
+            from modules.foundation.db.client import get_db_session
+            
+            with get_db_session() as session:
+                config = session.query(DeviceMetricConfig).filter(
+                    DeviceMetricConfig.device_id == device_id,
+                    DeviceMetricConfig.metric_name == metric_name
+                ).first()
+                
+                if config is None:
+                    return None
+                return config.params
+        except Exception as e:
+            logger.warning(f"获取指标自定义参数失败: {e}")
+            return None
+
 
 # 全局设备管理器实例
 _device_manager: Optional[DeviceManager] = None

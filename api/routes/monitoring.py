@@ -3,6 +3,7 @@
 提供监控数据采集、告警管理、指标查询等接口
 """
 
+import logging
 from typing import Optional, List
 from datetime import datetime, timedelta
 import json
@@ -19,6 +20,7 @@ from modules.foundation.db_models.device import Device
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 # ============== 请求/响应模型 ==============
@@ -463,6 +465,23 @@ async def create_alert(
     db.commit()
     db.refresh(db_alert)
     
+    # 创建审计日志
+    try:
+        from modules.business.monitoring.alert_audit_service import AlertAuditService, AuditAction
+        audit_service = AlertAuditService(db)
+        audit_service.create_log(
+            alert_id=db_alert.id,
+            action=AuditAction.CREATE,
+            alert_key=db_alert.alert_key,
+            operator=current_user.username,
+            field_name="status",
+            old_value=None,
+            new_value=AlertStatus.ACTIVE.value,
+            reason="创建告警",
+        )
+    except Exception as e:
+        logger.warning(f"Failed to create audit log: {e}")
+    
     return {
         "id": db_alert.id,
         "title": db_alert.title,
@@ -499,11 +518,26 @@ async def acknowledge_alert(
     if not alert:
         raise HTTPException(status_code=404, detail="告警不存在")
     
+    old_status = alert.status
     alert.status = AlertStatus.ACKNOWLEDGED
     alert.acknowledged_by = current_user.username
     alert.acknowledged_at = datetime.now()
     alert.updated_at = datetime.now()
     db.commit()
+    
+    # 创建审计日志
+    try:
+        from modules.business.monitoring.alert_audit_service import AlertAuditService, AuditAction
+        audit_service = AlertAuditService(db)
+        audit_service.create_status_change_log(
+            alert_id=alert_id,
+            old_status=old_status,
+            new_status=AlertStatus.ACKNOWLEDGED,
+            operator=current_user.username,
+            reason="确认告警",
+        )
+    except Exception as e:
+        logger.warning(f"Failed to create audit log: {e}")
     
     return {"status": "success", "message": "Alert acknowledged"}
 
@@ -521,12 +555,27 @@ async def resolve_alert(
     if not alert:
         raise HTTPException(status_code=404, detail="告警不存在")
     
+    old_status = alert.status
     alert.status = AlertStatus.RESOLVED
     alert.resolved_by = current_user.username
     alert.resolved_at = datetime.now()
     alert.resolution_note = resolution
     alert.updated_at = datetime.now()
     db.commit()
+    
+    # 创建审计日志
+    try:
+        from modules.business.monitoring.alert_audit_service import AlertAuditService, AuditAction
+        audit_service = AlertAuditService(db)
+        audit_service.create_status_change_log(
+            alert_id=alert_id,
+            old_status=old_status,
+            new_status=AlertStatus.RESOLVED,
+            operator=current_user.username,
+            reason=resolution,
+        )
+    except Exception as e:
+        logger.warning(f"Failed to create audit log: {e}")
     
     return {"status": "success", "message": "Alert resolved"}
 
@@ -542,6 +591,20 @@ async def delete_alert(
     
     if not alert:
         raise HTTPException(status_code=404, detail="告警不存在")
+    
+    # 创建审计日志（在删除前）
+    try:
+        from modules.business.monitoring.alert_audit_service import AlertAuditService, AuditAction
+        audit_service = AlertAuditService(db)
+        audit_service.create_log(
+            alert_id=alert_id,
+            action=AuditAction.DELETE,
+            alert_key=alert.alert_key,
+            operator=current_user.username,
+            reason="删除告警",
+        )
+    except Exception as e:
+        logger.warning(f"Failed to create audit log: {e}")
     
     db.delete(alert)
     db.commit()
