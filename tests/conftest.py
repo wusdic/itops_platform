@@ -149,6 +149,41 @@ class DataFactory:
     def workorder_list(self, count: int = 15) -> list:
         return [self.workorder() for _ in range(count)]
 
+    def draft(self, **overrides) -> dict:
+        """生成工单草稿数据"""
+        order_types = ["fault", "change", "inspection", "security", "demand", "question", "other"]
+        priorities = ["P1", "P2", "P3", "P4"]
+        impacts = ["whole_company", "department", "team", "individual"]
+
+        data = {
+            "draft_id": f"draft-{uuid.uuid4().hex[:12]}",
+            "user_id": f"user_{self._uid()}",
+            "username": f"user_{self._counter}",
+            "order_type": random.choice(order_types),
+            "title": f"草稿-{self._uid()}",
+            "description": f"草稿描述 - {uuid.uuid4().hex[:8]}",
+            "priority": random.choice(priorities),
+            "device_id": random.randint(1, 1000) if random.random() > 0.3 else None,
+            "device_name": self.hostname(),
+            "device_ip": self.ip_address(),
+            "assignee": f"operator_{self._uid()}" if random.random() > 0.5 else None,
+            "expected_end": (datetime.now() + timedelta(days=random.randint(1, 7))).isoformat(),
+            "impact": random.choice(impacts),
+            "tags": random.sample(["紧急", "重要", "例行", "变更", "巡检"], k=random.randint(0, 3)),
+            "attachments": [],
+            "status": "active",
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat(),
+            "is_auto_save": False,
+            "last_auto_save": None,
+        }
+        data.update(overrides)
+        return data
+
+    def draft_list(self, count: int = 5) -> list:
+        """批量生成工单草稿数据"""
+        return [self.draft() for _ in range(count)]
+
     # ----- 用户/认证相关 -----
     def user(self, **overrides) -> dict:
         """生成用户数据"""

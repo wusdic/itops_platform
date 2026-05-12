@@ -4,13 +4,16 @@ BM-02 工单管理模块单元测试
 
 import pytest
 import json
+import uuid
+import random
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 import sys
-sys.path.insert(0, '/workspace/itops_platform')
+sys.path.insert(0, '/home/zcxx/.hermes/projects/itops_platform')
 
 from modules.foundation.db_models.base import Base
 from modules.foundation.db_models.workorder import (
