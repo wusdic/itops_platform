@@ -7,6 +7,10 @@
   - 增强 test_alert_audit_log.py 使用 DataFactory 生成测试数据
   - 创建 alert_audit_service.py 服务层
   - 集成到 monitoring.py API (创建/确认/解决/删除告警时自动记录审计日志)
+- [12:45] WKO-008 完成 - 工单草稿保存 TDD 测试
+  - 创建 test_workorder_draft_wko008.py (24个测试, 100%通过率)
+  - 使用 WorkOrderDraftDataFactory 生成真实感测试数据
+  - 修复 test_workorder.py 中 StaticPool 导入问题
 
 ### 凌晨工作
 - [05:00] Phase 0.1 开始 - 测试基础设施修复

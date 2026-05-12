@@ -12,6 +12,7 @@
 | 2026-05-12 | NotificationTargetRule完整API | 通知模块 | CFG-026功能实现 | ✅ 已验证 |
 | 2026-05-12 | DeviceMetricConfig采集项开关 | 采集配置 | CFG-013功能实现 | ✅ 已验证 |
 | 2026-05-12 | MON-028 告警审计日志 | 监控模块 | 完整审计日志记录和查询功能 | ✅ 已验证 |
+| 2026-05-12 | WKO-008 工单草稿保存TDD测试 | 工单模块 | DataFactory + 24个TDD测试用例 | ✅ 已验证 |
 
 ## 模块级修改日志
 
@@ -36,3 +37,10 @@
 | 时间 | 修改 | 原因 |
 |------|------|------|
 | 2026-05-12 | notification.py - target-rules CRUD | CFG-026新功能 |
+
+### 工单模块
+| 时间 | 修改 | 原因 |
+|------|------|------|
+| 2026-05-12 | test_workorder_draft_wko008.py - WKO-008 TDD测试 | 工单草稿保存功能测试 |
+| 2026-05-12 | conftest.py - draft/draft_list DataFactory方法 | 遵循数据工厂原则 |
+| 2026-05-12 | test_workorder.py - StaticPool导入修复 | 测试基础设施修复 |
