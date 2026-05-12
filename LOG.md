@@ -2,51 +2,60 @@
 
 ## 2026-05-12
 
-### 下午工作
-- [13:15] AUTO-020 完成 - 告警触发自动化 DataFactory + 表达式评估修复
-  - 修复 evaluate_expression 中下划线 `_` 不被允许的 bug
-  - 修复测试断言错误 `value < 80` -> `value < 90`（85不小于80）
-  - 增强 conftest.py DataFactory: trigger_rule + trigger_event 方法
-  - test_alert_trigger.py 26个测试 100%通过率
-- [13:00] WKO-021/WKO-022/WKO-033 完成 - SLA计时器 + 自动升级 + 工单导出 TDD测试
-  - 创建 test_workorder_wko021_wko022_wko033.py (44个测试, 100%通过率)
-  - 使用 WorkOrderDataFactory 和 SLATrackerDataFactory 生成真实感测试数据
-  - 修复 workorder_export.py 中 Font color aRGB 格式 bug
-- [12:55] MON-032 完成 - 自定义仪表盘布局 TDD 测试
-  - 创建 test_dashboard_layout_mon032.py (46个测试, 100%通过率)
-  - 使用 DashboardLayoutDataFactory 生成真实感测试数据
-  - conftest.py 添加 dashboard_layout/dashboard_widget/dashboard_layout_item DataFactory 方法
-- [12:30] MON-028 完成 - 告警审计日志完整实现
-  - 增强 test_alert_audit_log.py 使用 DataFactory 生成测试数据
-  - 创建 alert_audit_service.py 服务层
-  - 集成到 monitoring.py API (创建/确认/解决/删除告警时自动记录审计日志)
-- [12:45] WKO-008 完成 - 工单草稿保存 TDD 测试
-  - 创建 test_workorder_draft_wko008.py (24个测试, 100%通过率)
-  - 使用 WorkOrderDraftDataFactory 生成真实感测试数据
+### 下午工作（持续）
+
+#### 测试套件大修复
+- [14:30] 测试基础设施全面修复 - StaticPool 导入缺失修复
+  - test_monitoring_api.py: 添加 `from sqlalchemy.pool import StaticPool` → 15 errors → 0，**20/20 通过**
+  - test_knowledge_api.py: 同上 → 21 errors → 1 failure，**27/28 通过**
+  - test_ai_api.py: 同上 → **17/19 通过**
+  - test_workorder.py: 同上 → **37/37 通过**
+  - commit `996255e` - "fix(tests): add StaticPool import to legacy test files"
+- [14:00] 修复 `alert_trigger.py` 时间窗口判断 bug
+  - `start_hour <= current_hour < end_hour` → `start_hour <= current_hour <= end_hour`
+  - 修复 end_hour=23 时 23:xx 被错误排除的问题
+  - 修复 `test_knowledge_api.py` DocumentStatus.DEPRECATED → OBSOLETE
+
+#### 前端构建成功
+- [13:30] 解决 npm node_modules 权限问题
+  - 方案：在 ~/itops-frontend-build 重建独立构建环境
+  - 修复 3 个空 Vue 文件（devices.vue, knowledge/list.vue, ai/analyze.vue）
+  - 修复 api/index.js 缺失导出（devices/alerts/performance/auth/assets/scheduler）
+  - 创建 src/api/assets.js, src/api/scheduler.js
+- [13:20] 前端构建通过：`npm run build` → ✓ built in 6.18s，输出 3.0MB dist/
+- [13:15] commit `72257ef` - "feat(frontend): fix empty Vue stubs + add missing API exports + rebuild"
+- [13:10] commit `95b3319` - "fix(test_config_loader): use correct ConfigLoader param config_dir"
+
+#### Phase 1 P0 缺口完成状态确认
+- WKO-021 SLA计时器 ✅（b252be1）
+- WKO-022 SLA自动升级 ✅（b252be1）
+- WKO-033 工单导出Excel ✅（b252be1）
+- MON-032 仪表盘自定义布局 ✅（7b627d6）
+- AUTO-020 告警触发自动化 ✅（6c13124）
+- WKO-008 工单草稿保存 ✅（74b1f22）
+- MON-028 告警审计日志 ✅（005de2f）
+- CFG-026 通知对象配置 ✅（f06a8df）
+- COL-001/COL-002 设备自动发现 ✅（cb9fc99, 4992ae3）
+- CFG-013 采集项精细化开关 ✅（cb9fc99）
 
 ### 凌晨工作
 - [05:00] Phase 0.1 开始 - 测试基础设施修复
 - [05:30] Phase 0.1 完成 - 修复重复Base问题（aaec9f5）
-  - 修复：knowledge_base/models.py, migrations/__init__.py 统一使用主Base
-  - 修复：conftest.py 导入所有模型
-  - 修复：device_api.py router 添加 prefix
-- [06:00] Phase 1.1 开始 - 设备自动发现
-- [06:00] Phase 1.2 开始 - 采集项精细化开关
-- [06:00] Phase 1.3 开始 - 通知目标配置
-- [07:00] Phase 1.2 完成 (4992ae3, cb9fc99)
-  - IP扫描器 + SNMP扫描器 + 测试
-- [07:30] Phase 1.3 完成 (metric_toggle 21 tests, notification_target_rule 25 tests)
-- [08:00] Phase 1.3 通知配置完成 (f06a8df)
-  - NotificationTargetRule service layer + API endpoints
+- [06:00-08:00] Phase 1 P0 后端缺口开发（见上午节）
 - [08:30] 测试基线：1207 passed, 175 failed, 75 errors (~87% pass率)
 - [08:45] 创建 complex-project-execution 方法论 skill
 - [09:00] 创建项目 TODO.md, LOG.md, CHANGES.md
 
 ### 修改记录
-- [修改] api/routes/device_api.py - 影响: 测试路由 - 原因: 添加prefix修复FastAPI冲突
-- [修改] tests/conftest.py - 影响: 所有测试 - 原因: 导入所有模型解决表不存在问题
-- [修改] modules/business/knowledge_base/models.py - 影响: 知识库 - 原因: 移除重复Base
-- [修改] tests/unit/test_*_api.py (4个文件) - 影响: API测试 - 原因: SQLite线程安全
+| 时间 | 文件 | 影响 | 原因 |
+|------|------|------|------|
+| 14:30 | test_monitoring_api.py | API测试 | 添加StaticPool导入 |
+| 14:30 | test_knowledge_api.py | 知识API测试 | 添加StaticPool导入+DEPRECATED→OBSOLETE |
+| 14:30 | test_ai_api.py | AI API测试 | 添加StaticPool导入 |
+| 14:30 | test_workorder.py | 工单测试 | 添加StaticPool导入 |
+| 14:00 | alert_trigger.py | 告警触发 | 修复时间窗口判断bug |
+| 13:30 | frontend/src/views/*.vue | 前端视图 | 修复空Vue文件 |
+| 13:30 | frontend/src/api/*.js | 前端API | 补充缺失导出 |
 
 ## 2026-05-11
 

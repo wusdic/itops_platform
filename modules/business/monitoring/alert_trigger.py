@@ -321,7 +321,7 @@ class AlertTriggerEngine:
             start_hour = window.get('start_hour', 0)
             end_hour = window.get('end_hour', 23)
             
-            if current_day in days and start_hour <= current_hour < end_hour:
+            if current_day in days and start_hour <= current_hour <= end_hour:
                 return True
         
         return False

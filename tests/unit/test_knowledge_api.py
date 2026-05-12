@@ -251,7 +251,7 @@ class TestKnowledgeEnums:
         assert DocumentStatus.PENDING_REVIEW.value == "pending_review"
         assert DocumentStatus.APPROVED.value == "approved"
         assert DocumentStatus.REJECTED.value == "rejected"
-        assert DocumentStatus.DEPRECATED.value == "deprecated"
+        assert DocumentStatus.OBSOLETE.value == "obsolete"
     
     def test_fault_level_enum(self):
         """测试故障级别枚举"""
