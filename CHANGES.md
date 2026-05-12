@@ -13,6 +13,10 @@
 | 2026-05-12 | DeviceMetricConfig采集项开关 | 采集配置 | CFG-013功能实现 | ✅ 已验证 |
 | 2026-05-12 | MON-028 告警审计日志 | 监控模块 | 完整审计日志记录和查询功能 | ✅ 已验证 |
 | 2026-05-12 | WKO-008 工单草稿保存TDD测试 | 工单模块 | DataFactory + 24个TDD测试用例 | ✅ 已验证 |
+| 2026-05-12 | WKO-021 SLA计时器TDD测试 | 工单模块 | DataFactory + 9个测试用例 | ✅ 已验证 |
+| 2026-05-12 | WKO-022 SLA自动升级TDD测试 | 工单模块 | DataFactory + 9个测试用例 | ✅ 已验证 |
+| 2026-05-12 | WKO-033 工单导出TDD测试 | 工单模块 | DataFactory + 20个测试用例 | ✅ 已验证 |
+| 2026-05-12 | workorder_export.py Font修复 | 工单导出 | Font color需aRGB格式 | ✅ 已验证 |
 
 ## 模块级修改日志
 

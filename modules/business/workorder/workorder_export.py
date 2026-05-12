@@ -450,7 +450,7 @@ class WorkOrderExporter:
                 end_color='4472C4',
                 fill_type='solid'
             )
-            ws.cell(row=row, column=col).font = Font(bold=True, color='white')
+            ws.cell(row=row, column=col).font = Font(bold=True, color='FFFFFFFF')
         
         row += 1
         ws.cell(row=row, column=1, value='工单总数')
