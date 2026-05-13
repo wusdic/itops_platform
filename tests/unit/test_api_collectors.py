@@ -32,7 +32,7 @@ class TestZabbixClientComplete(unittest.TestCase):
         self.assertEqual(client.timeout, 60)
         self.assertIsNone(client.auth_token)
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.zabbix_client.urlopen')
     def test_login_success(self, mock_urlopen):
         """测试登录成功"""
         from modules.collection.api_collector.zabbix_client import ZabbixClient
@@ -53,7 +53,7 @@ class TestZabbixClientComplete(unittest.TestCase):
         self.assertTrue(result)
         self.assertEqual(client.auth_token, 'test-auth-token-12345')
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.zabbix_client.urlopen')
     def test_login_failure(self, mock_urlopen):
         """测试登录失败"""
         from modules.collection.api_collector.zabbix_client import ZabbixClient
@@ -69,12 +69,16 @@ class TestZabbixClientComplete(unittest.TestCase):
         mock_urlopen.return_value = mock_response
         
         client = ZabbixClient()
-        result = client.login()
         
-        self.assertFalse(result)
+        # The actual implementation raises ZabbixAPIError on error response
+        # so we catch the exception and verify it's the expected error
+        with self.assertRaises(Exception) as context:
+            client.login()
+        
+        self.assertIn('Login failed', str(context.exception))
         self.assertIsNone(client.auth_token)
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.zabbix_client.urlopen')
     def test_get_hosts(self, mock_urlopen):
         """测试获取主机列表"""
         from modules.collection.api_collector.zabbix_client import ZabbixClient
@@ -101,7 +105,7 @@ class TestZabbixClientComplete(unittest.TestCase):
         self.assertEqual(hosts[0]['host'], 'server1')
         self.assertEqual(hosts[1]['host'], 'server2')
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.zabbix_client.urlopen')
     def test_get_items(self, mock_urlopen):
         """测试获取监控项"""
         from modules.collection.api_collector.zabbix_client import ZabbixClient
@@ -126,7 +130,7 @@ class TestZabbixClientComplete(unittest.TestCase):
         
         self.assertEqual(len(items), 2)
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.zabbix_client.urlopen')
     def test_get_triggers(self, mock_urlopen):
         """测试获取触发器"""
         from modules.collection.api_collector.zabbix_client import ZabbixClient
@@ -157,7 +161,7 @@ class TestZabbixClientComplete(unittest.TestCase):
         self.assertEqual(len(triggers), 1)
         self.assertEqual(triggers[0]['description'], 'High CPU')
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.zabbix_client.urlopen')
     def test_history_get(self, mock_urlopen):
         """测试获取历史数据"""
         from modules.collection.api_collector.zabbix_client import ZabbixClient
@@ -188,7 +192,7 @@ class TestZabbixClientComplete(unittest.TestCase):
         
         self.assertEqual(len(history), 2)
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.zabbix_client.urlopen')
     def test_host_create(self, mock_urlopen):
         """测试创建主机"""
         from modules.collection.api_collector.zabbix_client import ZabbixClient
@@ -213,7 +217,7 @@ class TestZabbixClientComplete(unittest.TestCase):
         
         self.assertIn('hostids', result)
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.zabbix_client.urlopen')
     def test_logout(self, mock_urlopen):
         """测试登出"""
         from modules.collection.api_collector.zabbix_client import ZabbixClient
@@ -236,42 +240,42 @@ class TestZabbixClientComplete(unittest.TestCase):
         self.assertTrue(result)
         self.assertIsNone(client.auth_token)
     
-    def test_context_manager(self):
+    @patch('modules.collection.api_collector.zabbix_client.urlopen')
+    def test_context_manager(self, mock_urlopen):
         """测试上下文管理器"""
         from modules.collection.api_collector.zabbix_client import ZabbixClient
         
-        with patch('urllib.request.urlopen') as mock_urlopen:
-            # Mock login response
-            mock_login = Mock()
-            mock_login.read.return_value = json.dumps({
-                'result': 'context-token'
-            }).encode()
-            mock_login.__enter__ = Mock(return_value=mock_login)
-            mock_login.__exit__ = Mock(return_value=False)
-            
-            # Mock hosts response
-            mock_hosts = Mock()
-            mock_hosts.read.return_value = json.dumps({
-                'result': [{'hostid': '1', 'host': 'server1'}]
-            }).encode()
-            mock_hosts.__enter__ = Mock(return_value=mock_hosts)
-            mock_hosts.__exit__ = Mock(return_value=False)
-            
-            # Mock logout response
-            mock_logout = Mock()
-            mock_logout.read.return_value = json.dumps({
-                'result': True
-            }).encode()
-            mock_logout.__enter__ = Mock(return_value=mock_logout)
-            mock_logout.__exit__ = Mock(return_value=False)
-            
-            mock_urlopen.side_effect = [mock_login, mock_hosts, mock_logout]
-            
-            with ZabbixClient() as client:
-                hosts = client.host_get(output=['hostid', 'host'])
-                self.assertEqual(len(hosts), 1)
-            
-            self.assertIsNone(client.auth_token)
+        # Mock login response
+        mock_login = Mock()
+        mock_login.read.return_value = json.dumps({
+            'result': 'context-token'
+        }).encode()
+        mock_login.__enter__ = Mock(return_value=mock_login)
+        mock_login.__exit__ = Mock(return_value=False)
+        
+        # Mock hosts response
+        mock_hosts = Mock()
+        mock_hosts.read.return_value = json.dumps({
+            'result': [{'hostid': '1', 'host': 'server1'}]
+        }).encode()
+        mock_hosts.__enter__ = Mock(return_value=mock_hosts)
+        mock_hosts.__exit__ = Mock(return_value=False)
+        
+        # Mock logout response
+        mock_logout = Mock()
+        mock_logout.read.return_value = json.dumps({
+            'result': True
+        }).encode()
+        mock_logout.__enter__ = Mock(return_value=mock_logout)
+        mock_logout.__exit__ = Mock(return_value=False)
+        
+        mock_urlopen.side_effect = [mock_login, mock_hosts, mock_logout]
+        
+        with ZabbixClient() as client:
+            hosts = client.host_get(output=['hostid', 'host'])
+            self.assertEqual(len(hosts), 1)
+        
+        self.assertIsNone(client.auth_token)
 
 
 class TestPrometheusClientComplete(unittest.TestCase):
@@ -290,7 +294,7 @@ class TestPrometheusClientComplete(unittest.TestCase):
         self.assertEqual(client.timeout, 60)
         self.assertEqual(client._api_url, 'http://test:9090/api/v1')
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.prometheus_client.urlopen')
     def test_query_instant(self, mock_urlopen):
         """测试即时查询"""
         from modules.collection.api_collector.prometheus_client import PrometheusClient
@@ -318,7 +322,7 @@ class TestPrometheusClientComplete(unittest.TestCase):
         self.assertEqual(result['status'], 'success')
         self.assertEqual(len(result['data']['result']), 1)
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.prometheus_client.urlopen')
     def test_query_range(self, mock_urlopen):
         """测试范围查询"""
         from modules.collection.api_collector.prometheus_client import PrometheusClient
@@ -358,7 +362,7 @@ class TestPrometheusClientComplete(unittest.TestCase):
         self.assertEqual(result['status'], 'success')
         self.assertEqual(result['data']['resultType'], 'matrix')
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.prometheus_client.urlopen')
     def test_get_all_metrics(self, mock_urlopen):
         """测试获取所有指标"""
         from modules.collection.api_collector.prometheus_client import PrometheusClient
@@ -378,7 +382,7 @@ class TestPrometheusClientComplete(unittest.TestCase):
         self.assertEqual(len(metrics), 3)
         self.assertIn('up', metrics)
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.prometheus_client.urlopen')
     def test_targets(self, mock_urlopen):
         """测试获取Targets"""
         from modules.collection.api_collector.prometheus_client import PrometheusClient
@@ -403,7 +407,7 @@ class TestPrometheusClientComplete(unittest.TestCase):
         self.assertEqual(result['status'], 'success')
         self.assertEqual(len(result['data']['activeTargets']), 1)
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.prometheus_client.urlopen')
     def test_label_values(self, mock_urlopen):
         """测试获取标签值"""
         from modules.collection.api_collector.prometheus_client import PrometheusClient
@@ -423,7 +427,7 @@ class TestPrometheusClientComplete(unittest.TestCase):
         self.assertEqual(len(values), 3)
         self.assertIn('prometheus', values)
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.prometheus_client.urlopen')
     def test_alerts(self, mock_urlopen):
         """测试获取告警"""
         from modules.collection.api_collector.prometheus_client import PrometheusClient
@@ -447,7 +451,7 @@ class TestPrometheusClientComplete(unittest.TestCase):
         
         self.assertEqual(len(alerts), 2)
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.prometheus_client.urlopen')
     def test_rules(self, mock_urlopen):
         """测试获取规则"""
         from modules.collection.api_collector.prometheus_client import PrometheusClient
@@ -474,7 +478,7 @@ class TestPrometheusClientComplete(unittest.TestCase):
         
         self.assertEqual(result['status'], 'success')
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.prometheus_client.urlopen')
     def test_series(self, mock_urlopen):
         """测试查询序列"""
         from modules.collection.api_collector.prometheus_client import PrometheusClient
@@ -495,7 +499,7 @@ class TestPrometheusClientComplete(unittest.TestCase):
         
         self.assertEqual(len(result), 1)
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.prometheus_client.urlopen')
     def test_status_runtimeinfo(self, mock_urlopen):
         """测试获取运行时信息"""
         from modules.collection.api_collector.prometheus_client import PrometheusClient
@@ -518,7 +522,7 @@ class TestPrometheusClientComplete(unittest.TestCase):
         
         self.assertEqual(result['status'], 'success')
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.prometheus_client.urlopen')
     def test_delete_series(self, mock_urlopen):
         """测试删除时间序列"""
         from modules.collection.api_collector.prometheus_client import PrometheusClient
@@ -576,7 +580,7 @@ class TestPrometheusClientComplete(unittest.TestCase):
         self.assertEqual(len(parsed), 1)
         self.assertEqual(len(parsed[0]['values']), 1)
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.prometheus_client.urlopen')
     def test_get_cpu_usage(self, mock_urlopen):
         """测试获取CPU使用率"""
         from modules.collection.api_collector.prometheus_client import PrometheusClient
@@ -600,7 +604,7 @@ class TestPrometheusClientComplete(unittest.TestCase):
         
         self.assertEqual(len(result), 1)
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.prometheus_client.urlopen')
     def test_health_check(self, mock_urlopen):
         """测试健康检查"""
         from modules.collection.api_collector.prometheus_client import PrometheusClient
@@ -643,33 +647,40 @@ class TestKubernetesClientComplete(unittest.TestCase):
     @patch('modules.collection.api_collector.kubernetes_client.client')
     def test_connect_with_token(self, mock_client, mock_config):
         """测试使用Token连接"""
-        from modules.collection.api_collector.kubernetes_client import K8sClient
-        
-        mock_configuration = Mock()
-        mock_client.Configuration.return_value = mock_configuration
-        
-        mock_api_client = Mock()
-        mock_client.ApiClient.return_value = mock_api_client
-        
-        mock_core_v1 = Mock()
-        mock_apps_v1 = Mock()
-        mock_client.CoreV1Api.return_value = mock_core_v1
-        mock_client.AppsV1Api.return_value = mock_apps_v1
-        
-        mock_core_v1.get_api_resources.return_value = Mock()
-        
-        k8s_client = K8sClient(
-            host='192.168.1.100',
-            port=6443,
-            token='test-token'
-        )
-        
-        result = k8s_client.connect()
-        
-        self.assertTrue(result)
-        self.assertTrue(k8s_client._connected)
-        self.assertIsNotNone(k8s_client._core_v1)
-        self.assertIsNotNone(k8s_client._apps_v1)
+        import modules.collection.api_collector.kubernetes_client as k8s_module
+        # Set the module-level flag to indicate kubernetes is available
+        k8s_module._kubernetes_available = True
+        try:
+            from modules.collection.api_collector.kubernetes_client import K8sClient
+            
+            mock_configuration = Mock()
+            mock_client.Configuration.return_value = mock_configuration
+            
+            mock_api_client = Mock()
+            mock_client.ApiClient.return_value = mock_api_client
+            
+            mock_core_v1 = Mock()
+            mock_apps_v1 = Mock()
+            mock_client.CoreV1Api.return_value = mock_core_v1
+            mock_client.AppsV1Api.return_value = mock_apps_v1
+            
+            mock_core_v1.get_api_resources.return_value = Mock()
+            
+            k8s_client = K8sClient(
+                host='192.168.1.100',
+                port=6443,
+                token='test-token'
+            )
+            
+            result = k8s_client.connect()
+            
+            self.assertTrue(result)
+            self.assertTrue(k8s_client._connected)
+            self.assertIsNotNone(k8s_client._core_v1)
+            self.assertIsNotNone(k8s_client._apps_v1)
+        finally:
+            # Restore the original value
+            k8s_module._kubernetes_available = False
     
     @patch('modules.collection.api_collector.kubernetes_client.config')
     @patch('modules.collection.api_collector.kubernetes_client.client')

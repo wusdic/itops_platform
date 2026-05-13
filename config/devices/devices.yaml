@@ -2,6 +2,64 @@
 # 所有设备通过配置文件定义，程序自动加载适配器
 
 devices:
+
+  # ============================================================
+  # 本机 (宿主机) - 运行所有基础设施服务
+  # ============================================================
+  - name: "宿主机-itops-server"
+    ip: "127.0.0.1"
+    type: "server"
+    os: "linux"
+    os_version: "Ubuntu/Linux"
+    vendor: "generic"
+    protocols:
+      primary: "ssh"
+    credentials:
+      ssh:
+        username: "zcxx"
+        password: ""
+        key_file: "/home/zcxx/.ssh/id_rsa"
+        port: 22
+    collect:
+      enabled: true
+      interval: 60
+      metrics:
+        - cpu
+        - memory
+        - disk
+        - network
+        - process
+    tags:
+      env: production
+      role: infrastructure
+
+  # ============================================================
+  # 蒲公英SD-WAN网关 (OrayBox)
+  # ============================================================
+  - name: "蒲公英网关-10.168.1.1"
+    ip: "10.168.1.1"
+    type: "network"
+    os: "oraybox"
+    os_version: "OrayBox SD-WAN"
+    vendor: "oray"
+    protocols:
+      primary: "snmp"
+      fallback: "http"
+    credentials:
+      snmp:
+        version: "v2c"
+        community: "public"
+        port: 161
+    collect:
+      enabled: true
+      interval: 120
+      metrics:
+        - interface
+        - cpu
+        - memory
+    tags:
+      env: production
+      role: gateway
   # ============================================================
   # Linux服务器示例
   # ============================================================

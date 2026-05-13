@@ -272,7 +272,7 @@ class DeviceManager:
         """SNMP采集"""
         try:
             collector.connect()
-            metrics_data = collector.collect_all_metrics()
+            metrics_data = collector.collect_all()
             collector.close()
             
             return DeviceMetrics(
@@ -299,8 +299,12 @@ class DeviceManager:
                 metrics_data = collector.collect_all_metrics()
             else:
                 metrics_data = {
-                    'uptime': collector.execute_command('uptime'),
-                    'hostname': collector.execute_command('hostname'),
+                    'uptime': collector.execute('uptime'),
+                    'hostname': collector.execute('hostname'),
+                    'cpu_idle': collector.execute("top -bn1 | grep 'Cpu(s)' | awk '{print $2}'"),
+                    'mem_info': collector.execute('free -m | grep Mem | awk "{print $3\",\"$2}"'),
+                    'disk_usage': collector.execute('df -h | grep -E "^/dev" | awk "{print $1\":\"$5}"'),
+                    'load_avg': collector.execute('uptime | awk -F"load average:" "{print $2}"'),
                 }
             
             collector.close()
@@ -322,7 +326,7 @@ class DeviceManager:
         """IPMI采集"""
         try:
             collector.connect()
-            metrics_data = collector.collect_all_metrics()
+            metrics_data = collector.collect_all()
             collector.close()
             
             return DeviceMetrics(
@@ -371,7 +375,7 @@ class DeviceManager:
         """K8s/Docker采集"""
         try:
             collector.connect()
-            metrics_data = collector.collect_all_metrics()
+            metrics_data = collector.collect_all()
             collector.close()
             
             return DeviceMetrics(

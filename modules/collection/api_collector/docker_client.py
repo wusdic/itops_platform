@@ -90,7 +90,7 @@ class DockerClient:
             连接是否成功
         """
         try:
-            self._client = docker.Client(
+            self._client = docker.APIClient(
                 base_url=self._config.host,
                 version=self._config.api_version,
                 timeout=self._config.timeout,
