@@ -19,6 +19,21 @@
 | 2026-05-12 | workorder_export.py Font修复 | 工单导出 | Font color需aRGB格式 | ✅ 已验证 |
 | 2026-05-12 | MON-032 自定义仪表盘布局TDD测试 | 监控模块 | DataFactory + 46个TDD测试用例 | ✅ 已验证 |
 | 2026-05-12 | AUTO-020 告警触发自动化DataFactory | 监控模块 | 修复表达式评估bug + trigger_rule/event工厂 | ✅ 已验证 |
+| 2026-05-13 | Docker SDK v7 兼容性修复 | 采集模块 | `docker.Client` → `docker.APIClient` | ✅ 已验证 |
+| 2026-05-13 | 新增 DEPLOYMENT_ISSUES.md | 文档 | 记录部署问题、网络限制、依赖坑点 | ✅ 已完成 |
+
+## 部署问题（2026-05-13）
+
+### 环境限制记录
+| 问题 | 影响 | 状态 |
+|------|------|------|
+| GitHub 直连超时（git clone/push） | 代码同步 | ⚠️ 待解决 |
+| HuggingFace 直连超时 | LLM 模型下载 | ✅ 用 hf-mirror.com 绕过 |
+| Docker Hub 直连超时 | 镜像拉取 | ✅ 用 DaoCloud 镜像站 |
+| sudo 频繁超时 | docker 操作 | ✅ 用 `sg docker -c` 替代 |
+| TDengine 3.x REST API 认证格式 | 数据库写入 | ✅ 已确认正确格式 |
+| TDengine 超级表写入需子表名 | 数据库写入 | ⚠️ 方案确定，待实施 |
+| 蒲公英网关 SNMP 未开放 | 网络设备监控 | ⚠️ 待获取凭证 |
 
 ## 模块级修改日志
 

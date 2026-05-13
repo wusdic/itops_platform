@@ -13,6 +13,9 @@ psycopg2-binary>=2.9.9
 pymysql>=1.1.0
 alembic>=1.13.0
 
+# Container Monitoring
+docker>=7.0.0
+
 # Time Series Database
 taospy>=0.2.0
 influxdb-client>=1.40.0

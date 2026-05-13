@@ -1,5 +1,28 @@
 # LOG - ITOps Platform
 
+## 2026-05-13
+
+### 下午工作
+
+#### 部署验证与问题修复
+- [14:00] Docker 6个容器健康检查全部通过（MySQL/Redis/TDengine/Qdrant/MinIO/API）
+- [14:10] LLM (Qwen3.5-9B Q8_0) 和 API 服务正常运行
+- [14:15] 修复 `docker_client.py` 第87行：`docker.Client` → `docker.APIClient`（SDK v7兼容）
+- [14:20] TDengine REST API 验证成功：确认 3.x 格式 `Content-Type: text/plain` + `data=`
+- [14:25] 容器指标采集测试成功：6个容器 CPU/Memory/Net/Block 全部采集正常
+- [14:30] TDengine 超级表写入失败：错误码512 `tbname column can not be null`
+  - 原因：TDengine 3.x 超级表必须指定子表名，不能直接 INSERT INTO 超级表
+  - 方案：改用普通表（按容器名建独立表）绕过超级表机制
+- [14:35] 网关探测：10.168.1.1 蒲公英SD-WAN路由器，Web管理页可访问，SNMP未开放
+- [14:40] 网络扫描：发现 172.20.0.x (Docker bridge)、10.168.1.1 (网关)、10.168.1.232 (本机)
+- [14:45] 新增 DEPLOYMENT_ISSUES.md：系统记录部署问题、网络限制、依赖兼容性
+- [14:50] 更新 CHANGES.md + LOG.md，准备提交 GitHub
+
+#### 当前阻塞项
+- TDengine 写入：需将超级表方案改为普通表方案
+- 网关监控：需获取 10.168.1.1 登录凭证或找到可访问的 API 端点
+- Docker 网络 I/O：采集正常但未写入 TDengine
+
 ## 2026-05-12
 
 ### 下午工作（持续）
