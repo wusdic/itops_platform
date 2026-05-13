@@ -8,6 +8,14 @@ AM-03 脚本执行模块
 from .executor import ScriptExecutor, ExecutionResult, ExecutionStatus
 from .library import ScriptLibrary, Script, ScriptCategory, ScriptVersion
 from .remote import RemoteExecutor, SSHExecutor, WinRMExecutor, BatchExecutor
+from .rollback import (
+    RollbackManager,
+    RollbackStatus,
+    RollbackResult,
+    Snapshot,
+    SnapshotType,
+    get_rollback_manager,
+)
 
 __all__ = [
     'ScriptExecutor',
@@ -21,6 +29,12 @@ __all__ = [
     'SSHExecutor',
     'WinRMExecutor',
     'BatchExecutor',
+    'RollbackManager',
+    'RollbackStatus',
+    'RollbackResult',
+    'Snapshot',
+    'SnapshotType',
+    'get_rollback_manager',
 ]
 
 __version__ = '1.0.0'

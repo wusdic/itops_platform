@@ -610,3 +610,158 @@ async def match_target_rules(
         "matched_count": len(matched_rules),
         "matched_rules": matched_rules,
     }
+
+
+# ============== 通知对象配置接口 (B3) ==============
+
+class NotificationTargetCreate(BaseModel):
+    """创建通知对象配置"""
+    name: str = Field(..., description="通知对象名称")
+    description: Optional[str] = Field(None, description="通知对象描述")
+    channel: str = Field(..., description="通知渠道: email, sms, webhook")
+    channel_config: Optional[dict] = Field(None, description="渠道配置详情")
+    enabled: bool = True
+    match_conditions: Optional[dict] = Field(None, description="匹配条件")
+    notify_interval: int = Field(300, description="重复通知间隔(秒)")
+    max_notify_count: int = Field(3, description="最大通知次数")
+    escalation_config: Optional[dict] = Field(None, description="升级配置")
+    suppress_enabled: bool = Field(False, description="是否启用抑制")
+    suppress_until: Optional[datetime] = Field(None, description="抑制截止时间")
+    time_windows: Optional[List[dict]] = Field(None, description="通知时段")
+    priority: int = Field(100, description="优先级")
+
+
+class NotificationTargetUpdate(BaseModel):
+    """更新通知对象配置"""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    channel: Optional[str] = None
+    channel_config: Optional[dict] = None
+    enabled: Optional[bool] = None
+    match_conditions: Optional[dict] = None
+    notify_interval: Optional[int] = None
+    max_notify_count: Optional[int] = None
+    escalation_config: Optional[dict] = None
+    suppress_enabled: Optional[bool] = None
+    suppress_until: Optional[datetime] = None
+    time_windows: Optional[List[dict]] = None
+    priority: Optional[int] = None
+
+
+@router.get("/targets", summary="获取通知对象配置列表")
+async def get_notification_targets(
+    channel: Optional[str] = Query(None, description="渠道类型过滤"),
+    enabled: Optional[bool] = Query(None, description="启用状态过滤"),
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """获取通知对象配置列表"""
+    from modules.foundation.db_models.notification.notification_model import NotificationTarget
+
+    query = db.query(NotificationTarget)
+
+    if channel:
+        query = query.filter(NotificationTarget.channel == channel)
+
+    if enabled is not None:
+        query = query.filter(NotificationTarget.enabled == enabled)
+
+    targets = query.order_by(NotificationTarget.priority.asc(), NotificationTarget.id.asc()).all()
+
+    return {
+        "code": 0,
+        "data": [target.to_dict() for target in targets],
+        "total": len(targets),
+    }
+
+
+@router.post("/targets", summary="创建通知对象配置")
+async def create_notification_target(
+    target: NotificationTargetCreate,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """创建新的通知对象配置"""
+    import json
+    from modules.foundation.db_models.notification.notification_model import NotificationTarget
+
+    # 检查名称是否重复
+    existing = db.query(NotificationTarget).filter(NotificationTarget.name == target.name).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="通知对象名称已存在")
+
+    # 验证渠道
+    valid_channels = ["email", "sms", "webhook"]
+    if target.channel not in valid_channels:
+        raise HTTPException(status_code=400, detail=f"无效的渠道类型，支持的渠道: {', '.join(valid_channels)}")
+
+    # 创建通知对象
+    db_target = NotificationTarget(
+        name=target.name,
+        description=target.description,
+        channel=target.channel,
+        channel_config=json.dumps(target.channel_config) if target.channel_config else None,
+        enabled=target.enabled,
+        match_conditions=json.dumps(target.match_conditions) if target.match_conditions else None,
+        notify_interval=target.notify_interval,
+        max_notify_count=target.max_notify_count,
+        escalation_config=json.dumps(target.escalation_config) if target.escalation_config else None,
+        suppress_enabled=target.suppress_enabled,
+        suppress_until=target.suppress_until,
+        time_windows=json.dumps(target.time_windows) if target.time_windows else None,
+        priority=target.priority,
+        created_by=current_user.username,
+    )
+
+    db.add(db_target)
+    db.commit()
+    db.refresh(db_target)
+
+    return {
+        "code": 0,
+        "data": {"id": db_target.id, "name": db_target.name},
+        "message": "通知对象创建成功",
+    }
+
+
+@router.get("/targets/{target_id}", summary="获取通知对象配置详情")
+async def get_notification_target(
+    target_id: int,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """获取指定通知对象配置的详细信息"""
+    from modules.foundation.db_models.notification.notification_model import NotificationTarget
+
+    target = db.query(NotificationTarget).filter(NotificationTarget.id == target_id).first()
+
+    if not target:
+        raise HTTPException(status_code=404, detail="通知对象不存在")
+
+    return {
+        "code": 0,
+        "data": target.to_dict(),
+    }
+
+
+@router.delete("/targets/{target_id}", summary="删除通知对象配置")
+async def delete_notification_target(
+    target_id: int,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """删除通知对象配置"""
+    from modules.foundation.db_models.notification.notification_model import NotificationTarget
+
+    target = db.query(NotificationTarget).filter(NotificationTarget.id == target_id).first()
+
+    if not target:
+        raise HTTPException(status_code=404, detail="通知对象不存在")
+
+    db.delete(target)
+    db.commit()
+
+    return {
+        "code": 0,
+        "message": "通知对象删除成功",
+    }

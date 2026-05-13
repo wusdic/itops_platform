@@ -6,7 +6,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 
-from sqlalchemy import Column, Integer, String, DateTime, Enum as SQLEnum, Text, Float, Boolean, ForeignKey, Index
+from sqlalchemy import Column, Integer, String, DateTime, Enum as SQLEnum, Text, Float, Boolean, ForeignKey, Index, JSON
 from sqlalchemy.orm import relationship
 
 from .base import Base
@@ -128,6 +128,10 @@ class WorkOrder(Base):
     # 标签
     tags = Column(String(256), comment='标签')
     
+    # 草稿相关字段
+    draft_data = Column(JSON, comment='草稿数据快照')
+    draft_saved_at = Column(DateTime, comment='草稿保存时间')
+    
     # 备注
     remark = Column(Text, comment='备注')
     
@@ -194,3 +198,24 @@ class WorkOrderFlow(Base):
     
     def __repr__(self):
         return f"<WorkOrderFlow(id={self.id}, action='{self.action}')>"
+
+
+class WorkOrderEscalation(Base):
+    """工单升级记录模型"""
+    __tablename__ = 'work_order_escalations'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    work_order_id = Column(Integer, ForeignKey('work_orders.id'), index=True, comment='工单ID')
+    
+    escalation_level = Column(Integer, nullable=False, comment='升级级别(1-4)')
+    notified_roles = Column(Text, comment='通知角色JSON')
+    breach_duration_minutes = Column(Integer, comment='超时时长(分钟)')
+    sla_type = Column(String(32), comment='SLA类型: response/resolve')
+    
+    is_notified = Column(Boolean, default=False, comment='是否已通知')
+    notified_at = Column(DateTime, comment='通知时间')
+    
+    created_at = Column(DateTime, default=datetime.now, comment='创建时间')
+    
+    def __repr__(self):
+        return f"<WorkOrderEscalation(id={self.id}, level={self.escalation_level})>"

@@ -12,6 +12,7 @@ from .scenarios import (
     SOPGenerationScenario, ChangeReviewScenario, QAScenario,
     get_ai_copilot_service
 )
+from .root_cause import RootCauseAnalyzer, RootCauseResult, get_root_cause_analyzer, init_root_cause_analyzer
 
 __all__ = [
     # LLM Client
@@ -45,6 +46,12 @@ __all__ = [
     "ChangeReviewScenario",
     "QAScenario",
     "get_ai_copilot_service",
+
+    # Root Cause Analysis
+    "RootCauseAnalyzer",
+    "RootCauseResult",
+    "get_root_cause_analyzer",
+    "init_root_cause_analyzer",
 ]
 
 __version__ = "1.0.0"

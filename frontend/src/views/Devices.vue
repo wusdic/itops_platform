@@ -3,9 +3,17 @@
     <!-- 页面标题 -->
     <div class="page-header">
       <h2>设备管理</h2>
-      <el-button type="primary" @click="openAddDialog">
-        <el-icon><Plus /></el-icon> 添加设备
-      </el-button>
+      <div class="header-actions">
+        <el-button @click="handleDownloadTemplate">
+          <el-icon><Download /></el-icon> 下载模板
+        </el-button>
+        <el-button type="success" @click="openImportDialog">
+          <el-icon><Upload /></el-icon> 批量导入
+        </el-button>
+        <el-button type="primary" @click="openAddDialog">
+          <el-icon><Plus /></el-icon> 添加设备
+        </el-button>
+      </div>
     </div>
 
     <!-- 筛选栏 -->
@@ -132,6 +140,98 @@
       </template>
     </el-dialog>
 
+    <!-- 批量导入对话框 -->
+    <el-dialog
+      v-model="importDialogVisible"
+      title="批量导入设备"
+      width="700px"
+      :close-on-click-modal="false"
+    >
+      <div class="import-guide">
+        <el-alert type="info" :closable="false" show-icon>
+          <template #title>
+            <span>导入说明</span>
+          </template>
+          <template #default>
+            <p>1. 请先 <el-button type="primary" link @click="handleDownloadTemplate">下载导入模板</el-button></p>
+            <p>2. 按照模板格式填写设备信息（<strong>设备名称</strong>、<strong>IP地址</strong>、<strong>设备类型</strong>为必填项）</p>
+            <p>3. 支持的文件格式：Excel (.xlsx) 或 CSV (.csv)</p>
+            <p>4. 支持部分成功：有效行会创建设备，无效行会显示错误原因</p>
+          </template>
+        </el-alert>
+        
+        <el-form class="import-form" label-width="100px">
+          <el-form-item label="选择文件">
+            <el-upload
+              ref="uploadRef"
+              :auto-upload="false"
+              :limit="1"
+              accept=".xlsx,.xls,.csv"
+              :on-change="handleFileChange"
+              :on-remove="handleFileRemove"
+            >
+              <el-button type="primary">选择文件</el-button>
+              <template #tip>
+                <div class="el-upload__tip">支持 xlsx、xls、csv 格式</div>
+              </template>
+            </el-upload>
+          </el-form-item>
+          <el-form-item label="文件格式">
+            <el-radio-group v-model="importFormat">
+              <el-radio label="xlsx">Excel (.xlsx)</el-radio>
+              <el-radio label="csv">CSV (.csv)</el-radio>
+            </el-radio-group>
+          </el-form-item>
+        </el-form>
+      </div>
+      
+      <!-- 导入结果 -->
+      <div v-if="importResult" class="import-result">
+        <el-divider>导入结果</el-divider>
+        <el-row :gutter="20">
+          <el-col :span="8">
+            <el-statistic title="总行数" :value="importResult.total" />
+          </el-col>
+          <el-col :span="8">
+            <el-statistic title="成功" :value="importResult.success_count" value-style="color: #00b42a" />
+          </el-col>
+          <el-col :span="8">
+            <el-statistic title="失败" :value="importResult.failed_count" value-style="color: #f56c6c" />
+          </el-col>
+        </el-row>
+        
+        <el-table 
+          v-if="importResult.results && importResult.results.length > 0" 
+          :data="importResult.results" 
+          max-height="300"
+          stripe
+          style="margin-top: 16px"
+        >
+          <el-table-column prop="row" label="行号" width="60" />
+          <el-table-column prop="status" label="状态" width="80">
+            <template #default="{ row }">
+              <el-tag :type="row.status === 'success' ? 'success' : 'danger'" size="small">
+                {{ row.status === 'success' ? '成功' : '失败' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="name" label="设备名称" min-width="120" show-overflow-tooltip />
+          <el-table-column prop="device_id" label="设备ID" width="80">
+            <template #default="{ row }">
+              <span v-if="row.device_id">{{ row.device_id }}</span>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="error" label="错误信息" min-width="150" show-overflow-tooltip />
+        </el-table>
+      </div>
+      
+      <template #footer>
+        <el-button @click="importDialogVisible = false">关闭</el-button>
+        <el-button type="primary" @click="handleImport" :loading="importing">开始导入</el-button>
+      </template>
+    </el-dialog>
+
     <!-- 设备详情抽屉 -->
     <el-drawer v-model="detailVisible" title="设备详情" size="500px">
       <div v-if="currentDevice" class="device-detail">
@@ -151,7 +251,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, Refresh } from '@element-plus/icons-vue'
+import { Plus, Search, Refresh, Download, Upload } from '@element-plus/icons-vue'
 import { devices } from '@/api'
 
 // 状态
@@ -169,6 +269,14 @@ const statusFilter = ref('')
 const formRef = ref(null)
 const devicesData = ref([])
 const currentDevice = ref(null)
+
+// 批量导入相关
+const importDialogVisible = ref(false)
+const importFormat = ref('xlsx')
+const importFile = ref(null)
+const importResult = ref(null)
+const importing = ref(false)
+const uploadRef = ref(null)
 
 // 表单
 const deviceForm = reactive({
@@ -299,6 +407,72 @@ const statusText = (status) => {
   const map = { online: '在线', offline: '离线', maintenance: '维护中' }
   return map[status] || status
 }
+
+// 批量导入相关方法
+const openImportDialog = () => {
+  importDialogVisible.value = true
+  importResult.value = null
+  importFile.value = null
+}
+
+const handleDownloadTemplate = async () => {
+  try {
+    const format = importFormat.value || 'xlsx'
+    const response = await devices.getImportTemplate(format)
+    
+    // 创建blob下载
+    const blob = new Blob([response], { 
+      type: format === 'csv' ? 'text/csv;charset=utf-8' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `device_import_template.${format}`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    
+    ElMessage.success('模板下载成功')
+  } catch (error) {
+    console.error('下载模板失败:', error)
+    ElMessage.error('下载模板失败')
+  }
+}
+
+const handleFileChange = (file) => {
+  importFile.value = file.raw
+}
+
+const handleFileRemove = () => {
+  importFile.value = null
+}
+
+const handleImport = async () => {
+  if (!importFile.value) {
+    ElMessage.warning('请先选择要导入的文件')
+    return
+  }
+  
+  importing.value = true
+  try {
+    const response = await devices.importDevices(importFile.value)
+    
+    if (response.code === 0) {
+      importResult.value = response.data
+      ElMessage.success(`导入完成: 成功${response.data.success_count}行, 失败${response.data.failed_count}行`)
+      // 刷新设备列表
+      loadDevices()
+    } else {
+      ElMessage.error(response.message || '导入失败')
+    }
+  } catch (error) {
+    console.error('导入失败:', error)
+    ElMessage.error('导入失败: ' + (error.message || '未知错误'))
+  } finally {
+    importing.value = false
+  }
+}
 </script>
 
 <style lang="scss" scoped>
@@ -318,6 +492,11 @@ const statusText = (status) => {
     font-size: 20px;
     font-weight: 600;
     color: #1d2129;
+  }
+  
+  .header-actions {
+    display: flex;
+    gap: 12px;
   }
 }
 

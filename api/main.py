@@ -20,13 +20,16 @@ from api.routes import (
     workorder_router,
     knowledge_router,
     report_router,
+    inspection_router,
     asset_router,
     ai_router,
     admin_router,
     notification_router,
     device_router,
+    device_metrics_router,
     auth_router,
     discovery_router,
+    automation_router,
 )
 from api.dependencies import get_settings
 from api.middleware.logging import LoggingMiddleware
@@ -154,6 +157,12 @@ def create_app() -> FastAPI:
     )
     
     app.include_router(
+        inspection_router,
+        prefix="/api/v1/inspection",
+        tags=["巡检管理"],
+    )
+    
+    app.include_router(
         asset_router,
         prefix="/api/v1/assets",
         tags=["资产管理"],
@@ -184,6 +193,18 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(
+        device_metrics_router,
+        prefix="/api/v1/devices",
+        tags=["采集精细化开关"],
+    )
+
+    app.include_router(
+        device_import_router,
+        prefix="/api/v1/devices",
+        tags=["设备批量导入"],
+    )
+
+    app.include_router(
         auth_router,
         prefix="/api/v1/auth",
         tags=["认证"],
@@ -193,6 +214,12 @@ def create_app() -> FastAPI:
         discovery_router,
         prefix="/api/v1/discovery",
         tags=["设备发现"],
+    )
+
+    app.include_router(
+        automation_router,
+        prefix="/api/v1/automation",
+        tags=["自动化触发"],
     )
 
     # 前端静态文件服务 - 使用中间件方式避免路由冲突

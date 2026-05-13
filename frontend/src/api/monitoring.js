@@ -8,7 +8,18 @@ export const devices = {
   delete: (id) => request.delete(`/monitoring/device/${id}`),
   getMetrics: (id) => request.get(`/monitoring/device/${id}/metrics`),
   getStatus: () => request.get('/monitoring/device/status'),
-  batchOperate: (ids, action) => request.post('/monitoring/device/batch', { ids, action })
+  batchOperate: (ids, action) => request.post('/monitoring/device/batch', { ids, action }),
+  // 批量导入相关
+  getImportTemplate: (format = 'xlsx') => request.get('/devices/import/template', { params: { format }, responseType: 'blob' }),
+  validateImport: (rows) => request.post('/devices/import/validate', rows),
+  importDevices: (file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return request.post('/devices/import', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
+  importDevicesSimple: (rows) => request.post('/devices/import/simple', rows)
 }
 
 export const alerts = {

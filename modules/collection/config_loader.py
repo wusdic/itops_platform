@@ -579,3 +579,184 @@ def get_adapters(vendor: str = None) -> Dict[str, Dict[str, Any]]:
 def get_adapter_for_device(device: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """获取设备对应的适配器"""
     return get_config_loader().get_adapter_for_device(device)
+
+
+# ============== DeviceMetricConfig管理方法 ==============
+
+def get_device_metric_configs(device_id: int = None, device_name: str = None,
+                               metric_category: str = None, enabled: bool = None) -> List[Dict[str, Any]]:
+    """
+    获取设备指标配置列表
+    
+    Args:
+        device_id: 设备ID
+        device_name: 设备名称
+        metric_category: 指标类别
+        enabled: 启用状态
+        
+    Returns:
+        配置列表
+    """
+    from modules.foundation.db_models.monitoring import DeviceMetricConfig
+    from modules.foundation.db.client import get_db_session
+    
+    with get_db_session() as session:
+        query = session.query(DeviceMetricConfig)
+        
+        if device_id is not None:
+            query = query.filter(DeviceMetricConfig.device_id == device_id)
+        if device_name is not None:
+            query = query.filter(DeviceMetricConfig.device_name == device_name)
+        if metric_category is not None:
+            query = query.filter(DeviceMetricConfig.metric_category == metric_category)
+        if enabled is not None:
+            query = query.filter(DeviceMetricConfig.enabled == enabled)
+        
+        configs = query.all()
+        return [c.to_dict() for c in configs]
+
+
+def create_device_metric_config(device_id: int, device_name: str, metric_name: str,
+                                 metric_category: str = 'general', enabled: bool = True,
+                                 collect_interval: int = 0, params: str = None,
+                                 created_by: str = None) -> Optional[Dict[str, Any]]:
+    """
+    创建设备指标配置
+    
+    Args:
+        device_id: 设备ID
+        device_name: 设备名称
+        metric_name: 指标名称
+        metric_category: 指标类别
+        enabled: 是否启用
+        collect_interval: 采集间隔
+        params: 自定义参数
+        created_by: 创建人
+        
+    Returns:
+        创建的配置字典
+    """
+    from modules.foundation.db_models.monitoring import DeviceMetricConfig
+    from modules.foundation.db.client import get_db_session
+    
+    try:
+        with get_db_session() as session:
+            config = DeviceMetricConfig(
+                device_id=device_id,
+                device_name=device_name,
+                metric_category=metric_category,
+                metric_name=metric_name,
+                enabled=enabled,
+                collect_interval=collect_interval,
+                params=params,
+                created_by=created_by,
+                updated_by=created_by,
+            )
+            session.add(config)
+            session.commit()
+            session.refresh(config)
+            return config.to_dict()
+    except Exception as e:
+        logger.error(f"创建设备指标配置失败: {e}")
+        return None
+
+
+def update_device_metric_config(device_id: int, metric_name: str, **updates) -> Optional[Dict[str, Any]]:
+    """
+    更新设备指标配置
+    
+    Args:
+        device_id: 设备ID
+        metric_name: 指标名称
+        **updates: 要更新的字段
+        
+    Returns:
+        更新后的配置字典
+    """
+    from modules.foundation.db_models.monitoring import DeviceMetricConfig
+    from modules.foundation.db.client import get_db_session
+    
+    try:
+        with get_db_session() as session:
+            config = session.query(DeviceMetricConfig).filter(
+                DeviceMetricConfig.device_id == device_id,
+                DeviceMetricConfig.metric_name == metric_name
+            ).first()
+            
+            if config is None:
+                return None
+            
+            for key, value in updates.items():
+                if hasattr(config, key) and value is not None:
+                    setattr(config, key, value)
+            
+            session.commit()
+            session.refresh(config)
+            return config.to_dict()
+    except Exception as e:
+        logger.error(f"更新设备指标配置失败: {e}")
+        return None
+
+
+def delete_device_metric_config(device_id: int, metric_name: str) -> bool:
+    """
+    删除设备指标配置
+    
+    Args:
+        device_id: 设备ID
+        metric_name: 指标名称
+        
+    Returns:
+        是否删除成功
+    """
+    from modules.foundation.db_models.monitoring import DeviceMetricConfig
+    from modules.foundation.db.client import get_db_session
+    
+    try:
+        with get_db_session() as session:
+            config = session.query(DeviceMetricConfig).filter(
+                DeviceMetricConfig.device_id == device_id,
+                DeviceMetricConfig.metric_name == metric_name
+            ).first()
+            
+            if config is None:
+                return False
+            
+            session.delete(config)
+            session.commit()
+            return True
+    except Exception as e:
+        logger.error(f"删除设备指标配置失败: {e}")
+        return False
+
+
+def get_metric_categories_summary() -> List[Dict[str, Any]]:
+    """
+    获取所有指标类别及其统计信息
+    
+    Returns:
+        类别统计列表
+    """
+    from modules.foundation.db_models.monitoring import DeviceMetricConfig
+    from modules.foundation.db.client import get_db_session
+    
+    DEFAULT_CATEGORIES = [
+        {"category": "cpu", "name": "CPU", "description": "CPU相关指标"},
+        {"category": "memory", "name": "内存", "description": "内存相关指标"},
+        {"category": "disk", "name": "磁盘", "description": "磁盘相关指标"},
+        {"category": "network", "name": "网络", "description": "网络相关指标"},
+        {"category": "process", "name": "进程", "description": "进程相关指标"},
+        {"category": "system", "name": "系统", "description": "系统相关指标"},
+        {"category": "service", "name": "服务", "description": "服务相关指标"},
+        {"category": "security", "name": "安全", "description": "安全相关指标"},
+    ]
+    
+    with get_db_session() as session:
+        # 统计各类别的配置数量
+        for cat in DEFAULT_CATEGORIES:
+            count = session.query(DeviceMetricConfig).filter(
+                DeviceMetricConfig.metric_category == cat["category"]
+            ).count()
+            cat["config_count"] = count
+        
+        return DEFAULT_CATEGORIES

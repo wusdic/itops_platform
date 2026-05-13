@@ -2,9 +2,18 @@
 通知渠道数据库模型
 """
 
+from datetime import datetime
+from enum import Enum
 from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, JSON, Index
 from sqlalchemy.sql import func
 from modules.foundation.db_models.base import Base
+
+
+class NotificationChannel(str, Enum):
+    """通知渠道枚举 - 支持email/sms/webhook三种渠道"""
+    EMAIL = "email"
+    SMS = "sms"
+    WEBHOOK = "webhook"
 
 
 class NotificationChannelModel(Base):
@@ -140,3 +149,86 @@ class NotificationTargetRule(Base):
 
     def __repr__(self):
         return f"<NotificationTargetRule(id={self.id}, name='{self.name}', rule_type='{self.rule_type}')>"
+
+
+class NotificationTarget(Base):
+    """
+    通知对象配置模型 (B3)
+    支持按告警级别/设备分组/指标名称配置通知对象
+    支持email/sms/webhook三种渠道
+    """
+    __tablename__ = "notification_targets"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # 基本信息
+    name = Column(String(128), nullable=False, unique=True, comment='通知对象名称')
+    description = Column(String(512), comment='通知对象描述')
+
+    # 渠道配置
+    channel = Column(String(20), nullable=False, comment='通知渠道: email, sms, webhook')
+
+    # 渠道配置详情 (JSON格式)
+    channel_config = Column(Text, comment='渠道配置详情(JSON)')
+
+    # 启用状态
+    enabled = Column(Boolean, default=True, comment='是否启用')
+
+    # 匹配条件 (JSON格式)
+    match_conditions = Column(Text, comment='匹配条件(JSON)')
+
+    # 通知策略
+    notify_interval = Column(Integer, default=300, comment='重复通知间隔(秒)')
+    max_notify_count = Column(Integer, default=3, comment='最大通知次数')
+
+    # 升级配置 (JSON)
+    escalation_config = Column(Text, comment='升级配置(JSON)')
+
+    # 抑制配置
+    suppress_enabled = Column(Boolean, default=False, comment='是否启用抑制')
+    suppress_until = Column(DateTime, comment='抑制截止时间')
+
+    # 时段配置 (JSON)
+    time_windows = Column(Text, comment='允许的通知时段(JSON)')
+
+    # 优先级
+    priority = Column(Integer, default=100, comment='优先级')
+
+    # 元数据
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_by = Column(String(64))
+    updated_by = Column(String(64))
+
+    # 索引
+    __table_args__ = (
+        Index('idx_target_enabled', 'enabled', 'priority'),
+        Index('idx_target_channel', 'channel', 'enabled'),
+    )
+
+    def __repr__(self):
+        return f"<NotificationTarget(id={self.id}, name='{self.name}', channel='{self.channel}')>"
+
+    def to_dict(self):
+        """转换为字典"""
+        import json
+        return {
+            'id': self.id,
+            'name': self.name,
+            'description': self.description,
+            'channel': self.channel,
+            'channel_config': json.loads(self.channel_config) if self.channel_config else {},
+            'enabled': self.enabled,
+            'match_conditions': json.loads(self.match_conditions) if self.match_conditions else {},
+            'notify_interval': self.notify_interval,
+            'max_notify_count': self.max_notify_count,
+            'escalation_config': json.loads(self.escalation_config) if self.escalation_config else None,
+            'suppress_enabled': self.suppress_enabled,
+            'suppress_until': self.suppress_until.isoformat() if self.suppress_until else None,
+            'time_windows': json.loads(self.time_windows) if self.time_windows else None,
+            'priority': self.priority,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'created_by': self.created_by,
+            'updated_by': self.updated_by,
+        }

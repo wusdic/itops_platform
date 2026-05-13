@@ -24,6 +24,7 @@ from .ai import AIConversation
 from .notification.notification_model import (
     NotificationChannelModel, NotificationLog, NotificationTargetRule
 )
+from .notification.notification_model import NotificationChannel, NotificationTarget
 
 __all__ = [
     'Base',
@@ -54,6 +55,8 @@ __all__ = [
     'NotificationChannelModel',
     'NotificationLog',
     'NotificationTargetRule',
+    'NotificationChannel',
+    'NotificationTarget',
 ]
 
 __version__ = '1.0.0'

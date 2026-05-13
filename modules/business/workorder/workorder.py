@@ -693,6 +693,58 @@ class WorkOrderCore:
         
         return result
     
+    def save_draft(
+        self,
+        workorder_id: int,
+        title: Optional[str] = None,
+        description: Optional[str] = None,
+        priority: Optional[WorkOrderPriority] = None,
+        draft_data: Optional[Dict[str, Any]] = None,
+        draft_saved_at: Optional[datetime] = None
+    ) -> bool:
+        """
+        保存工单草稿(WKO-008)
+        
+        - 不更新updated_at
+        - 不记录操作历史
+        - 只更新: title, description, priority, draft_data, draft_saved_at
+        
+        Args:
+            workorder_id: 工单ID
+            title: 标题
+            description: 描述
+            priority: 优先级
+            draft_data: 草稿数据快照
+            draft_saved_at: 草稿保存时间
+            
+        Returns:
+            是否保存成功
+        """
+        workorder = self.get_by_id(workorder_id)
+        if not workorder:
+            return False
+        
+        # 只更新草稿相关字段
+        if title is not None:
+            workorder.title = title
+        if description is not None:
+            workorder.description = description
+        if priority is not None:
+            workorder.priority = priority
+        if draft_data is not None:
+            workorder.draft_data = draft_data
+        if draft_saved_at is not None:
+            workorder.draft_saved_at = draft_saved_at
+        
+        # 注意：不更新updated_at，不记录操作历史
+        
+        try:
+            self.db.commit()
+            return True
+        except SQLAlchemyError as e:
+            self.db.rollback()
+            raise e
+    
     def batch_assign(
         self,
         workorder_ids: List[int],

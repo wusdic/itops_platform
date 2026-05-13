@@ -86,6 +86,8 @@ class Script:
     working_dir: Optional[str] = None
     env_vars: Dict[str, str] = field(default_factory=dict)
     interpreter_path: Optional[str] = None
+    rollback_script: Optional[str] = None  # 回滚脚本内容
+    enable_auto_rollback: bool = False  # 是否在执行失败时自动回滚
     
     def get_interpreter(self) -> str:
         """获取脚本解释器路径"""
@@ -144,6 +146,17 @@ class ScriptExecutor:
         # 默认配置
         self._default_timeout = self.config.get('default_timeout', 300)
         self._output_buffer_size = self.config.get('output_buffer_size', 8192)
+        
+        # 回滚管理器
+        from .rollback import RollbackManager, SnapshotType, get_rollback_manager
+        self._rollback_manager = get_rollback_manager()
+        
+        # 注册默认的快照创建器（设备配置快照）
+        # 使用lambda延迟引用，因为方法定义在类中靠后的位置
+        self._rollback_manager.register_snapshot_creator(
+            SnapshotType.DEVICE_CONFIG,
+            lambda exec_id: self._create_device_config_snapshot(exec_id)
+        )
     
     def execute(
         self,
@@ -257,6 +270,18 @@ class ScriptExecutor:
             result.status = ExecutionStatus.FAILED
             result.error_message = str(e)
         finally:
+            # 总是保存快照（在失败/超时时）
+            # 这允许后续手动回滚
+            rollback_triggered = False
+            if result.status in (ExecutionStatus.FAILED, ExecutionStatus.TIMEOUT):
+                rollback_triggered = self._trigger_auto_rollback(
+                    task_id, script_obj, result
+                )
+            
+            # 如果触发了回滚，在error_message中标记
+            if rollback_triggered:
+                result.error_message = f"{result.error_message} [Auto-rollback triggered]"
+            
             # 清理临时文件
             try:
                 os.unlink(script_path)
@@ -563,6 +588,123 @@ class ScriptExecutor:
             time.sleep(0.1)
         
         return result
+    
+    def _trigger_auto_rollback(
+        self,
+        task_id: str,
+        script: Script,
+        result: ExecutionResult,
+    ) -> bool:
+        """
+        触发自动回滚
+        
+        Args:
+            task_id: 任务ID
+            script: 脚本对象
+            result: 执行结果
+            
+        Returns:
+            bool: 是否成功触发回滚
+        """
+        try:
+            # 总是保存快照（无论是否启用自动回滚）
+            # 这允许后续手动回滚
+            snapshot = self._rollback_manager.save_checkpoint(
+                execution_id=task_id,
+                metadata={
+                    'script_name': script.name,
+                    'status': result.status.value,
+                    'stdout': result.stdout,
+                    'stderr': result.stderr,
+                    'return_code': result.return_code,
+                }
+            )
+            
+            # 只有启用自动回滚时才执行回滚脚本
+            if script.enable_auto_rollback and script.rollback_script:
+                rollback_result = self._rollback_manager.execute_rollback(
+                    execution_id=task_id,
+                    rollback_script=script.rollback_script,
+                    rollback_params={
+                        'task_id': task_id,
+                        'script_name': script.name,
+                        'error': result.error_message,
+                        'stdout': result.stdout,
+                        'stderr': result.stderr,
+                    }
+                )
+                return rollback_result.status.value == "success"
+            
+            return True
+            
+        except Exception as e:
+            # 回滚失败不影响主流程
+            import logging
+            logging.getLogger(__name__).warning(f"Auto-rollback failed: {e}")
+            return False
+    
+    def _create_device_config_snapshot(self, execution_id: str) -> Dict[str, Any]:
+        """
+        创建设备配置快照（示例实现）
+        
+        Args:
+            execution_id: 执行ID
+            
+        Returns:
+            Dict[str, Any]: 快照数据
+        """
+        # 这里可以接入真实的设备配置获取逻辑
+        # 目前返回示例数据
+        return {
+            'execution_id': execution_id,
+            'timestamp': datetime.now().isoformat(),
+            'device_configs': [],
+            'note': 'Device config snapshot placeholder - implement with actual device config retrieval',
+        }
+    
+    def save_checkpoint(
+        self,
+        execution_id: str,
+        snapshot_type: str = "device_config",
+        data: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ):
+        """
+        保存检查点快照
+        
+        Args:
+            execution_id: 执行ID
+            snapshot_type: 快照类型
+            data: 快照数据
+            metadata: 快照元数据
+        """
+        from .rollback import SnapshotType
+        type_map = {
+            'device_config': SnapshotType.DEVICE_CONFIG,
+            'database_state': SnapshotType.DATABASE_STATE,
+            'script_output': SnapshotType.SCRIPT_OUTPUT,
+            'full_system': SnapshotType.FULL_SYSTEM,
+        }
+        snap_type = type_map.get(snapshot_type, SnapshotType.SCRIPT_OUTPUT)
+        
+        return self._rollback_manager.save_checkpoint(
+            execution_id=execution_id,
+            snapshot_type=snap_type,
+            data=data,
+            metadata=metadata,
+        )
+    
+    def get_snapshot(self, execution_id: str):
+        """
+        获取执行快照
+        
+        Args:
+            execution_id: 执行ID
+            
+        Returns:
+            Snapshot或None
+        """
+        return self._rollback_manager.get_snapshot(execution_id)
 
 
 class ExecutionProgress:

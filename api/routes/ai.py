@@ -3,7 +3,7 @@ AI助手API路由
 提供智能问答、故障诊断、建议生成等AI功能
 """
 
-from typing import Optional, List
+from typing import Optional, List, Dict
 from datetime import datetime
 from enum import Enum
 import json
@@ -1268,3 +1268,226 @@ async def get_ai_stats(
         },
         "avg_response_time_ms": 0,  # 需要LLM服务
     }
+
+
+# ============== 告警根因分析接口 ==============
+
+class RootCauseAnalyzeRequest(BaseModel):
+    """根因分析请求"""
+    include_llm: bool = Field(True, description="是否使用LLM深度分析")
+    include_history: bool = Field(True, description="是否包含关联告警")
+    include_cases: bool = Field(True, description="是否包含相似案例")
+
+
+class RootCauseAnalyzeResponse(BaseModel):
+    """根因分析响应"""
+    alert_id: int
+    success: bool
+    root_cause: str
+    confidence: float
+    possible_causes: List[Dict]
+    related_alerts: List[Dict]
+    analysis_steps: List[Dict]
+    evidence: Dict
+    recommendations: List[str]
+    metadata: Dict
+    error: Optional[str] = None
+
+
+@router.post(
+    "/analyze/{alert_id}/root-cause",
+    summary="告警根因分析",
+    response_model=RootCauseAnalyzeResponse
+)
+async def analyze_root_cause(
+    alert_id: int,
+    request: RootCauseAnalyzeRequest = None,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    AI告警根因分析
+    
+    基于告警信息和历史数据，使用AI分析告警的根本原因。
+    支持:
+    - 基于模式的初步分析
+    - 关联告警查找
+    - 相似案例匹配
+    - LLM深度分析(可选)
+    """
+    # 如果没有请求体，使用默认参数
+    if request is None:
+        request = RootCauseAnalyzeRequest()
+    
+    # 获取根因分析器
+    analyzer = get_root_cause_analyzer()
+    
+    # 尝试获取LLM客户端(如果可用)
+    try:
+        from api.start import get_llm_client
+        llm_client = get_llm_client()
+        if llm_client:
+            analyzer.llm_client = llm_client
+    except Exception:
+        pass  # LLM不可用时使用无LLM模式
+    
+    # 执行分析
+    result = await analyzer.analyze(
+        alert_id=alert_id,
+        db=db,
+        include_llm=request.include_llm,
+        include_history=request.include_history,
+        include_cases=request.include_cases
+    )
+    
+    # 返回结果
+    return RootCauseAnalyzeResponse(
+        alert_id=result.alert_id,
+        success=result.success,
+        root_cause=result.root_cause,
+        confidence=result.confidence,
+        possible_causes=result.possible_causes,
+        related_alerts=result.related_alerts,
+        analysis_steps=result.analysis_steps,
+        evidence=result.evidence,
+        recommendations=result.recommendations,
+        metadata=result.metadata,
+        error=result.error if not result.success else None
+    )
+
+
+# ============== C3: 告警处置(Remediation)接口 ==============
+
+from modules.business.ai_copilot.remediation import RemediationEngine, RemediationPlan
+
+
+class RemediationRequest(BaseModel):
+    """告警处置请求"""
+    alert_id: int = Field(..., description="告警ID")
+    include_auto_executable: bool = Field(False, description="是否只返回可自动执行的步骤")
+
+
+class RemediationStepResponse(BaseModel):
+    """处置步骤响应"""
+    step_id: int
+    action: str
+    description: str
+    command: Optional[str] = None
+    rationale: Optional[str] = None
+    estimated_duration: Optional[str] = None
+    auto_executable: bool = False
+
+
+class SOPMatchResponse(BaseModel):
+    """匹配的SOP响应"""
+    sop_id: str
+    sop_name: str
+    match_score: float
+    matched_keywords: List[str] = []
+    prerequisites: List[str] = []
+
+
+class RemediationResponse(BaseModel):
+    """告警处置响应"""
+    plan_id: str
+    alert_id: str
+    alert_type: str
+    alert_level: str
+    matched_sop: Optional[SOPMatchResponse] = None
+    steps: List[RemediationStepResponse]
+    risk_level: str
+    estimated_time: Optional[str] = None
+    summary: str
+
+
+def get_remediation_engine() -> RemediationEngine:
+    """获取 RemediationEngine 实例"""
+    return RemediationEngine()
+
+
+@router.post(
+    "/analyze/{alert_id}/remediation",
+    summary="告警智能处置",
+    response_model=RemediationResponse
+)
+async def get_remediation(
+    alert_id: int,
+    request: Optional[RemediationRequest] = None,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    AI告警智能处置
+    
+    基于SOP知识库匹配生成告警处置步骤。
+    支持:
+    - SOP自动匹配
+    - 处置步骤生成
+    - 风险等级评估
+    - 预估时间计算
+    """
+    # 如果没有请求体，使用默认参数
+    if request is None:
+        request = RemediationRequest(alert_id=alert_id)
+    
+    # 获取 RemediationEngine
+    engine = get_remediation_engine()
+    
+    # 从数据库获取告警信息
+    from modules.foundation.db_models.monitoring import Alert
+    alert = db.query(Alert).filter(Alert.id == alert_id).first()
+    
+    if not alert:
+        raise HTTPException(status_code=404, detail=f"告警 {alert_id} 不存在")
+    
+    # 构造告警数据
+    alert_data = {
+        "alert_id": str(alert_id),
+        "alert_type": alert.alert_type or "unknown",
+        "name": alert.name or "",
+        "message": alert.message or "",
+        "level": alert.level or "medium",
+    }
+    
+    # 生成处置方案
+    plan: RemediationPlan = engine.generate_remediation_plan(alert_id, alert_data)
+    
+    # 过滤自动可执行步骤（如果请求）
+    steps = plan.generated_steps
+    if request.include_auto_executable:
+        steps = [s for s in steps if s.auto_executable]
+    
+    # 构建匹配的SOP响应
+    matched_sop = None
+    if plan.matched_sops:
+        best_match = plan.matched_sops[0]
+        matched_sop = SOPMatchResponse(
+            sop_id=best_match.sop_id,
+            sop_name=best_match.sop_name,
+            match_score=best_match.match_score,
+            matched_keywords=best_match.matched_keywords,
+            prerequisites=best_match.prerequisites,
+        )
+    
+    return RemediationResponse(
+        plan_id=f"plan_{alert_id}_{int(datetime.now().timestamp())}",
+        alert_id=str(alert_id),
+        alert_type=plan.alert_type,
+        alert_level=plan.alert_level,
+        matched_sop=matched_sop,
+        steps=[
+            RemediationStepResponse(
+                step_id=s.step_id,
+                action=s.action,
+                description=s.description,
+                command=s.command,
+                rationale=s.rationale,
+                estimated_duration=s.estimated_duration,
+                auto_executable=s.auto_executable,
+            )
+            for s in steps
+        ],
+        risk_level=plan.risk_level,
+        estimated_time=plan.estimated_total_time,
+        summary=plan.summary,
+    )

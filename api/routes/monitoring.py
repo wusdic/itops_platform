@@ -4,7 +4,7 @@
 """
 
 import logging
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
 import json
 
@@ -1423,3 +1423,251 @@ async def get_device_metric_configs(
         "enabled_count": len([c for c in configs if c.enabled]),
         "disabled_count": len([c for c in configs if not c.enabled]),
     }
+
+
+# ============== MON-031/MON-032: 仪表盘布局自定义 ==============
+
+from modules.business.dashboard.persistence import (
+    DashboardLayout as DashboardLayoutModel,
+    DashboardLayoutSnapshot,
+    DashboardLayoutData,
+    DashboardLayoutService,
+    LayoutItem,
+    LayoutWidget,
+    LayoutPosition,
+    ColumnConfig,
+    DEFAULT_COLUMNS,
+)
+
+
+class DashboardLayoutRequest(BaseModel):
+    """仪表盘布局请求"""
+    layout_id: Optional[str] = None
+    name: str = "默认布局"
+    description: Optional[str] = ""
+    grid_size: str = "medium"
+    columns: int = 12
+    row_height: int = 80
+    items: List[Dict[str, Any]] = []
+    column_config: List[Dict[str, Any]] = []
+    theme: str = "default"
+    is_default: bool = False
+    is_shared: bool = False
+    tags: List[str] = []
+
+
+class DashboardLayoutResponse(BaseModel):
+    """仪表盘布局响应"""
+    layout_id: str
+    user_id: str
+    name: str
+    description: Optional[str]
+    version: int
+    grid_size: str
+    columns: int
+    row_height: int
+    items: List[Dict[str, Any]]
+    column_config: List[Dict[str, Any]]
+    theme: str
+    is_default: bool
+    is_shared: bool
+    tags: List[str]
+    created_at: Optional[str]
+    updated_at: Optional[str]
+    created_by: Optional[str]
+    updated_by: Optional[str]
+
+
+def _build_response(data: Any = None, code: int = 0, message: str = "success") -> Dict[str, Any]:
+    """构建统一响应格式"""
+    return {
+        "code": code,
+        "message": message,
+        "data": data,
+    }
+
+
+@router.get("/dashboard/layout", summary="获取用户仪表盘布局")
+async def get_dashboard_layout(
+    layout_id: Optional[str] = Query(None, description="布局ID，不传则获取默认布局"),
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    获取用户仪表盘布局配置
+    - 支持获取指定布局或默认布局
+    - 包含widgets、位置、显示/隐藏配置、列宽等
+    """
+    try:
+        service = DashboardLayoutService(db_session=db)
+        layout_data = service.get_user_layout(current_user.user_id, layout_id)
+        
+        if not layout_data:
+            # 创建默认布局
+            layout_data = service.create_default_layout(current_user.user_id)
+        
+        return _build_response(data=layout_data.to_dict())
+        
+    except Exception as e:
+        logger.error(f"获取布局失败: {e}")
+        return _build_response(code=500, message=f"获取布局失败: {str(e)}")
+
+
+@router.put("/dashboard/layout", summary="保存用户仪表盘布局")
+async def save_dashboard_layout(
+    layout: DashboardLayoutRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    保存用户仪表盘布局配置
+    - 支持拖拽排序
+    - 支持显示/隐藏列
+    - 支持自定义列宽
+    - 自动版本控制
+    """
+    try:
+        import uuid
+        
+        # 生成layout_id
+        layout_id = layout.layout_id
+        if not layout_id:
+            layout_id = f"layout_{uuid.uuid4().hex[:12]}"
+        
+        # 转换为DashboardLayoutData
+        layout_data = DashboardLayoutData(
+            layout_id=layout_id,
+            user_id=current_user.user_id,
+            name=layout.name,
+            description=layout.description or "",
+            version=1,
+            grid_size=layout.grid_size,
+            columns=layout.columns,
+            row_height=layout.row_height,
+            items=[LayoutItem.from_dict(item) for item in layout.items],
+            column_config=[ColumnConfig.from_dict(c) for c in (layout.column_config or DEFAULT_COLUMNS)],
+            theme=layout.theme,
+            is_default=layout.is_default,
+            is_shared=layout.is_shared,
+            tags=layout.tags,
+        )
+        
+        service = DashboardLayoutService(db_session=db)
+        saved_layout = service.save_layout(current_user.user_id, layout_data, created_by=current_user.username)
+        
+        return _build_response(data=saved_layout.to_dict(), message="布局保存成功")
+        
+    except Exception as e:
+        logger.error(f"保存布局失败: {e}")
+        return _build_response(code=500, message=f"保存布局失败: {str(e)}")
+
+
+@router.get("/dashboard/layouts", summary="获取用户所有仪表盘布局")
+async def list_dashboard_layouts(
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    获取用户所有仪表盘布局列表
+    """
+    try:
+        service = DashboardLayoutService(db_session=db)
+        layouts = service.list_user_layouts(current_user.user_id)
+        
+        return _build_response(data=[l.to_dict() for l in layouts])
+        
+    except Exception as e:
+        logger.error(f"列出布局失败: {e}")
+        return _build_response(code=500, message=f"列出布局失败: {str(e)}")
+
+
+@router.delete("/dashboard/layout/{layout_id}", summary="删除仪表盘布局")
+async def delete_dashboard_layout(
+    layout_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    删除指定仪表盘布局
+    """
+    try:
+        service = DashboardLayoutService(db_session=db)
+        success = service.delete_layout(current_user.user_id, layout_id)
+        
+        if success:
+            return _build_response(message="布局删除成功")
+        else:
+            return _build_response(code=404, message="布局不存在")
+            
+    except Exception as e:
+        logger.error(f"删除布局失败: {e}")
+        return _build_response(code=500, message=f"删除布局失败: {str(e)}")
+
+
+@router.post("/dashboard/layout/snapshot", summary="创建布局快照")
+async def create_layout_snapshot(
+    layout_id: str = Query(..., description="布局ID"),
+    comment: Optional[str] = Query(None, description="快照说明"),
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    为当前布局创建快照，用于版本回滚
+    """
+    try:
+        service = DashboardLayoutService(db_session=db)
+        layout_data = service.get_user_layout(current_user.user_id, layout_id)
+        
+        if not layout_data:
+            return _build_response(code=404, message="布局不存在")
+        
+        success = service.create_snapshot(
+            layout_id=layout_id,
+            version=layout_data.version,
+            snapshot_data=layout_data,
+            created_by=current_user.username,
+            comment=comment,
+        )
+        
+        if success:
+            return _build_response(message="快照创建成功")
+        else:
+            return _build_response(code=500, message="快照创建失败")
+            
+    except Exception as e:
+        logger.error(f"创建快照失败: {e}")
+        return _build_response(code=500, message=f"创建快照失败: {str(e)}")
+
+
+@router.get("/dashboard/layout/snapshot/{layout_id}/{version}", summary="获取布局快照")
+async def get_layout_snapshot(
+    layout_id: str,
+    version: int,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    获取指定版本的布局快照
+    """
+    try:
+        service = DashboardLayoutService(db_session=db)
+        snapshot = service.get_snapshot(layout_id, version)
+        
+        if snapshot:
+            return _build_response(data=snapshot.to_dict())
+        else:
+            return _build_response(code=404, message="快照不存在")
+            
+    except Exception as e:
+        logger.error(f"获取快照失败: {e}")
+        return _build_response(code=500, message=f"获取快照失败: {str(e)}")
+
+
+@router.get("/dashboard/columns", summary="获取仪表盘列配置")
+async def get_dashboard_columns(
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """
+    获取仪表盘列配置（显示/隐藏、宽度等）
+    """
+    return _build_response(data=DEFAULT_COLUMNS)

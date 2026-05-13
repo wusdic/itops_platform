@@ -15,6 +15,7 @@ from modules.foundation.db_models.workorder import (
     WorkOrder, WorkOrderFlow, WorkOrderType, WorkOrderStatus, WorkOrderPriority
 )
 from modules.business.workorder.workorder import WorkOrderCore
+from modules.business.report_generator.excel_exporter import WorkOrderExporter, ExportFormat
 
 router = APIRouter()
 
@@ -56,6 +57,24 @@ class WorkOrderFlowCreate(BaseModel):
     action: str = Field(..., description="操作: assign, approve, reject, resolve, close, cancel")
     comment: Optional[str] = Field(None, description="意见/备注")
     to_status: Optional[str] = Field(None, description="新状态")
+
+
+class WorkOrderDraftSave(BaseModel):
+    """保存工单草稿请求"""
+    draft_id: Optional[str] = Field(None, description="草稿ID(更新时传入)")
+    order_type: Optional[str] = Field(None, description="工单类型")
+    title: Optional[str] = Field(None, description="标题")
+    description: Optional[str] = Field(None, description="描述")
+    priority: Optional[str] = Field("P3", description="优先级")
+    device_id: Optional[int] = Field(None, description="设备ID")
+    device_name: Optional[str] = Field(None, description="设备名称")
+    device_ip: Optional[str] = Field(None, description="设备IP")
+    assignee: Optional[str] = Field(None, description="处理人")
+    expected_end: Optional[datetime] = Field(None, description="期望完成时间")
+    impact: Optional[str] = Field(None, description="影响范围")
+    tags: Optional[List[str]] = Field(None, description="标签")
+    attachments: Optional[List[dict]] = Field(None, description="附件")
+    is_auto_save: bool = Field(False, description="是否自动保存")
 
 
 class WorkOrderResponse(BaseModel):
@@ -187,6 +206,110 @@ async def get_workorders(
         "page": pagination.page,
         "page_size": pagination.page_size,
     }
+
+
+@router.get("/export", summary="导出工单")
+async def export_workorders(
+    status: Optional[str] = Query(None, description="状态过滤"),
+    priority: Optional[str] = Query(None, description="优先级过滤"),
+    start_date: Optional[datetime] = Query(None, description="创建时间开始"),
+    end_date: Optional[datetime] = Query(None, description="创建时间结束"),
+    format: Optional[str] = Query("excel", description="导出格式: excel/csv"),
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    导出工单到Excel或CSV文件
+    支持按状态、优先级、时间范围过滤
+    """
+    core = _build_workorder_core(db)
+    
+    # 映射过滤参数
+    status_enum = _map_status(status) if status else None
+    priority_enum = _map_priority(priority) if priority else None
+    
+    # 查询工单列表 (不分页，获取所有)
+    workorders, total = core.list(
+        status=status_enum,
+        priority=priority_enum,
+        start_time=start_date,
+        end_time=end_date,
+        page=1,
+        page_size=10000  # 最大导出10000条
+    )
+    
+    if not workorders:
+        return {"data": [], "code": 0, "message": "没有可导出的工单"}
+    
+    # 转换为字典
+    workorder_dicts = [_workorder_to_dict(wo) for wo in workorders]
+    
+    # 导出
+    exporter = WorkOrderExporter()
+    export_format = ExportFormat.CSV if format == 'csv' else ExportFormat.XLSX
+    
+    file_bytes, content_type = exporter.export(workorder_dicts, format=export_format)
+    
+    from fastapi.responses import StreamingResponse
+    import io
+    
+    filename = f"workorders_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    if format == 'csv':
+        filename += ".csv"
+        media_type = "text/csv; charset=utf-8-sig"
+    else:
+        filename += ".xlsx"
+        media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    
+    return StreamingResponse(
+        io.BytesIO(file_bytes),
+        media_type=media_type,
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"}
+    )
+
+
+@router.get("/export/{workorder_id}", summary="导出单个工单")
+async def export_single_workorder(
+    workorder_id: int,
+    format: Optional[str] = Query("excel", description="导出格式: excel/csv"),
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    导出单个工单到Excel或CSV文件
+    """
+    core = _build_workorder_core(db)
+    
+    # 获取工单
+    wo = core.get_by_id(workorder_id)
+    if not wo:
+        raise HTTPException(status_code=404, detail="工单不存在")
+    
+    # 转换为字典
+    wo_dict = _workorder_to_dict(wo)
+    
+    # 导出
+    exporter = WorkOrderExporter()
+    export_format = ExportFormat.CSV if format == 'csv' else ExportFormat.XLSX
+    
+    file_bytes, content_type = exporter.export_single(wo_dict, format=export_format)
+    
+    from fastapi.responses import StreamingResponse
+    import io
+    
+    filename = f"workorder_{wo.order_no}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    if format == 'csv':
+        filename += ".csv"
+        media_type = "text/csv; charset=utf-8-sig"
+    else:
+        filename += ".xlsx"
+        media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    
+    return StreamingResponse(
+        io.BytesIO(file_bytes),
+        media_type=media_type,
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"}
+    )
 
 
 @router.post("/", summary="创建工单")
@@ -357,6 +480,70 @@ async def get_workorder(
         raise HTTPException(status_code=404, detail="工单不存在")
     
     return _workorder_to_dict(wo)
+
+
+@router.put("/{workorder_id}/draft", summary="保存工单草稿")
+async def save_workorder_draft(
+    workorder_id: int,
+    draft: WorkOrderDraftSave,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    保存工单草稿(WKO-008)
+    
+    - 不更新updated_at
+    - 不记录操作历史
+    - 状态保持draft
+    - 只更新: title, description, priority, draft_data, draft_saved_at
+    """
+    core = _build_workorder_core(db)
+    
+    # 获取工单
+    wo = core.get_by_id(workorder_id)
+    if not wo:
+        raise HTTPException(status_code=404, detail="工单不存在")
+    
+    # 草稿保存只更新指定字段
+    if draft.title is not None:
+        wo.title = draft.title
+    if draft.description is not None:
+        wo.description = draft.description
+    if draft.priority is not None:
+        wo.priority = _map_priority(draft.priority)
+    
+    # 构建草稿数据快照
+    draft_data = {
+        'order_type': draft.order_type or (wo.order_type.value if wo.order_type else None),
+        'title': draft.title if draft.title is not None else wo.title,
+        'description': draft.description if draft.description is not None else wo.description,
+        'priority': draft.priority if draft.priority is not None else (wo.priority.value if wo.priority else 'P3'),
+        'device_id': draft.device_id if draft.device_id is not None else wo.device_id,
+        'device_name': draft.device_name if draft.device_name is not None else wo.device_name,
+        'device_ip': draft.device_ip if draft.device_ip is not None else wo.device_ip,
+        'assignee': draft.assignee if draft.assignee is not None else wo.assignee,
+        'expected_end': draft.expected_end.isoformat() if draft.expected_end else (wo.expected_end.isoformat() if wo.expected_end else None),
+        'impact': draft.impact if draft.impact is not None else wo.impact,
+        'tags': draft.tags if draft.tags is not None else (wo.tags.split(',') if wo.tags else []),
+        'attachments': draft.attachments if draft.attachments is not None else [],
+    }
+    
+    wo.draft_data = draft_data
+    wo.draft_saved_at = datetime.now()
+    
+    # 注意：不更新updated_at，不记录操作历史
+    
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="草稿保存失败")
+    
+    return {
+        "code": 0,
+        "message": "草稿保存成功",
+        "data": _workorder_to_dict(wo)
+    }
 
 
 @router.put("/{workorder_id}", summary="更新工单")
@@ -587,24 +774,6 @@ async def suggest_remediation(
 
 # ============== 工单草稿接口 ==============
 
-class WorkOrderDraftSave(BaseModel):
-    """保存工单草稿请求"""
-    draft_id: Optional[str] = Field(None, description="草稿ID(更新时传入)")
-    order_type: Optional[str] = Field(None, description="工单类型")
-    title: Optional[str] = Field(None, description="标题")
-    description: Optional[str] = Field(None, description="描述")
-    priority: Optional[str] = Field("P3", description="优先级")
-    device_id: Optional[int] = Field(None, description="设备ID")
-    device_name: Optional[str] = Field(None, description="设备名称")
-    device_ip: Optional[str] = Field(None, description="设备IP")
-    assignee: Optional[str] = Field(None, description="处理人")
-    expected_end: Optional[datetime] = Field(None, description="期望完成时间")
-    impact: Optional[str] = Field(None, description="影响范围")
-    tags: Optional[List[str]] = Field(None, description="标签")
-    attachments: Optional[List[dict]] = Field(None, description="附件")
-    is_auto_save: bool = Field(False, description="是否自动保存")
-
-
 class WorkOrderDraftResponse(BaseModel):
     """工单草稿响应"""
     draft_id: str
@@ -709,46 +878,169 @@ async def delete_draft(
     return {"status": "success", "message": "草稿已删除"}
 
 
-# ============== SLA管理接口 ==============
+# ============== SLA管理接口 (WKO-021/022) ==============
 
-@router.get("/sla/{workorder_id}", summary="获取SLA状态")
-async def get_sla_status(
+@router.get("/{workorder_id}/sla", summary="获取工单SLA状态")
+async def get_workorder_sla_status(
     workorder_id: int,
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
-    获取工单的SLA状态
+    获取工单的SLA状态(WKO-021)
+    
+    返回:
+    - remaining_seconds: 剩余秒数(负数表示已超时)
+    - deadline: 截止时间
+    - sla_level: SLA级别(P1-P4)
+    - breach_warning: 是否警告
+    - is_breached: 是否已超时
+    - escalation_level: 当前升级级别(0-4)
     """
-    from modules.business.workorder.workorder_draft import SLATracker
+    from modules.business.workorder.sla_manager import SLAManager
     
-    sla_tracker = SLATracker()
+    # 构建SLAManager
+    sla_manager = SLAManager(db_session=db)
     
-    # Get work order info
+    # 获取工单信息验证存在
+    core = _build_workorder_core(db)
+    wo = core.get_by_id(workorder_id)
+    if not wo:
+        raise HTTPException(status_code=404, detail="工单不存在")
+    
+    # 计算SLA状态
+    status = sla_manager.compute_sla_status(workorder_id)
+    
+    return {"code": 0, "data": status}
+
+
+@router.post("/{workorder_id}/sla/refresh", summary="刷新SLA状态")
+async def refresh_sla_status(
+    workorder_id: int,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    重新计算SLA状态(WKO-021)
+    
+    重新计算工单的SLA状态并检查是否需要升级
+    """
+    from modules.business.workorder.sla_manager import SLAManager
+    
+    # 构建SLAManager
+    sla_manager = SLAManager(db_session=db)
+    
+    # 获取工单信息验证存在
+    core = _build_workorder_core(db)
+    wo = core.get_by_id(workorder_id)
+    if not wo:
+        raise HTTPException(status_code=404, detail="工单不存在")
+    
+    # 重新计算SLA状态
+    status = sla_manager.compute_sla_status(workorder_id)
+    
+    # 检查并触发升级
+    escalations = sla_manager.check_escalation(workorder_id)
+    
+    return {
+        "code": 0,
+        "data": {
+            "sla_status": status,
+            "escalations": escalations
+        }
+    }
+
+
+@router.get("/{workorder_id}/sla/history", summary="获取SLA升级历史")
+async def get_sla_escalation_history(
+    workorder_id: int,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    获取工单的SLA升级历史记录
+    """
+    from modules.business.workorder.sla_manager import SLAManager
+    
+    sla_manager = SLAManager(db_session=db)
+    
+    # 验证工单存在
+    core = _build_workorder_core(db)
+    wo = core.get_by_id(workorder_id)
+    if not wo:
+        raise HTTPException(status_code=404, detail="工单不存在")
+    
+    history = sla_manager.get_escalation_history(workorder_id)
+    
+    return {"code": 0, "data": history}
+
+
+@router.post("/{workorder_id}/sla/timer/start", summary="启动SLA计时器")
+async def start_sla_timer(
+    workorder_id: int,
+    sla_type: str = Query("response", description="SLA类型: response/resolve"),
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    启动SLA计时器(WKO-021)
+    
+    为工单启动响应或解决SLA计时
+    """
+    from modules.business.workorder.sla_manager import SLAManager
+    
     core = _build_workorder_core(db)
     wo = core.get_by_id(workorder_id)
     
     if not wo:
         raise HTTPException(status_code=404, detail="工单不存在")
     
-    # Check SLA status
-    response_status = sla_tracker.check_sla_status(workorder_id, 'response')
-    resolve_status = sla_tracker.check_sla_status(workorder_id, 'resolve')
+    sla_manager = SLAManager(db_session=db)
+    timer_info = sla_manager.start_sla_timer(
+        workorder_id=workorder_id,
+        priority=wo.priority.value if wo.priority else 'P3',
+        sla_type=sla_type
+    )
+    
+    return {"code": 0, "data": timer_info}
+
+
+# ============== 旧的SLA接口(兼容) ==============
+
+@router.get("/sla/{workorder_id}", summary="[兼容]获取SLA状态")
+async def get_sla_status_old(
+    workorder_id: int,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    [兼容接口]获取工单的SLA状态
+    """
+    from modules.business.workorder.sla_manager import SLAManager
+    
+    sla_manager = SLAManager(db_session=db)
+    core = _build_workorder_core(db)
+    wo = core.get_by_id(workorder_id)
+    
+    if not wo:
+        raise HTTPException(status_code=404, detail="工单不存在")
+    
+    status = sla_manager.compute_sla_status(workorder_id)
     
     return {
         "workorder_id": workorder_id,
         "priority": wo.priority.value if wo.priority else 'P3',
-        "response": response_status,
-        "resolve": resolve_status
+        "response": status.get('response_timer'),
+        "resolve": status.get('resolve_timer')
     }
 
 
-@router.get("/sla/summary", summary="获取SLA汇总")
-async def get_sla_summary(
+@router.get("/sla/summary", summary="[兼容]获取SLA汇总")
+async def get_sla_summary_old(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """
-    获取SLA状态汇总
+    [兼容接口]获取SLA状态汇总
     """
     from modules.business.workorder.workorder_draft import SLATracker
     
@@ -758,15 +1050,15 @@ async def get_sla_summary(
     return summary
 
 
-@router.post("/sla/{workorder_id}/start", summary="启动SLA计时")
-async def start_sla_timer(
+@router.post("/sla/{workorder_id}/start", summary="[兼容]启动SLA计时")
+async def start_sla_timer_old(
     workorder_id: int,
     sla_type: str = Query("response", description="SLA类型: response/resolve"),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
-    启动SLA计时器
+    [兼容接口]启动SLA计时器
     """
     from modules.business.workorder.workorder_draft import SLATracker
     
