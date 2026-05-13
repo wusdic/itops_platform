@@ -7,6 +7,7 @@ import pytest
 import json
 import tempfile
 import os
+from pathlib import Path
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 from typing import Dict, List, Optional
@@ -84,13 +85,15 @@ class TestConfigLoader:
     
     @pytest.fixture
     def temp_config_file(self, sample_config):
-        """创建临时配置文件"""
-        fd, path = tempfile.mkstemp(suffix='.yaml')
-        with os.fdopen(fd, 'w') as f:
-            import yaml
+        """创建临时配置文件目录（ConfigLoader期望目录+config.yaml）"""
+        import yaml
+        tmpdir = tempfile.mkdtemp()
+        config_path = Path(tmpdir) / 'config.yaml'
+        with open(config_path, 'w') as f:
             yaml.dump(sample_config, f)
-        yield path
-        os.unlink(path)
+        yield tmpdir
+        import shutil
+        shutil.rmtree(tmpdir)
     
     def test_load_config_file(self, temp_config_file):
         """测试加载配置文件"""

@@ -171,16 +171,40 @@ class TestAIChatAPI:
 class TestConversationManagement:
     """会话管理接口测试"""
     
-    def test_get_conversation(self, client, mock_user):
+    def test_get_conversation(self, client, mock_user, db_session):
         """测试获取会话历史"""
+        # Seed mock conversation data
+        from modules.foundation.db_models.ai import AIConversation, AIMessage
+        conv = AIConversation(
+            conversation_id="conv-123",
+            user_id="u001",
+            title="Test Conversation",
+            conversation_type="chat",
+            is_deleted=False
+        )
+        db_session.add(conv)
+        msg = AIMessage(
+            conversation_id="conv-123",
+            role="user",
+            content="Hello",
+            token_count=5
+        )
+        db_session.add(msg)
+        db_session.commit()
+
         response = client.get("/conversation/conv-123?limit=50")
         assert response.status_code == 200
         data = response.json()
         assert data["conversation_id"] == "conv-123"
         assert "messages" in data
     
-    def test_get_conversations_list(self, client, mock_user):
+    def test_get_conversations_list(self, client, mock_user, db_session):
         """测试获取会话列表"""
+        from modules.foundation.db_models.ai import AIConversation
+        conv = AIConversation(conversation_id="conv-list", user_id="u001", title="Test", conversation_type="chat", is_deleted=False)
+        db_session.add(conv)
+        db_session.commit()
+
         response = client.get("/conversations?limit=20")
         assert response.status_code == 200
         data = response.json()
@@ -192,9 +216,14 @@ class TestConversationManagement:
         response = client.get("/conversations?conversation_type=chat")
         assert response.status_code == 200
     
-    def test_delete_conversation(self, client, mock_user):
+    def test_delete_conversation(self, client, mock_user, db_session):
         """测试删除会话"""
-        response = client.delete("/conversation/conv-123")
+        from modules.foundation.db_models.ai import AIConversation
+        conv = AIConversation(conversation_id="conv-del", user_id="u001", title="To Delete", conversation_type="chat", is_deleted=False)
+        db_session.add(conv)
+        db_session.commit()
+
+        response = client.delete("/conversation/conv-del")
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "success"

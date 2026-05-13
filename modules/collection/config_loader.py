@@ -72,6 +72,11 @@ class ConfigLoader:
         
         self._last_load = datetime.now()
         logger.info(f"配置加载完成: {len(self._devices)}个设备, {len(self._adapters)}个适配器")
+
+    @property
+    def config(self) -> Dict[str, Any]:
+        """全局配置属性（兼容别名）"""
+        return self._global_config
     
     def _load_global_config(self) -> None:
         """加载全局配置"""

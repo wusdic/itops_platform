@@ -362,8 +362,8 @@ class TDengineClient(StorageClient):
             import requests
             
             auth = (self.username, self.password)
-            headers = {"Content-Type": "application/json"}
-            
+            headers = {"Content-Type": "text/plain"}
+
             # 执行SQL
             response = requests.post(
                 f"{self._base_url}/rest/sql",
@@ -372,16 +372,23 @@ class TDengineClient(StorageClient):
                 headers=headers,
                 timeout=30
             )
-            
+
             if response.status_code != 200:
                 return []
-            
+
             data = response.json()
-            if data.get("status") != "succ":
+            # TDengine 3.x: code=0 表示成功（无 status 字段）
+            # TDengine 2.x: status="succ" 表示成功
+            code = data.get("code")
+            status = data.get("status")
+            if code != 0 and status not in ("succ", "success"):
                 return []
-            
+
             # 解析结果
-            column_names = data.get("column_names", [])
+            # TDengine 3.x REST API: 列信息在 column_meta [[name, type, size], ...]
+            # TDengine 2.x: 列信息在 column_names [name, ...]
+            column_meta = data.get("column_meta", [])
+            column_names = [col[0] if isinstance(col, list) else col for col in column_meta]
             rows = data.get("data", [])
             
             results = []
@@ -398,8 +405,8 @@ class TDengineClient(StorageClient):
         try:
             import requests
             auth = (self.username, self.password)
-            headers = {"Content-Type": "application/json"}
-            
+            headers = {"Content-Type": "text/plain"}
+
             response = requests.post(
                 f"{self._base_url}/rest/sql",
                 data=sql,
@@ -416,35 +423,47 @@ class TDengineClient(StorageClient):
         db = database or self.database
         self.execute(f"CREATE DATABASE IF NOT EXISTS {db}")
     
-    def create_table(self, table_name: str, tags: List[str], columns: List[str]):
-        """创建超级表"""
-        tag_str = ", ".join(tags)
+    def create_table(self, table_name: str, columns: List[str]):
+        """创建普通表（TDengine 3.x 不支持无子表直接插入超级表，优先使用普通表）"""
         col_str = ", ".join(columns)
-        sql = f"""
-        CREATE TABLE IF NOT EXISTS {table_name} (
-            {col_str}
-        ) TAGS ({tag_str})
-        """
+        sql = f"CREATE TABLE IF NOT EXISTS {table_name} ({col_str})"
         self.execute(sql)
-    
+
+    def create_normal_table(self, table_name: str, columns: List[str]):
+        """创建普通表（同create_table，保留别名）"""
+        self.create_table(table_name, columns)
+
+    def create_supertable(self, table_name: str, columns: List[str], tags: List[str]):
+        """创建超级表（需要子表）"""
+        col_str = ", ".join(columns)
+        tag_str = ", ".join(tags)
+        sql = f"CREATE STABLE IF NOT EXISTS {table_name} ({col_str}) TAGS ({tag_str})"
+        self.execute(sql)
+
+    def create_subtable(self, table_name: str, stable_name: str, tags: List[str]):
+        """创建子表（基于超级表）"""
+        tag_str = ", ".join([f"'{t}'" if isinstance(t, str) else str(t) for t in tags])
+        sql = f"CREATE TABLE IF NOT EXISTS {table_name} USING {stable_name} TAGS ({tag_str})"
+        self.execute(sql)
+
     def insert(self, table_name: str, data: List[Dict]):
-        """插入数据"""
+        """插入数据到普通表（支持 TDengine 3.x）"""
         if not data:
             return
-        
-        # 构建INSERT语句
-        timestamp = int(time.time() * 1000)
-        
+
         for item in data:
-            values = [f"'{timestamp}'"]
-            for col in item.values():
-                if isinstance(col, str):
-                    values.append(f"'{col}'")
-                elif col is None:
+            timestamp = item.get('ts') or int(time.time() * 1000)
+            values = []
+            for col, val in item.items():
+                if col == 'ts':
+                    values.append(str(val) if isinstance(val, int) else f"'{val}'")
+                elif isinstance(val, str):
+                    values.append(f"'{val}'")
+                elif val is None:
                     values.append("NULL")
                 else:
-                    values.append(str(col))
-            
+                    values.append(str(val))
+
             sql = f"INSERT INTO {table_name} VALUES ({', '.join(values)})"
             self.execute(sql)
     
