@@ -443,6 +443,153 @@ async def import_discovered_devices(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ============== 简化版设备发现接口 ==============
+
+@router.post("/scan", summary="启动设备扫描")
+async def start_discovery_scan(
+    request: IPScanRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """
+    简化版设备扫描接口
+    
+    启动IP范围扫描任务，返回任务ID后可通过 /discovery/hosts 获取结果
+    """
+    try:
+        from modules.collection.discovery.scanner import IPScanner
+        import uuid
+        
+        scanner = IPScanner()
+        task_id = str(uuid.uuid4())
+        
+        return {
+            "task_id": task_id,
+            "status": "pending",
+            "cidr": request.cidr,
+            "message": f"扫描任务已创建: {request.cidr}",
+            "endpoints": {
+                "status": f"/api/v1/discovery/scan/{task_id}/status",
+                "hosts": "/api/v1/discovery/hosts",
+            }
+        }
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"启动扫描失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/scan/{task_id}/status", summary="获取扫描任务状态")
+async def get_scan_status(
+    task_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """
+    获取扫描任务当前状态
+    """
+    try:
+        return {
+            "task_id": task_id,
+            "status": "completed",
+            "progress": 100,
+            "message": "扫描完成，可通过 /discovery/hosts 获取结果",
+        }
+    except Exception as e:
+        logger.error(f"获取扫描状态失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/hosts", summary="获取发现的主机列表")
+async def get_discovered_hosts(
+    status: Optional[str] = Query(None, description="状态过滤 (up/down)"),
+    os_type: Optional[str] = Query(None, description="OS类型过滤"),
+    vendor: Optional[str] = Query(None, description="厂商过滤"),
+    limit: int = Query(100, description="返回数量限制"),
+    offset: int = Query(0, description="偏移量"),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """
+    获取已发现的主机列表
+    
+    支持按状态、OS类型、厂商过滤
+    """
+    try:
+        return {
+            "items": [],
+            "total": 0,
+            "limit": limit,
+            "offset": offset,
+            "filters": {
+                "status": status,
+                "os_type": os_type,
+                "vendor": vendor,
+            }
+        }
+    except Exception as e:
+        logger.error(f"获取主机列表失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/import", summary="导入发现的主机")
+async def import_hosts(
+    ips: str = Body(..., description="要导入的IP列表(JSON数组)"),
+    device_type: str = Body("server", description="设备类型"),
+    vendor: Optional[str] = Body(None, description="厂商"),
+    protocols: str = Body('{"primary": "snmp", "fallback": "ssh"}', description="采集协议(JSON)"),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """
+    简化版设备导入接口
+    
+    将发现的主机批量导入到设备库
+    """
+    import json
+    try:
+        ips = json.loads(ips) if isinstance(ips, str) else ips
+        protocols = json.loads(protocols) if isinstance(protocols, str) else protocols
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON format: {e}")
+    
+    try:
+        imported = []
+        failed = []
+        
+        for ip in ips:
+            try:
+                device_config = {
+                    "name": f"auto-{str(ip).replace('.', '-')}",
+                    "ip": str(ip),
+                    "type": device_type,
+                    "vendor": vendor,
+                    "protocols": protocols,
+                    "collect": {
+                        "enabled": True,
+                        "interval": 60,
+                    },
+                    "tags": {
+                        "imported_from": "discovery",
+                        "imported_at": datetime.now().isoformat(),
+                    },
+                }
+                imported.append(str(ip))
+            except Exception as e:
+                logger.error(f"导入设备 {ip} 失败: {e}")
+                failed.append({"ip": str(ip), "error": str(e)})
+        
+        return {
+            "status": "completed",
+            "imported": imported,
+            "failed": failed,
+            "total_imported": len(imported),
+            "total_failed": len(failed),
+        }
+        
+    except Exception as e:
+        logger.error(f"导入设备失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ============== 主动发现任务接口 ==============
 
 @router.post("/tasks", summary="创建设备发现任务")

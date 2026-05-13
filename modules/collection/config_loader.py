@@ -314,26 +314,31 @@ class ConfigLoader:
     def get_protocol_config(self, device: Dict[str, Any], protocol: str) -> Dict[str, Any]:
         """
         获取设备指定协议的配置
-        
+
         Args:
             device: 设备配置
             protocol: 协议类型 (ssh/snmp/http/ipmi/winrm/kubernetes/docker)
-            
+
         Returns:
             协议配置
         """
-        # 优先级: 设备自身配置 > 适配器配置
-        if protocol in device.get('credentials', {}):
-            return device['credentials'][protocol]
-        
+        # 优先级: 设备 protocols 嵌套 > 设备 credentials > 设备直接键 > 适配器默认
+        protocols = device.get('protocols', {})
+        if protocol in protocols:
+            return protocols[protocol]
+
+        credentials = device.get('credentials', {})
+        if protocol in credentials:
+            return credentials[protocol]
+
         if protocol in device:
             return device[protocol]
-        
+
         # 从适配器获取默认配置
         adapter = self.get_adapter_for_device(device)
         if adapter and protocol in adapter.get('protocols', {}):
             return adapter['protocols'][protocol]
-        
+
         return {}
     
     def get_global_config(self, key_path: str = None) -> Any:
@@ -402,10 +407,10 @@ class ConfigLoader:
     def remove_device(self, name: str) -> bool:
         """
         移除设备配置
-        
+
         Args:
             name: 设备名称
-            
+
         Returns:
             是否成功
         """
@@ -414,9 +419,66 @@ class ConfigLoader:
                 self._devices.pop(i)
                 logger.info(f"移除设备: {name}")
                 return True
-        
+
         return False
-    
+
+    def get_device_credentials(self, device_name: str, protocol: str) -> Optional[Dict[str, Any]]:
+        """
+        获取设备指定协议的凭据
+
+        Args:
+            device_name: 设备名称
+            protocol: 协议类型 (ssh/snmp/http/ipmi/winrm)
+
+        Returns:
+            协议凭据配置
+        """
+        device = self.get_device_by_name(device_name)
+        if not device:
+            return None
+
+        # 从 credentials 或 protocols 字段获取
+        credentials = device.get('credentials', {})
+        if protocol in credentials:
+            return credentials[protocol]
+
+        protocols = device.get('protocols', {})
+        if protocol in protocols:
+            return protocols[protocol]
+
+        return None
+
+    def get_device_protocol_config(self, device_name: str, protocol: str) -> Optional[Dict[str, Any]]:
+        """
+        获取设备指定协议的完整配置
+
+        Args:
+            device_name: 设备名称
+            protocol: 协议类型
+
+        Returns:
+            协议配置
+        """
+        return self.get_protocol_config(
+            self.get_device_by_name(device_name) or {},
+            protocol
+        )
+
+    def get_collect_config(self, device_name: str) -> Optional[Dict[str, Any]]:
+        """
+        获取设备采集配置
+
+        Args:
+            device_name: 设备名称
+
+        Returns:
+            采集配置
+        """
+        device = self.get_device_by_name(device_name)
+        if not device:
+            return None
+        return device.get('collect', {})
+
     def save_devices(self) -> bool:
         """
         保存设备配置到文件

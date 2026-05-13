@@ -29,6 +29,8 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - ./config:/app/config:ro
+      - ./api:/app/api:ro
+      - ./modules:/app/modules:ro
       - ./logs:/app/logs
       - ./data:/app/data
       - ./reports:/app/reports

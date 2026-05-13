@@ -85,11 +85,14 @@ class TestConfigLoader:
     
     @pytest.fixture
     def temp_config_file(self, sample_config):
-        """创建临时配置文件目录（ConfigLoader期望目录+config.yaml）"""
+        """创建临时配置文件目录（ConfigLoader期望目录+devices/devices.yaml）"""
         import yaml
         tmpdir = tempfile.mkdtemp()
-        config_path = Path(tmpdir) / 'config.yaml'
-        with open(config_path, 'w') as f:
+        # ConfigLoader._load_devices() reads from <config_dir>/devices/ and <config_dir>/devices.yaml
+        devices_dir = Path(tmpdir) / 'devices'
+        devices_dir.mkdir()
+        devices_path = devices_dir / 'devices.yaml'
+        with open(devices_path, 'w') as f:
             yaml.dump(sample_config, f)
         yield tmpdir
         import shutil
@@ -98,11 +101,12 @@ class TestConfigLoader:
     def test_load_config_file(self, temp_config_file):
         """测试加载配置文件"""
         from modules.collection.config_loader import ConfigLoader
-        
+
         loader = ConfigLoader(config_dir=temp_config_file)
         assert loader.config is not None
-        assert "devices" in loader.config
-    
+        # loader.config 是全局配置（来自 config.yaml），不是 devices 列表
+        assert "platform" in loader.config or "collect" in loader.config
+
     def test_get_all_devices(self, temp_config_file):
         """测试获取所有设备"""
         from modules.collection.config_loader import ConfigLoader
@@ -220,19 +224,20 @@ class TestConfigLoader:
         initial_devices = loader.get_devices()
         assert len(initial_devices) == 2
         
-        # 修改配置文件
-        with open(temp_config_file, 'r') as f:
+        # 修改配置文件（devices 在 <dir>/devices/devices.yaml）
+        devices_yaml_path = Path(temp_config_file) / 'devices' / 'devices.yaml'
+        with open(devices_yaml_path, 'r') as f:
             import yaml
             config = yaml.safe_load(f)
-        
+
         config["devices"].append({
             "name": "server-03",
             "ip": "192.168.1.12",
             "type": "linux",
             "vendor": "dell"
         })
-        
-        with open(temp_config_file, 'w') as f:
+
+        with open(devices_yaml_path, 'w') as f:
             yaml.dump(config, f)
         
         # 重新加载
@@ -249,24 +254,28 @@ class TestDeviceFiltering:
     def loader_with_devices(self):
         """创建带设备的加载器"""
         from modules.collection.config_loader import ConfigLoader
-        
+
         config = {
             "devices": [
-                {"name": "srv-01", "ip": "10.0.0.1", "type": "linux", "vendor": "dell", "enabled": True, "tags": {"env": "prod"}},
-                {"name": "srv-02", "ip": "10.0.0.2", "type": "linux", "vendor": "hp", "enabled": True, "tags": {"env": "prod"}},
-                {"name": "srv-03", "ip": "10.0.0.3", "type": "windows", "vendor": "dell", "enabled": False, "tags": {"env": "dev"}},
-                {"name": "srv-04", "ip": "10.0.0.4", "type": "linux", "vendor": "hp", "enabled": True, "tags": {"env": "dev"}},
+                {"name": "srv-01", "ip": "10.0.0.1", "type": "linux", "vendor": "dell", "collect": {"enabled": True}, "tags": {"env": "prod"}},
+                {"name": "srv-02", "ip": "10.0.0.2", "type": "linux", "vendor": "hp", "collect": {"enabled": True}, "tags": {"env": "prod"}},
+                {"name": "srv-03", "ip": "10.0.0.3", "type": "windows", "vendor": "dell", "collect": {"enabled": False}, "tags": {"env": "dev"}},
+                {"name": "srv-04", "ip": "10.0.0.4", "type": "linux", "vendor": "hp", "collect": {"enabled": True}, "tags": {"env": "dev"}},
             ]
         }
-        
-        fd, path = tempfile.mkstemp(suffix='.yaml')
-        with os.fdopen(fd, 'w') as f:
+
+        tmpdir = tempfile.mkdtemp()
+        devices_dir = Path(tmpdir) / 'devices'
+        devices_dir.mkdir()
+        devices_path = devices_dir / 'devices.yaml'
+        with open(devices_path, 'w') as f:
             import yaml
             yaml.dump(config, f)
-        
-        loader = ConfigLoader(config_dir=path)
+
+        loader = ConfigLoader(config_dir=tmpdir)
         yield loader
-        os.unlink(path)
+        import shutil
+        shutil.rmtree(tmpdir)
     
     def test_filter_by_multiple_tags(self, loader_with_devices):
         """测试按多个标签过滤"""
@@ -290,26 +299,30 @@ class TestConfigStats:
     def test_get_stats(self):
         """测试获取配置统计信息"""
         from modules.collection.config_loader import ConfigLoader
-        
+
         config = {
             "devices": [
-                {"name": "srv-01", "type": "linux", "vendor": "dell", "enabled": True},
-                {"name": "srv-02", "type": "linux", "vendor": "hp", "enabled": True},
+                {"name": "srv-01", "ip": "10.0.0.1", "type": "linux", "vendor": "dell", "collect": {"enabled": True}},
+                {"name": "srv-02", "ip": "10.0.0.2", "type": "linux", "vendor": "hp", "collect": {"enabled": True}},
             ]
         }
-        
-        fd, path = tempfile.mkstemp(suffix='.yaml')
-        with os.fdopen(fd, 'w') as f:
+
+        tmpdir = tempfile.mkdtemp()
+        devices_dir = Path(tmpdir) / 'devices'
+        devices_dir.mkdir()
+        devices_path = devices_dir / 'devices.yaml'
+        with open(devices_path, 'w') as f:
             import yaml
             yaml.dump(config, f)
-        
-        loader = ConfigLoader(config_dir=path)
+
+        loader = ConfigLoader(config_dir=tmpdir)
         stats = loader.get_stats()
-        
+
         assert "total_devices" in stats
         assert stats["total_devices"] == 2
-        
-        os.unlink(path)
+
+        import shutil
+        shutil.rmtree(tmpdir)
 
 
 if __name__ == "__main__":

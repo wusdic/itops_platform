@@ -26,6 +26,78 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+# ============== 消息持久化辅助函数 ==============
+
+def _save_chat_messages(
+    db: Session,
+    current_user: CurrentUser,
+    conversation_id: str,
+    user_message: str,
+    assistant_message: str,
+    model: Optional[str],
+    suggestions: Optional[List[str]],
+    mode: str,
+    error_message: Optional[str] = None,
+):
+    """
+    保存对话消息到数据库（用户消息和AI回复）
+    如果会话不存在则创建
+    """
+    from modules.foundation.db_models.ai import AIConversation, AIMessage
+    
+    # 查找或创建会话
+    conversation = db.query(AIConversation).filter(
+        AIConversation.conversation_id == conversation_id
+    ).first()
+    
+    if not conversation:
+        # 创建新会话
+        conversation = AIConversation(
+            conversation_id=conversation_id,
+            user_id=current_user.user_id,
+            username=current_user.username,
+            conversation_type="chat",
+            message_count=0,
+        )
+        db.add(conversation)
+    
+    now = datetime.now()
+    
+    # 保存用户消息
+    user_msg = AIMessage(
+        conversation_id=conversation_id,
+        user_id=current_user.user_id,
+        role="user",
+        content=user_message,
+        created_at=now,
+    )
+    db.add(user_msg)
+    
+    # 保存AI回复
+    assistant_msg = AIMessage(
+        conversation_id=conversation_id,
+        user_id=current_user.user_id,
+        role="assistant",
+        content=assistant_message,
+        model=model,
+        suggestions=json.dumps(suggestions) if suggestions else None,
+        error_message=error_message,
+        created_at=now,
+    )
+    db.add(assistant_msg)
+    
+    # 更新会话统计
+    conversation.message_count = (conversation.message_count or 0) + 2
+    conversation.last_message_at = now
+    conversation.updated_at = now
+    
+    # 如果是用户第一条消息，设置标题
+    if conversation.message_count <= 2 and user_message:
+        conversation.title = user_message[:50] + ("..." if len(user_message) > 50 else "")
+    
+    db.commit()
+
+
 # ============== 模块级流式生成器 ==============
 
 async def _llm_stream_generator(
@@ -243,6 +315,19 @@ async def chat(
         # LLM 未初始化，降级到意图检测
         suggestions = ["进行故障排查", "生成优化建议", "搜索知识库", "分析日志"]
         response_message = "AI服务暂不可用，请检查LLM服务是否启动。"
+        
+        # 保存用户消息和AI回复（降级模式）
+        _save_chat_messages(
+            db=db,
+            current_user=current_user,
+            conversation_id=conversation_id,
+            user_message=request.message,
+            assistant_message=response_message,
+            model=None,
+            suggestions=suggestions,
+            mode="llm_unavailable"
+        )
+        
         return {
             "conversation_id": conversation_id,
             "message": response_message,
@@ -283,22 +368,53 @@ async def chat(
 
     if result.get("done") and result.get("content"):
         response_message = result["content"]
+        model_name = result.get("model", "qwen3.5-9b-deepseek-v4-flash-q8_0")
+        suggestions = ["继续对话", "进入故障排查", "生成优化建议"]
+        
+        # 保存用户消息和AI回复
+        _save_chat_messages(
+            db=db,
+            current_user=current_user,
+            conversation_id=conversation_id,
+            user_message=request.message,
+            assistant_message=response_message,
+            model=model_name,
+            suggestions=suggestions,
+            mode="llm"
+        )
+        
         return {
             "conversation_id": conversation_id,
             "message": response_message,
-            "suggestions": ["继续对话", "进入故障排查", "生成优化建议"],
+            "suggestions": suggestions,
             "metadata": {
                 "mode": "llm",
-                "model": result.get("model", "qwen3.5-9b-deepseek-v4-flash-q8_0"),
+                "model": model_name,
                 "eval_count": result.get("eval_count", 0),
                 "timestamp": datetime.now().isoformat()
             },
         }
     else:
+        error_message = "AI回复生成失败，请重试。"
+        suggestions = ["重试", "进入故障排查", "生成优化建议"]
+        
+        # 保存错误信息
+        _save_chat_messages(
+            db=db,
+            current_user=current_user,
+            conversation_id=conversation_id,
+            user_message=request.message,
+            assistant_message=error_message,
+            model=None,
+            suggestions=suggestions,
+            mode="llm_error",
+            error_message=error_message
+        )
+        
         return {
             "conversation_id": conversation_id,
-            "message": "AI回复生成失败，请重试。",
-            "suggestions": ["重试", "进入故障排查", "生成优化建议"],
+            "message": error_message,
+            "suggestions": suggestions,
             "metadata": {"mode": "llm_error", "timestamp": datetime.now().isoformat()},
         }
 

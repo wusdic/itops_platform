@@ -7,9 +7,15 @@
 from datetime import datetime, timedelta
 from typing import Optional
 import secrets
+import base64
+import io
+import random
+import string
+from math import sqrt, sin, cos
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from jose import JWTError, jwt
@@ -212,6 +218,116 @@ class InMemoryUserStore:
 
 # 获取用户存储实例
 _user_store = InMemoryUserStore()
+
+
+# ============== 验证码 ==============
+
+def _generate_captcha_text(length=4):
+    """生成验证码文字"""
+    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
+
+def _generate_trig_noise(width, height, seed):
+    """生成基于三角函数的背景干扰"""
+    points = []
+    for i in range(3):
+        random.seed(seed + i)
+        x1, y1 = random.randint(0, width), random.randint(0, height)
+        x2, y2 = random.randint(0, width), random.randint(0, height)
+        x3, y3 = random.randint(0, width), random.randint(0, height)
+        # 三角形内随机点
+        t1, t2 = random.random(), random.random()
+        sx = int(t1 * x1 + t2 * x2 + (1 - t1 - t2) * x3)
+        sy = int(t1 * y1 + t2 * y2 + (1 - t1 - t2) * y3)
+        # 椭圆干扰
+        rx = random.randint(width // 8, width // 4)
+        ry = random.randint(height // 8, height // 4)
+        angle = random.uniform(0, 180)
+        points.append((sx, sy, rx, ry, angle))
+    return points
+
+def _generate_pixels(width, height, text, seed):
+    """生成验证码图像像素数据"""
+    # 简单实现：返回 PPM 格式的像素数组
+    pixels = []
+    random.seed(seed)
+    # 背景色（浅灰）
+    bg_r, bg_g, bg_b = 240, 243, 246
+    # 文字色（深灰）
+    fg_r, fg_g, fg_b = 60, 70, 80
+    for y in range(height):
+        row = []
+        for x in range(width):
+            noise = random.randint(-20, 20)
+            r = max(0, min(255, bg_r + noise))
+            g = max(0, min(255, bg_g + noise))
+            b = max(0, min(255, bg_b + noise))
+            # 简单文字绘制：粗略判断是否在文字区域内
+            char_w = width // len(text)
+            for i, ch in enumerate(text):
+                cx = i * char_w + char_w // 2
+                cy = height // 2
+                # 粗略椭圆文字形状
+                tx = x - cx
+                ty = y - cy
+                if (tx * tx) / (char_w * char_w // 4) + (ty * ty) / ((height // 3) * (height // 3)) < 1:
+                    char_ord = ord(ch)
+                    # 让字符有变化
+                    offset = (char_ord * (i + 1)) % 7 - 3
+                    if abs(tx) < char_w // 3 and abs(ty + offset) < height // 4:
+                        noise2 = random.randint(-15, 15)
+                        r = max(0, min(255, fg_r + noise2))
+                        g = max(0, min(255, fg_g + noise2))
+                        b = max(0, min(255, fg_b + noise2))
+            row.append((r, g, b))
+        pixels.append(row)
+    return pixels
+
+@router.get("/captcha", tags=["认证"])
+async def get_captcha():
+    """
+    获取验证码图片
+    返回 SVG 格式的简单验证码
+    """
+    text = _generate_captcha_text(4)
+    width, height = 120, 40
+    
+    # 生成 SVG
+    svg_lines = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}">',
+        f'<rect width="100%" height="100%" fill="#f0f3f6"/>',
+    ]
+    
+    # 添加干扰线条
+    random.seed(len(text))
+    for i in range(3):
+        x1 = random.randint(0, width)
+        y1 = random.randint(0, height)
+        x2 = random.randint(0, width)
+        y2 = random.randint(0, height)
+        grey = random.randint(180, 220)
+        svg_lines.append(f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="rgb({grey},{grey},{grey})" stroke-width="1" opacity="0.5"/>')
+    
+    # 绘制文字
+    char_w = width // len(text)
+    for i, ch in enumerate(text):
+        x = i * char_w + char_w // 4
+        y = height // 2 + height // 6
+        # 简单的字符偏转
+        rot = random.randint(-15, 15)
+        grey = random.randint(40, 80)
+        svg_lines.append(
+            f'<text x="{x}" y="{y}" font-family="monospace" font-size="{height//2}" '
+            f'fill="rgb({grey},{grey},{grey})" transform="rotate({rot},{x},{y})">{ch}</text>'
+        )
+    
+    svg_lines.append('</svg>')
+    svg_content = ''.join(svg_lines)
+    
+    return StreamingResponse(
+        io.StringIO(svg_content),
+        media_type="image/svg+xml",
+        headers={"Cache-Control": "no-cache", "X-Captcha-Text": text}
+    )
 
 
 # ============== API路由 ==============
