@@ -32,10 +32,10 @@ app:
 # 数据库配置
 database:
   type: "mysql"
-  host: "localhost"
+  host: "itops-mysql"
   port: 3306
-  username: "itops_user"
-  password: "${ITOPS_DB_PASSWORD}"
+  username: "itops"
+  password: "itops_secure_password"
   database: "itops_platform"
   pool_size: 20
   max_overflow: 40
@@ -101,7 +101,7 @@ ai:
   llm:
     provider: "llama_cpp"
     model: "qwen3.5-9b-deepseek-v4-flash-q8_0"
-    base_url: "http://host.docker.internal:11435"
+    base_url: "http://172.17.0.1:11435"
     temperature: 0.7
     max_tokens: 2000
   

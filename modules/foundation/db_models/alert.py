@@ -98,7 +98,8 @@ class Alert(Base):
     # 额外信息
     tags = Column(String(256), comment='标签')
     remark = Column(Text, comment='备注')
-    
+    resolution_note = Column(Text, comment='解决备注')
+
     # 原始数据
     raw_data = Column(Text, comment='原始告警数据')
     

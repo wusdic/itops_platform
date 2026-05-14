@@ -15,6 +15,7 @@ from .admin import router as admin_router
 from .notification import router as notification_router
 from .device_api import router as device_router
 from .device_metrics import router as device_metrics_router
+from .device_import import router as device_import_router
 from .auth import router as auth_router
 from .discovery import router as discovery_router
 from .automation import router as automation_router
@@ -31,6 +32,7 @@ __all__ = [
     "notification_router",
     "device_router",
     "device_metrics_router",
+    "device_import_router",
     "auth_router",
     "discovery_router",
     "automation_router",

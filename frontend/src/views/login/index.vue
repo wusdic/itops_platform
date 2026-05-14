@@ -82,7 +82,7 @@ onMounted(() => {
 })
 
 const refreshCaptcha = () => {
-  captchaUrl.value = `/api/auth/captcha?t=${Date.now()}`
+  captchaUrl.value = `/api/v1/auth/captcha?t=${Date.now()}`
 }
 
 const handleLogin = async () => {

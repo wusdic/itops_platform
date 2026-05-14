@@ -207,17 +207,17 @@ class LLMClient:
                                               max_tokens=max_tokens, **kwargs)
                 
                 async with self._get_client() as client:
-                    response = await client.post("/api/chat", json=payload)
+                    response = await client.post("/v1/chat/completions", json=payload)
                     
                     if response.status_code == 200:
                         result = response.json()
                         return {
-                            "content": result.get("message", {}).get("content", ""),
+                            "content": result.get("choices", [{}])[0].get("message", {}).get("content", ""),
                             "done": True,
                             "model": result.get("model", model),
-                            "total_duration": result.get("total_duration", 0),
-                            "eval_count": result.get("eval_count", 0),
-                            "eval_duration": result.get("eval_duration", 0)
+                            "total_duration": 0,
+                            "eval_count": 0,
+                            "eval_duration": 0
                         }
                     else:
                         error_msg = f"HTTP {response.status_code}: {response.text}"
@@ -259,16 +259,17 @@ class LLMClient:
                                               max_tokens=max_tokens, **kwargs)
                 
                 async with self._get_client() as client:
-                    async with client.stream("POST", "/api/chat", json=payload) as response:
+                    async with client.stream("POST", "/v1/chat/completions", json=payload) as response:
                         if response.status_code == 200:
                             async for line in response.aiter_lines():
-                                if line:
+                                if line and line.startswith("data:"):
                                     try:
-                                        data = json.loads(line)
-                                        if "message" in data:
-                                            content = data["message"].get("content", "")
-                                            full_content += content
-                                            yield content
+                                        data = json.loads(line[5:])
+                                        if "choices" in data:
+                                            content = data["choices"][0].get("delta", {}).get("content", "")
+                                            if content:
+                                                full_content += content
+                                                yield content
                                         if data.get("done", False):
                                             break
                                     except json.JSONDecodeError:

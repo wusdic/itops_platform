@@ -5,7 +5,7 @@
 """
 
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Literal, Optional
 import secrets
 import base64
 import io
@@ -35,6 +35,12 @@ class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
     expires_in: int
+
+    def model_dump(self, **kwargs):
+        # 确保同时返回 access_token 和 token 两个字段
+        data = super().model_dump(**kwargs)
+        data['token'] = data.get('access_token')
+        return data
 
 
 class TokenData(BaseModel):
@@ -332,26 +338,26 @@ async def get_captcha():
 
 # ============== API路由 ==============
 
-@router.post("/login", response_model=Token, tags=["认证"])
+@router.post("/login", tags=["认证"])
 async def login(login_data: LoginRequest, db: Session = Depends(get_db)):
     """
     用户登录
-    
+
     - **username**: 用户名
     - **password**: 密码
     """
     settings = get_settings()
-    
+
     # 验证用户凭证
     user = _user_store.authenticate(login_data.username, login_data.password)
-    
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="用户名或密码错误",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     # 创建访问令牌
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
@@ -362,12 +368,13 @@ async def login(login_data: LoginRequest, db: Session = Depends(get_db)):
         },
         expires_delta=access_token_expires,
     )
-    
-    return Token(
-        access_token=access_token,
-        token_type="bearer",
-        expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-    )
+
+    return {
+        "access_token": access_token,
+        "token": access_token,
+        "token_type": "bearer",
+        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    }
 
 
 @router.post("/login", response_model=Token, include_in_schema=False)

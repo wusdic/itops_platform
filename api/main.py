@@ -27,6 +27,7 @@ from api.routes import (
     notification_router,
     device_router,
     device_metrics_router,
+    device_import_router,
     auth_router,
     discovery_router,
     automation_router,
@@ -242,10 +243,30 @@ def create_app() -> FastAPI:
         async def serve_index():
             return FileResponse(os.path.join(dist_path, "index.html"))
         
-        # SPA fallback路由 - 必须放在API路由之后
+        # SPA fallback路由 - 必须放在API路由之后，处理所有HTTP方法
         @app.get("/{path:path}")
-        async def serve_spa(path: str):
-            # 排除API路径
+        async def serve_spa_get(path: str):
+            if path.startswith("api/"):
+                from fastapi.responses import JSONResponse
+                return JSONResponse(status_code=404, content={"detail": "Not Found"})
+            return FileResponse(os.path.join(dist_path, "index.html"))
+
+        @app.post("/{path:path}")
+        async def serve_spa_post(path: str):
+            if path.startswith("api/"):
+                from fastapi.responses import JSONResponse
+                return JSONResponse(status_code=404, content={"detail": "Not Found"})
+            return FileResponse(os.path.join(dist_path, "index.html"))
+
+        @app.put("/{path:path}")
+        async def serve_spa_put(path: str):
+            if path.startswith("api/"):
+                from fastapi.responses import JSONResponse
+                return JSONResponse(status_code=404, content={"detail": "Not Found"})
+            return FileResponse(os.path.join(dist_path, "index.html"))
+
+        @app.delete("/{path:path}")
+        async def serve_spa_delete(path: str):
             if path.startswith("api/"):
                 from fastapi.responses import JSONResponse
                 return JSONResponse(status_code=404, content={"detail": "Not Found"})
@@ -285,14 +306,6 @@ def create_app() -> FastAPI:
                 "path": str(request.url),
             },
         )
-
-    # 挂载前端静态文件 (在所有API路由之后)
-    # 路径: api/main.py -> project_root/frontend/dist
-    current_dir = os.path.dirname(os.path.abspath(__file__))  # api/
-    project_root = os.path.dirname(current_dir)  # 项目根目录
-    dist_path = os.path.join(project_root, "frontend", "dist")
-    if os.path.exists(dist_path):
-        app.mount("/", StaticFiles(directory=dist_path, html=True), name="frontend")
 
     return app
 
