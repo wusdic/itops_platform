@@ -25,7 +25,7 @@ class TestZabbixClient(unittest.TestCase):
         self.assertEqual(client.user, 'admin')
         self.assertIsNone(client.auth_token)
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.zabbix_client.urlopen')
     def test_login(self, mock_urlopen):
         """测试登录"""
         from modules.collection.api_collector.zabbix_client import ZabbixClient
@@ -47,16 +47,10 @@ class TestZabbixClient(unittest.TestCase):
         self.assertTrue(result)
         self.assertEqual(client.auth_token, 'test-auth-token-123')
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.zabbix_client.urlopen')
     def test_get_hosts(self, mock_urlopen):
         """测试获取主机"""
         from modules.collection.api_collector.zabbix_client import ZabbixClient
-        
-        # 先登录
-        mock_login_response = Mock()
-        mock_login_response.read.return_value = json.dumps({
-            'result': 'test-token'
-        }).encode()
         
         mock_response = Mock()
         mock_response.read.return_value = json.dumps({
@@ -68,9 +62,7 @@ class TestZabbixClient(unittest.TestCase):
         
         mock_response.__enter__ = Mock(return_value=mock_response)
         mock_response.__exit__ = Mock(return_value=False)
-        
-        # 两次调用：登录和获取主机
-        mock_urlopen.side_effect = [mock_login_response, mock_response]
+        mock_urlopen.return_value = mock_response
         
         client = ZabbixClient()
         client.auth_token = 'test-token'  # 跳过登录
@@ -80,7 +72,7 @@ class TestZabbixClient(unittest.TestCase):
         self.assertEqual(len(hosts), 2)
         self.assertEqual(hosts[0]['host'], 'server1')
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.zabbix_client.urlopen')
     def test_get_items(self, mock_urlopen):
         """测试获取监控项"""
         from modules.collection.api_collector.zabbix_client import ZabbixClient
@@ -108,7 +100,7 @@ class TestZabbixClient(unittest.TestCase):
         self.assertEqual(len(items), 1)
         self.assertEqual(items[0]['name'], 'CPU Usage')
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.zabbix_client.urlopen')
     def test_get_triggers(self, mock_urlopen):
         """测试获取触发器"""
         from modules.collection.api_collector.zabbix_client import ZabbixClient
@@ -141,7 +133,7 @@ class TestZabbixClient(unittest.TestCase):
 class TestZabbixContextManager(unittest.TestCase):
     """Zabbix上下文管理器测试"""
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.zabbix_client.urlopen')
     def test_context_manager(self, mock_urlopen):
         """测试上下文管理器"""
         from modules.collection.api_collector.zabbix_client import ZabbixClient
@@ -151,17 +143,20 @@ class TestZabbixContextManager(unittest.TestCase):
         mock_login_response.read.return_value = json.dumps({
             'result': 'test-token'
         }).encode()
+        mock_login_response.__enter__ = Mock(return_value=mock_login_response)
+        mock_login_response.__exit__ = Mock(return_value=False)
         
         mock_logout_response = Mock()
         mock_logout_response.read.return_value = json.dumps({
             'result': True
         }).encode()
+        mock_logout_response.__enter__ = Mock(return_value=mock_logout_response)
+        mock_logout_response.__exit__ = Mock(return_value=False)
         
         mock_response = Mock()
         mock_response.read.return_value = json.dumps({
             'result': [{'hostid': '1', 'host': 'server1'}]
         }).encode()
-        
         mock_response.__enter__ = Mock(return_value=mock_response)
         mock_response.__exit__ = Mock(return_value=False)
         

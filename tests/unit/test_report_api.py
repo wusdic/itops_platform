@@ -16,8 +16,11 @@ from fastapi import FastAPI, Depends
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from modules.foundation.db_models.base import Base
+# 导入Report等模型以确保create_all能创建相应表
+from modules.foundation.db_models.report_template import Report, ReportTemplate, ReportSchedule
 
 
 # 测试数据库配置
@@ -30,7 +33,8 @@ def db_engine():
     engine = create_engine(
         TEST_DB_URL, 
         echo=False,
-        connect_args={"check_same_thread": False}
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool
     )
     Base.metadata.create_all(engine)
     return engine

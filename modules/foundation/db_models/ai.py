@@ -80,6 +80,16 @@ class AIConversation(Base):
     def __repr__(self):
         return f"<AIConversation(id={self.id}, conversation_id='{self.conversation_id}', type='{self.conversation_type}')>"
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Python-side defaults (SQLAlchemy default only applies on INSERT)
+        if self.is_pinned is None:
+            self.is_pinned = False
+        if self.is_deleted is None:
+            self.is_deleted = False
+        if self.message_count is None:
+            self.message_count = 0
+
 
 class AIMessage(Base):
     """

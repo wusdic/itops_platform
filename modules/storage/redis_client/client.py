@@ -587,7 +587,11 @@ class RedisClient:
             except Exception:
                 return False
         else:
-            return self._client.unlock(name)
+            try:
+                lock = self._client.lock(name, timeout=10, blocking_timeout=0, blocking=True)
+                return lock.release()
+            except Exception:
+                return False
     
     # ========== Health & Info ==========
     

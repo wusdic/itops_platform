@@ -24,11 +24,17 @@ else:
 
 # Playwright导入
 try:
-    from playwright.async_api import async_playwright
-    from playwright.sync_api import sync_playwright
+    from playwright.async_api import async_playwright as _async_playwright
+    from playwright.sync_api import sync_playwright as _sync_playwright
     _playwright_available = True
 except ImportError:
+    _async_playwright = None
+    _sync_playwright = None
     _playwright_available = False
+
+# 确保模块级别可访问，以便测试mock
+async_playwright = _async_playwright
+sync_playwright = _sync_playwright
 
 logger = logging.getLogger(__name__)
 

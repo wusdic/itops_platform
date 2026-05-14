@@ -626,7 +626,7 @@ def app():
             mock_redis.hgetall.return_value = {}
             mock_redis.keys.return_value = []
             mock_redis.scan_iter.return_value = iter([])
-            
+
             from api.main import app as fastapi_app
             yield fastapi_app
 

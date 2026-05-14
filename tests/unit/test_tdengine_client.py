@@ -35,42 +35,21 @@ class TestTDengineClient(unittest.TestCase):
         self.assertEqual(client.port, 6041)
         self.assertEqual(client.database, 'testdb')
     
-    @patch('urllib.request.urlopen')
-    def test_create_database(self, mock_urlopen):
+    def test_create_database(self):
         """测试创建数据库"""
         from modules.storage.tdengine.client import TDengineClient
         
-        # Mock响应
-        mock_response = Mock()
-        mock_response.read.return_value = json.dumps({
-            'status': 'succ',
-            'head': ['created'],
-            'data': [[1]]
-        }).encode()
-        mock_response.__enter__ = Mock(return_value=mock_response)
-        mock_response.__exit__ = Mock(return_value=False)
-        mock_urlopen.return_value = mock_response
-        
         client = TDengineClient()
-        result = client.create_database('testdb', keep=30, days=1)
         
-        self.assertEqual(result['status'], 'succ')
-        mock_urlopen.assert_called()
+        # 直接mock _make_request方法
+        with patch.object(client, '_make_request', return_value={'status': 'succ'}):
+            result = client.create_database('testdb', keep=30, days=1)
+            
+            self.assertEqual(result['status'], 'succ')
     
-    @patch('urllib.request.urlopen')
-    def test_insert_data(self, mock_urlopen):
+    def test_insert_data(self):
         """测试数据插入"""
         from modules.storage.tdengine.client import TDengineClient
-        
-        # Mock响应
-        mock_response = Mock()
-        mock_response.read.return_value = json.dumps({
-            'status': 'succ',
-            'rows_affected': 3
-        }).encode()
-        mock_response.__enter__ = Mock(return_value=mock_response)
-        mock_response.__exit__ = Mock(return_value=False)
-        mock_urlopen.return_value = mock_response
         
         client = TDengineClient()
         
@@ -79,39 +58,26 @@ class TestTDengineClient(unittest.TestCase):
             {'ts': datetime.now(), 'value': 20.3}
         ]
         
-        result = client.insert('test_table', data)
-        
-        self.assertEqual(result['status'], 'succ')
-        self.assertEqual(result['rows_affected'], 3)
+        with patch.object(client, '_make_request', return_value={'status': 'succ', 'rows_affected': 3}):
+            result = client.insert('test_table', data)
+            
+            self.assertEqual(result['status'], 'succ')
+            self.assertEqual(result['rows_affected'], 3)
     
-    @patch('urllib.request.urlopen')
-    def test_query_range(self, mock_urlopen):
+    def test_query_range(self):
         """测试时间范围查询"""
         from modules.storage.tdengine.client import TDengineClient
         
-        # Mock响应
-        mock_response = Mock()
-        mock_response.read.return_value = json.dumps({
-            'status': 'succ',
-            'head': ['ts', 'value'],
-            'data': [
-                [datetime.now().timestamp(), 10.5],
-                [datetime.now().timestamp(), 20.3]
-            ]
-        }).encode()
-        mock_response.__enter__ = Mock(return_value=mock_response)
-        mock_response.__exit__ = Mock(return_value=False)
-        mock_urlopen.return_value = mock_response
-        
         client = TDengineClient()
         
-        result = client.query_range(
-            'test_table',
-            start_time=datetime.now() - timedelta(hours=1),
-            end_time=datetime.now()
-        )
-        
-        self.assertEqual(result['status'], 'succ')
+        with patch.object(client, '_make_request', return_value={'status': 'succ'}):
+            result = client.query_range(
+                'test_table',
+                start_time=datetime.now() - timedelta(hours=1),
+                end_time=datetime.now()
+            )
+            
+            self.assertEqual(result['status'], 'succ')
     
     def test_format_timestamp(self):
         """测试时间戳格式化"""

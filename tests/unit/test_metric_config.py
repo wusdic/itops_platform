@@ -118,22 +118,9 @@ class TestMetricConfigAPI(unittest.TestCase):
         self.app.state.db = Mock()
         self.app.state.current_user = Mock(id=1, username='testuser')
     
-    @patch('modules.foundation.db_models.monitoring.DeviceMetricConfig')
-    def test_create_metric_config(self, mock_model):
+    def test_create_metric_config(self):
         """测试创建采集项配置"""
         from modules.foundation.db_models.monitoring import DeviceMetricConfig
-        
-        mock_config = Mock(spec=DeviceMetricConfig)
-        mock_config.id = 1
-        mock_config.device_id = 1
-        mock_config.metric_category = 'cpu'
-        mock_config.metric_name = 'cpu_usage'
-        mock_config.enabled = True
-        
-        mock_db = Mock()
-        mock_db.add = Mock()
-        mock_db.commit = Mock()
-        mock_db.refresh = Mock(side_effect=lambda x: setattr(x, 'id', 1))
         
         # Test that create logic works
         config = DeviceMetricConfig(

@@ -467,6 +467,41 @@ class TDengineClient:
                 formatted.append(str(v))
         return ', '.join(formatted)
     
+    def filter_match(self, table_name: str, field: str, value: Any) -> str:
+        """
+        构建精确匹配的过滤SQL片段
+        
+        Args:
+            table_name: 表名
+            field: 字段名
+            value: 匹配值
+            
+        Returns:
+            SQL WHERE子句
+        """
+        return f"SELECT * FROM {table_name} WHERE {field}='{value}'"
+    
+    def filter_range(
+        self, 
+        table_name: str, 
+        field: str, 
+        start: Any, 
+        end: Any
+    ) -> str:
+        """
+        构建范围过滤的SQL片段
+        
+        Args:
+            table_name: 表名
+            field: 字段名
+            start: 范围起始值
+            end: 范围结束值
+            
+        Returns:
+            SQL WHERE子句
+        """
+        return f"SELECT * FROM {table_name} WHERE {field}>={start} AND {field}<={end}"
+    
     def close(self):
         """关闭连接（REST API无连接池，保留接口）"""
         pass

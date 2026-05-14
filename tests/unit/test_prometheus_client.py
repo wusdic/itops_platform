@@ -24,7 +24,7 @@ class TestPrometheusClient(unittest.TestCase):
         self.assertEqual(client.timeout, 60)
         self.assertEqual(client._api_url, 'http://test:9090/api/v1')
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.prometheus_client.urlopen')
     def test_query(self, mock_urlopen):
         """测试即时查询"""
         from modules.collection.api_collector.prometheus_client import PrometheusClient
@@ -54,7 +54,7 @@ class TestPrometheusClient(unittest.TestCase):
         self.assertEqual(result['status'], 'success')
         self.assertEqual(len(result['data']['result']), 1)
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.prometheus_client.urlopen')
     def test_query_range(self, mock_urlopen):
         """测试范围查询"""
         from modules.collection.api_collector.prometheus_client import PrometheusClient
@@ -95,7 +95,7 @@ class TestPrometheusClient(unittest.TestCase):
         self.assertEqual(result['status'], 'success')
         self.assertEqual(result['data']['resultType'], 'matrix')
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.prometheus_client.urlopen')
     def test_get_all_metrics(self, mock_urlopen):
         """测试获取所有指标"""
         from modules.collection.api_collector.prometheus_client import PrometheusClient
@@ -117,7 +117,7 @@ class TestPrometheusClient(unittest.TestCase):
         self.assertEqual(len(metrics), 3)
         self.assertIn('up', metrics)
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.prometheus_client.urlopen')
     def test_targets(self, mock_urlopen):
         """测试获取Targets"""
         from modules.collection.api_collector.prometheus_client import PrometheusClient
@@ -149,7 +149,7 @@ class TestPrometheusClient(unittest.TestCase):
         self.assertEqual(result['status'], 'success')
         self.assertEqual(len(result['data']['activeTargets']), 1)
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.prometheus_client.urlopen')
     def test_label_values(self, mock_urlopen):
         """测试获取标签值"""
         from modules.collection.api_collector.prometheus_client import PrometheusClient
@@ -171,7 +171,7 @@ class TestPrometheusClient(unittest.TestCase):
         self.assertEqual(len(values), 3)
         self.assertIn('prometheus', values)
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.prometheus_client.urlopen')
     def test_rules(self, mock_urlopen):
         """测试获取规则"""
         from modules.collection.api_collector.prometheus_client import PrometheusClient
@@ -203,7 +203,7 @@ class TestPrometheusClient(unittest.TestCase):
         self.assertEqual(result['status'], 'success')
         self.assertEqual(len(result['data']['groups']), 1)
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.prometheus_client.urlopen')
     def test_series(self, mock_urlopen):
         """测试查询序列"""
         from modules.collection.api_collector.prometheus_client import PrometheusClient
@@ -231,7 +231,7 @@ class TestPrometheusClient(unittest.TestCase):
 class TestPrometheusHighLevelAPI(unittest.TestCase):
     """Prometheus高级API测试"""
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.collection.api_collector.prometheus_client.urlopen')
     def test_get_metric_values(self, mock_urlopen):
         """测试获取指标值"""
         from modules.collection.api_collector.prometheus_client import PrometheusClient

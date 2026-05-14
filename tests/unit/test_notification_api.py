@@ -16,8 +16,11 @@ from fastapi import FastAPI, Depends
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from modules.foundation.db_models.base import Base
+# 导入Notification模型以确保create_all能创建相应表
+from modules.foundation.db_models.notification.notification_model import NotificationChannel, NotificationTarget, NotificationChannelModel, NotificationLog, NotificationTargetRule
 
 
 # 测试数据库配置
@@ -30,7 +33,8 @@ def db_engine():
     engine = create_engine(
         TEST_DB_URL, 
         echo=False,
-        connect_args={"check_same_thread": False}
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool
     )
     Base.metadata.create_all(engine)
     return engine
@@ -114,7 +118,7 @@ class TestNotificationChannels:
         assert "types" in data
         assert len(data["types"]) > 0
     
-    @patch('modules.business.notification.get_notification_manager')
+    @patch('api.routes.notification.get_notification_manager')
     def test_get_channel_by_id(self, mock_get_manager, client):
         """测试获取单个通知渠道"""
         mock_manager = MagicMock()
@@ -143,7 +147,7 @@ class TestNotificationChannels:
         data = response.json()
         assert data["name"] == "钉钉通知"
     
-    @patch('modules.business.notification.get_notification_manager')
+    @patch('api.routes.notification.get_notification_manager')
     def test_get_channel_not_found(self, mock_get_manager, client):
         """测试获取不存在的通知渠道"""
         mock_manager = MagicMock()
@@ -157,7 +161,7 @@ class TestNotificationChannels:
 class TestNotificationSending:
     """通知发送接口测试"""
     
-    @patch('api.routes.notification.send_dingtalk_message')
+    @patch('modules.business.notification.send_dingtalk_message')
     def test_send_dingtalk_notification(self, mock_send, client):
         """测试发送钉钉通知"""
         mock_send.return_value = True
@@ -174,7 +178,7 @@ class TestNotificationSending:
         # 由于mock和实际实现可能有差异，检查状态码
         assert response.status_code in [200, 500]
     
-    @patch('modules.business.notification.get_notification_manager')
+    @patch('api.routes.notification.get_notification_manager')
     def test_send_alert_notification(self, mock_get_manager, client):
         """测试发送告警通知"""
         mock_manager = MagicMock()
@@ -197,7 +201,7 @@ class TestNotificationSending:
 class TestNotificationChannelManagement:
     """通知渠道管理接口测试"""
     
-    @patch('modules.business.notification.get_notification_manager')
+    @patch('api.routes.notification.get_notification_manager')
     def test_create_channel(self, mock_get_manager, client):
         """测试创建通知渠道"""
         mock_manager = MagicMock()
@@ -217,7 +221,7 @@ class TestNotificationChannelManagement:
         data = response.json()
         assert "id" in data
     
-    @patch('modules.business.notification.get_notification_manager')
+    @patch('api.routes.notification.get_notification_manager')
     def test_update_channel(self, mock_get_manager, client):
         """测试更新通知渠道"""
         mock_manager = MagicMock()
@@ -235,7 +239,7 @@ class TestNotificationChannelManagement:
         response = client.put("/channels/ch_001", json=request_data)
         assert response.status_code in [200, 404]
     
-    @patch('modules.business.notification.get_notification_manager')
+    @patch('api.routes.notification.get_notification_manager')
     def test_delete_channel(self, mock_get_manager, client):
         """测试删除通知渠道"""
         mock_manager = MagicMock()
@@ -248,7 +252,7 @@ class TestNotificationChannelManagement:
         response = client.delete("/channels/ch_001")
         assert response.status_code in [200, 404]
     
-    @patch('modules.business.notification.get_notification_manager')
+    @patch('api.routes.notification.get_notification_manager')
     def test_delete_channel_not_found(self, mock_get_manager, client):
         """测试删除不存在的通知渠道"""
         mock_manager = MagicMock()
@@ -302,7 +306,7 @@ class TestNotificationTypes:
 class TestNotificationChannelTesting:
     """通知渠道测试接口测试"""
     
-    @patch('modules.business.notification.get_notification_manager')
+    @patch('api.routes.notification.get_notification_manager')
     def test_test_channel_success(self, mock_get_manager, client):
         """测试成功测试通知渠道"""
         mock_manager = MagicMock()
@@ -325,7 +329,7 @@ class TestNotificationChannelTesting:
         # 由于是异步发送，检查状态码
         assert response.status_code in [200, 500]
     
-    @patch('modules.business.notification.get_notification_manager')
+    @patch('api.routes.notification.get_notification_manager')
     def test_test_channel_not_found(self, mock_get_manager, client):
         """测试不存在的渠道"""
         mock_manager = MagicMock()
@@ -335,7 +339,7 @@ class TestNotificationChannelTesting:
         response = client.post("/test/nonexistent")
         assert response.status_code == 404
     
-    @patch('modules.business.notification.get_notification_manager')
+    @patch('api.routes.notification.get_notification_manager')
     def test_test_channel_send_failure(self, mock_get_manager, client):
         """测试渠道发送失败"""
         mock_manager = MagicMock()

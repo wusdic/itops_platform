@@ -326,18 +326,16 @@ class TestTaskExecutor:
     @pytest.mark.asyncio
     async def test_execute_with_retry(self, executor):
         """测试重试机制"""
-        from modules.automation.task_scheduler.task import Task
+        from modules.automation.task_scheduler.task import Task, TaskResult
+        
+        call_count = [0]
         
         class FailingTask(Task):
-            attempt = 0
-            
             async def execute(self, context):
-                FailingTask.attempt += 1
-                if FailingTask.attempt < 3:
+                call_count[0] += 1
+                if call_count[0] < 3:
                     raise Exception("Temporary failure")
                 return TaskResult(success=True)
-        
-        FailingTask.attempt = 0
         
         task = FailingTask(
             task_id="fail-001",
@@ -346,15 +344,15 @@ class TestTaskExecutor:
             retry_delay=0
         )
         
-        result = await executor.execute(task)
+        result = await executor.execute(task, retry_delay=0)
         
         assert result.success is True
-        assert FailingTask.attempt == 3
+        assert call_count[0] == 3
     
     @pytest.mark.asyncio
     async def test_batch_execution(self, executor):
         """测试批量执行"""
-        from modules.automation.task_scheduler.task import Task
+        from modules.automation.task_scheduler.task import Task, TaskResult
         
         class BatchTask(Task):
             async def execute(self, context):
@@ -415,18 +413,21 @@ class TestTaskMonitor:
         """测试记录任务完成"""
         from modules.automation.task_scheduler.task import Task, TaskExecution, TaskResult
         from modules.automation.task_scheduler.task import TaskStatus
-        
+
         task = Task(task_id="monitor-002", name="Monitor Test 2")
         execution = TaskExecution(
             execution_id="exec-002",
             task_id=task.task_id,
-            status=TaskStatus.SUCCESS,
+            status=TaskStatus.RUNNING,
             start_time=datetime.now()
         )
-        execution.mark_success(data={"result": "ok"})
-        
+
+        monitor.record_task_start(task, execution)
+        execution.mark_success(result={"result": "ok"})
+        execution.status = TaskStatus.SUCCESS
+
         monitor.record_task_complete(task, execution)
-        
+
         metrics = monitor.get_metrics()
         assert metrics['performance']['completed_tasks'] == 1
         assert metrics['performance']['running_tasks'] == 0

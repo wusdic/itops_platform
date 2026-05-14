@@ -440,7 +440,7 @@ class TestTDengineClientExtensions(unittest.TestCase):
     @patch('requests.post')
     @patch('requests.get')
     def test_create_table(self, mock_get, mock_post):
-        """测试创建超级表"""
+        """测试创建超级表 - 使用create_supertable方法"""
         from core.storage.client import TDengineClient
         
         mock_response = Mock()
@@ -449,7 +449,8 @@ class TestTDengineClientExtensions(unittest.TestCase):
         mock_post.return_value = mock_response
         
         client = TDengineClient()
-        client.create_table(
+        # TDengine 3.x中创建超级表需要使用create_supertable，tags作为单独参数
+        client.create_supertable(
             table_name="test_table",
             tags=["device_id INT", "location VARCHAR(100)"],
             columns=["ts TIMESTAMP", "temperature FLOAT"]
@@ -457,7 +458,7 @@ class TestTDengineClientExtensions(unittest.TestCase):
         
         call_args = mock_post.call_args
         sql = call_args[1]["data"]
-        self.assertIn("CREATE TABLE", sql)
+        self.assertIn("CREATE STABLE", sql)
         self.assertIn("test_table", sql)
         self.assertIn("TAGS", sql)
 
@@ -520,9 +521,10 @@ class TestTDengineClientExtensions(unittest.TestCase):
         
         mock_response = Mock()
         mock_response.status_code = 200
+        # TDengine 3.x格式: column_meta代替column_names
         mock_response.json.return_value = {
             "status": "succ",
-            "column_names": ["ts", "temperature"],
+            "column_meta": [["ts", 9, 8], ["temperature", 6, 4]],
             "data": [[1234567890, 25.5]]
         }
         mock_post.return_value = mock_response
@@ -541,9 +543,10 @@ class TestTDengineClientExtensions(unittest.TestCase):
         
         mock_response = Mock()
         mock_response.status_code = 200
+        # TDengine 3.x格式: column_meta代替column_names
         mock_response.json.return_value = {
             "status": "succ",
-            "column_names": ["ts", "temperature"],
+            "column_meta": [["ts", 9, 8], ["temperature", 6, 4]],
             "data": [[1234567890, 25.5]]
         }
         mock_post.return_value = mock_response
@@ -566,7 +569,7 @@ class TestTDengineClientExtensions(unittest.TestCase):
         mock_response.status_code = 200
         mock_response.json.return_value = {
             "status": "succ",
-            "column_names": [],
+            "column_meta": [],
             "data": []
         }
         mock_post.return_value = mock_response

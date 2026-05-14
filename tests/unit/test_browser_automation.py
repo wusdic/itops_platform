@@ -294,6 +294,7 @@ class TestAdapterFactory(unittest.TestCase):
 class TestBrowserAutomationAsync(unittest.IsolatedAsyncioTestCase):
     """浏览器自动化异步测试"""
     
+    @patch('modules.collection.browser_automation.browser_driver._playwright_available', True)
     @patch('modules.collection.browser_automation.browser_driver.async_playwright')
     async def test_browser_start(self, mock_playwright):
         """测试浏览器启动"""
@@ -317,6 +318,7 @@ class TestBrowserAutomationAsync(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(driver._context)
         self.assertIsNotNone(driver._page)
     
+    @patch('modules.collection.browser_automation.browser_driver._playwright_available', True)
     @patch('modules.collection.browser_automation.browser_driver.async_playwright')
     async def test_navigate(self, mock_playwright):
         """测试页面导航"""

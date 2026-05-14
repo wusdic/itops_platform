@@ -27,7 +27,7 @@ class TestQdrantClient(unittest.TestCase):
         self.assertEqual(client.api_key, 'test-key')
         self.assertEqual(client.prefix, 'test_')
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.storage.qdrant.client.urlopen')
     def test_create_collection(self, mock_urlopen):
         """测试创建集合"""
         from modules.storage.qdrant.client import QdrantClient
@@ -47,7 +47,7 @@ class TestQdrantClient(unittest.TestCase):
         
         self.assertTrue(result.get('result') or result.get('status') == 'ok')
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.storage.qdrant.client.urlopen')
     def test_upsert_points(self, mock_urlopen):
         """测试插入向量"""
         from modules.storage.qdrant.client import QdrantClient
@@ -78,7 +78,7 @@ class TestQdrantClient(unittest.TestCase):
         
         self.assertIn('result', result)
     
-    @patch('urllib.request.urlopen')
+    @patch('modules.storage.qdrant.client.urlopen')
     def test_search(self, mock_urlopen):
         """测试向量搜索"""
         from modules.storage.qdrant.client import QdrantClient

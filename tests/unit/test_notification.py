@@ -17,6 +17,7 @@ from fastapi import FastAPI, Depends
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from modules.foundation.db_models.base import Base
 from modules.foundation.db_models.notification.notification_model import NotificationChannel, NotificationTarget, NotificationChannelModel, NotificationLog, NotificationTargetRule
@@ -32,7 +33,8 @@ def db_engine():
     engine = create_engine(
         TEST_DB_URL,
         echo=False,
-        connect_args={"check_same_thread": False}
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool
     )
     Base.metadata.create_all(engine)
     return engine
