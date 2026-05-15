@@ -1,77 +1,101 @@
-# CHANGES - ITOps Platform
+# ITOps Platform 代码修改记录
 
-## 全局修改记录
+## 2026-05-15 前端设备监控页面修复
 
-| 时间 | 修改内容 | 影响模块 | 原因 | 状态 |
-|------|----------|----------|------|------|
-| 2026-05-13 | **Phase 2 完成：AI根因分析+处置建议+会话持久化 (C1/C2/C3)** | AI模块 | AI辅助运维决策核心功能 | ✅ 已验证 |
-| 2026-05-13 | **Phase 2 完成：API Key认证 + 设备发现+采集+通知配置 (B1/B2/B3/B4)** | 后端P0缺口 | 基础设施完善 | ✅ 已验证 |
-| 2026-05-13 | **Phase 2 完成：SLA计时器+升级+草稿保存+回滚机制 (D2/D3/D4)** | 工单+自动化 | 高级工单功能 | ✅ 已验证 |
-| 2026-05-13 | **Phase 2 完成：工单Excel导出+巡检报告+批量导入+仪表盘 (E1/A3/A4/E2)** | 报告+前端 | 报告生成和前端完善 | ✅ 已验证 |
-| 2026-05-13 | **Phase 3 完成：前端5个页面完善，npm build 全部通过 (A1/A2/A3/A4/E2)** | 前端 | System/Scheduler/Report/Dashboard/Devices | ✅ 已验证 |
-| 2026-05-13 | **新增约 316 个单元测试，100% 通过率** | 测试 | 覆盖所有新功能 | ✅ 已验证 |
-| 2026-05-12 | 修复重复Base问题，统一使用主Base | 知识库、测试 | 3个declarative_base()导致表创建不完整 | ✅ 已验证 |
-| 2026-05-12 | conftest.py导入所有模型 | 测试基础设施 | Base.metadata缺少表定义 | ✅ 已验证 |
-| 2026-05-12 | device_api router添加prefix | 设备API | FastAPI路径冲突校验 | ✅ 已验证 |
-| 2026-05-12 | SQLite线程安全修复（4个测试文件） | API测试 | check_same_thread=False+StaticPool缺失 | ⚠️ 部分验证 |
-| 2026-05-12 | IP/SNMP扫描器修复 | 设备发现 | _parse_target()和版本号正则 | ✅ 已验证 |
-| 2026-05-12 | NotificationTargetRule完整API | 通知模块 | CFG-026功能实现 | ✅ 已验证 |
-| 2026-05-12 | DeviceMetricConfig采集项开关 | 采集配置 | CFG-013功能实现 | ✅ 已验证 |
-| 2026-05-12 | MON-028 告警审计日志 | 监控模块 | 完整审计日志记录和查询功能 | ✅ 已验证 |
-| 2026-05-12 | WKO-008 工单草稿保存TDD测试 | 工单模块 | DataFactory + 24个TDD测试用例 | ✅ 已验证 |
-| 2026-05-12 | WKO-021 SLA计时器TDD测试 | 工单模块 | DataFactory + 9个测试用例 | ✅ 已验证 |
-| 2026-05-12 | WKO-022 SLA自动升级TDD测试 | 工单模块 | DataFactory + 9个测试用例 | ✅ 已验证 |
-| 2026-05-12 | WKO-033 工单导出TDD测试 | 工单模块 | DataFactory + 20个TDD测试用例 | ✅ 已验证 |
-| 2026-05-12 | workorder_export.py Font修复 | 工单导出 | Font color需aRGB格式 | ✅ 已验证 |
-| 2026-05-12 | MON-032 自定义仪表盘布局TDD测试 | 监控模块 | DataFactory + 46个TDD测试用例 | ✅ 已验证 |
-| 2026-05-12 | AUTO-020 告警触发自动化DataFactory | 监控模块 | 修复表达式评估bug + trigger_rule/event工厂 | ✅ 已验证 |
-| 2026-05-13 | Docker SDK v7 兼容性修复 | 采集模块 | `docker.Client` → `docker.APIClient` | ✅ 已验证 |
-| 2026-05-13 | 新增 DEPLOYMENT_ISSUES.md | 文档 | 记录部署问题、网络限制、依赖坑点 | ✅ 已完成 |
+### 问题描述
+`frontend/src/views/monitoring/devices.vue` 是占位组件，存在以下问题：
+1. 直接用 `fetch('/api/devices')` 绕过了 axios 拦截器（无 token）
+2. API 路径错误（`/api/devices` 不存在，正确路径是 `/api/v1/assets/device`）
+3. 字段名错误（用 `ip` 而非 `ip_address`，用 `type` 而非 `device_type`）
+4. 表格列与实际数据不匹配
 
-## 部署问题（2026-05-13）
+### 修改方案
+重写 `devices.vue`，参照 `alerts.vue` 的正确实现：
+- 使用 `import { devices } from '@/api'` 而非原生 `fetch`
+- 字段映射：`ip_address` → 显示列用 `ip`，`device_type` → 显示列用 `type`
+- 保留原有的 UI 结构和交互逻辑
 
-### 环境限制记录
-| 问题 | 影响 | 状态 |
-|------|------|------|
-| GitHub 直连超时（git clone/push） | 代码同步 | ⚠️ 待解决 |
-| HuggingFace 直连超时 | LLM 模型下载 | ✅ 用 hf-mirror.com 绕过 |
-| Docker Hub 直连超时 | 镜像拉取 | ✅ 用 DaoCloud 镜像站 |
-| sudo 频繁超时 | docker 操作 | ✅ 用 `sg docker -c` 替代 |
-| TDengine 3.x REST API 认证格式 | 数据库写入 | ✅ 已确认正确格式 |
-| TDengine 超级表写入需子表名 | 数据库写入 | ⚠️ 方案确定，待实施 |
-| 蒲公英网关 SNMP 未开放 | 网络设备监控 | ⚠️ 待获取凭证 |
+### 修改文件
+- `frontend/src/views/monitoring/devices.vue` — 完全重写
 
-## 模块级修改日志
+### 验证方法
+1. 登录后访问 `/monitoring/devices`
+2. 表格应显示所有已录入设备（IP、名称、类型、状态）
+3. API 请求应为 `/api/v1/assets/device`（通过浏览器 DevTools Network 确认）
+4. 分页、搜索、筛选功能正常
 
-### 测试基础设施
-| 时间 | 修改 | 原因 |
-|------|------|------|
-| 2026-05-12 | conftest.py - 导入all_models解决表缺失 | knowledge_base/models.py有独立Base |
-| 2026-05-12 | test_alert_audit_log.py - DataFactory测试数据工厂 | 遵循数据工厂原则，避免硬编码测试数据 |
-| 2026-05-12 | conftest.py - trigger_rule + trigger_event DataFactory方法 | AUTO-020 告警触发自动化测试数据工厂 |
+### 回滚方案
+若有问题，从 Git 历史恢复：
+```bash
+git show HEAD:frontend/src/views/monitoring/devices.vue > frontend/src/views/monitoring/devices.vue.bak
+```
 
-### 监控模块
-| 时间 | 修改 | 原因 |
-|------|------|------|
-| 2026-05-12 | alert_audit_service.py - 新增服务层 | MON-028审计日志服务 |
-| 2026-05-12 | monitoring.py - 告警API集成审计日志 | 创建/确认/解决/删除自动记录 |
-| 2026-05-12 | test_dashboard_layout_mon032.py - TDD测试 | MON-032自定义仪表盘布局测试 |
-| 2026-05-12 | conftest.py - dashboard布局DataFactory方法 | MON-032测试数据工厂 |
-| 2026-05-12 | alert_trigger.py - evaluate_expression修复 | 修复下划线`_`不被允许的bug |
+---
 
-### 设备管理
-| 时间 | 修改 | 原因 |
-|------|------|------|
-| 2026-05-12 | device_api.py - router加prefix | path=""与include_router冲突 |
+## 2026-05-15 扫描器 asyncio API 错误修复
 
-### 通知模块
-| 时间 | 修改 | 原因 |
-|------|------|------|
-| 2026-05-12 | notification.py - target-rules CRUD | CFG-026新功能 |
+### 问题描述
+`modules/collection/discovery/scanner.py` 三处使用了错误的 asyncio API：
+- `_tcp_check()`、`_scan_ports()`、`_grab_banners()` 均用
+  `loop.create_connection(lambda: asyncio.Protocol(), ip, port)`
+- 此写法返回 `(Transport, Protocol)` 而非 `(StreamReader, StreamWriter)`
+- `Protocol` 实例无 `.close()` 方法，抛 `AttributeError` 被 `except Exception` 吞掉
+- 导致所有主机被判定为 down
 
-### 工单模块
-| 时间 | 修改 | 原因 |
-|------|------|------|
-| 2026-05-12 | test_workorder_draft_wko008.py - WKO-008 TDD测试 | 工单草稿保存功能测试 |
-| 2026-05-12 | conftest.py - draft/draft_list DataFactory方法 | 遵循数据工厂原则 |
-| 2026-05-12 | test_workorder.py - StaticPool导入修复 | 测试基础设施修复 |
+### 修改方案
+替换为 `asyncio.open_connection(ip, port)` — 返回 `(StreamReader, StreamWriter)`
+
+### 修改文件
+- `modules/collection/discovery/scanner.py`:
+  - `_tcp_check()` 第362-383行
+  - `_scan_ports()` 第385-406行
+  - `_grab_banners()` 第408-446行
+- `docker-compose.yml`: `modules:/app/modules:ro` → `modules:/app/modules`
+
+### 附带修复
+- `combined_banner = b" ".join(banners.values())` → `str.join().encode()`（banner 是 str 不是 bytes）
+
+### 验证方法
+```bash
+# 容器内测试
+docker exec itops-api python3 -c "
+import asyncio, sys; sys.path.insert(0,'/app')
+from modules.collection.discovery.scanner import IPScanner
+async def t():
+    s=IPScanner()
+    r=await s._tcp_check('192.168.1.1',[80,443,22])
+    print('_tcp_check(192.168.1.1):', r)
+asyncio.run(t())
+"
+# 期望输出: True
+
+# API 测试
+curl -X POST http://localhost:8000/api/v1/discovery/ip/scan/sync \
+  -H "Content-Type: application/json" \
+  -d '{"cidr":"192.168.1.0/24"}'
+# 期望: total_hosts > 0
+```
+
+### 回滚方案
+```bash
+git checkout HEAD~1 -- modules/collection/discovery/scanner.py docker-compose.yml
+docker compose restart api
+```
+
+---
+
+## 2026-05-15 设备发现数据批量录入
+
+### 操作内容
+1. 扫描 192.168.1.0/24 → 12台设备
+2. 扫描 192.168.0.0/24 → 14台设备
+3. 合计 26台设备通过 SQL 直接写入 MySQL devices 表
+
+### 写入字段
+`name`, `ip_address`, `device_type='SERVER_LINUX'`, `status='ONLINE'`, `os_type='Linux'`, `network_interfaces`（端口列表）, `tags`（子网标记）
+
+### 数据验证
+```sql
+SELECT ip_address, name, device_type, status, tags FROM devices;
+-- 期望: 28条（含原有2台宿主机）
+```
