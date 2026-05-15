@@ -21,7 +21,7 @@ from modules.foundation.db_models.inspection import (
 from modules.business.report_generator.inspection_report import InspectionReportGenerator
 
 
-router = APIRouter(prefix="/api/v1/inspection", tags=["巡检管理"])
+router = APIRouter(prefix="", tags=["巡检管理"])
 
 
 # ============== 请求/响应模型 ==============

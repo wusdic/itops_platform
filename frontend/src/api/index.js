@@ -18,16 +18,16 @@ export const workorder = {
 }
 
 export const knowledge = {
-  getList: (params) => request.get('/knowledge/fault-cases', { params }),
-  getById: (id) => request.get(`/knowledge/fault-cases/${id}`),
-  create: (data) => request.post('/knowledge/fault-cases', data),
-  update: (id, data) => request.put(`/knowledge/fault-cases/${id}`, data),
-  delete: (id) => request.delete(`/knowledge/fault-cases/${id}`),
-  publish: (id) => request.post(`/knowledge/fault-cases/${id}/publish`),
-  getCategory: () => request.get('/knowledge/fault-cases/category'),
-  createCategory: (data) => request.post('/knowledge/fault-cases/category', data),
-  updateCategory: (id, data) => request.put(`/knowledge/fault-cases/category/${id}`, data),
-  deleteCategory: (id) => request.delete(`/knowledge/fault-cases/category/${id}`)
+  getList: (params) => request.get('/knowledge/fault-case', { params }),
+  getById: (id) => request.get(`/knowledge/fault-case/${id}`),
+  create: (data) => request.post('/knowledge/fault-case', data),
+  update: (id, data) => request.put(`/knowledge/fault-case/${id}`, data),
+  delete: (id) => request.delete(`/knowledge/fault-case/${id}`),
+  publish: (id) => request.post(`/knowledge/fault-case/${id}/publish`),
+  getCategory: () => request.get('/knowledge/category'),
+  createCategory: (data) => request.post('/knowledge/category', data),
+  updateCategory: (id, data) => request.put(`/knowledge/category/${id}`, data),
+  deleteCategory: (id) => request.delete(`/knowledge/category/${id}`)
 }
 
 export const ai = {

@@ -83,6 +83,8 @@ class Device(Base):
     # 厂商信息
     vendor = Column(String(128), comment='厂商')
     model = Column(String(128), comment='型号')
+    manufacturer = Column(String(128), comment='制造商')
+    cabinet = Column(String(64), comment='机柜')
     serial_number = Column(String(128), comment='序列号')
     
     # 采购信息
@@ -98,7 +100,13 @@ class Device(Base):
     snmp_community = Column(String(64), comment='SNMP Community')
     snmp_version = Column(String(16), default='v2c', comment='SNMP版本')
     monitor_enabled = Column(Boolean, default=True, comment='是否启用监控')
-    
+    os_type = Column(String(64), comment='操作系统类型')
+    os_version = Column(String(64), comment='操作系统版本')
+    cpu = Column(String(128), comment='CPU信息')
+    memory = Column(String(64), comment='内存信息')
+    disk = Column(String(128), comment='磁盘信息')
+    network_interfaces = Column(Text, comment='网络接口JSON')
+
     # 管理信息
     ssh_port = Column(Integer, default=22, comment='SSH端口')
     ssh_username = Column(String(64), comment='SSH用户名')

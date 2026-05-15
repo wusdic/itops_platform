@@ -69,6 +69,7 @@ class Alert(Base):
     # 告警值
     metric_name = Column(String(128), comment='指标名称')
     metric_value = Column(String(128), comment='指标值')
+    current_value = Column(String(128), comment='当前值')
     threshold = Column(String(128), comment='阈值')
     unit = Column(String(32), comment='单位')
     
