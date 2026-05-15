@@ -132,6 +132,7 @@ def _device_to_dict(device: Device) -> dict:
     """设备模型转字典"""
     return {
         'id': device.id,
+        'name': device.name,
         'hostname': device.hostname,
         'ip_address': device.ip_address,
         'device_type': device.device_type.value if device.device_type else 'other',
