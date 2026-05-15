@@ -502,11 +502,8 @@ const doSearch = async () => {
     })
     searchResults.value = res || []
   } catch (err) {
-    // 使用模拟数据
-    searchResults.value = [
-      { id: 1, title: '服务器运维手册 - 第三章', content: '服务器日常维护包括以下内容：1. 定期检查系统日志；2. 监控磁盘使用情况；3. 备份重要配置文件。', source: '服务器运维手册.pdf', page: '45', score: 0.92 },
-      { id: 2, title: '故障处理案例集 - 案例#023', content: 'CPU过高的排查步骤：1. 使用top命令查看进程；2. 分析占用CPU最高的进程；3. 检查是否有异常代码。', source: '故障处理案例集.xlsx', page: '12', score: 0.85 }
-    ]
+    // 搜索失败时清空结果，不使用假数据
+    searchResults.value = []
   }
 }
 
@@ -540,7 +537,7 @@ const sendMessage = async () => {
     const assistantMsg = {
       id: Date.now() + 1,
       role: 'assistant',
-      content: '根据知识库资料，关于您的问题的回答如下：详细的回答内容将在这里显示...',
+      content: '抱歉，AI 助手暂时无法回答您的问题，请稍后再试。',
       time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
     }
     chatMessages.value.push(assistantMsg)

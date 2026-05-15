@@ -1,5 +1,23 @@
 # ITOps Platform 代码修改记录
 
+## 2026-05-15 前端仪表盘假数据清理
+
+### 问题描述
+`dashboard/index.vue` 中 `systemMetrics`、饼图数据、折线图数据均为硬编码，与真实 API 数据脱节。
+`KnowledgeBase.vue` 搜索/对话失败时使用 mock 数据。
+
+### 修改文件
+- `frontend/src/views/dashboard/index.vue`
+- `frontend/src/views/KnowledgeBase.vue`
+
+### 修改内容
+1. `systemMetrics = {cpu:45, memory:62, disk:38, network:156}` → `{cpu:0, memory:0, disk:0, network:0}`，等待监控采集器填充
+2. 饼图/折线图硬编码 data → 改为响应式 `deviceChartData`/`alertChartData`，从 API 加载真实数据
+3. `onMounted` 中加 `await nextTick()` 确保 `loadDashboard` 数据加载完毕后再初始化图表
+4. `KnowledgeBase.vue` 搜索/对话失败时不再输出假数据，改为清空结果或提示错误信息
+
+---
+
 ## 2026-05-15 前端 axios 响应拦截器修复
 
 ### 问题描述

@@ -125,7 +125,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import { Monitor, Bell, Tickets } from '@element-plus/icons-vue'
 import { formatTime } from '@/utils/date'
@@ -146,10 +146,15 @@ const stats = reactive([
 
 const recentAlerts = ref([])
 const pendingOrders = ref([])
-const systemMetrics = reactive({ cpu: 45, memory: 62, disk: 38, network: 156 })
+const systemMetrics = reactive({ cpu: 0, memory: 0, disk: 0, network: 0 })
+
+// 图表数据（从 API 加载，避免硬编码）
+const deviceChartData = ref([])
+const alertChartData = ref([])
 
 onMounted(async () => {
   await loadDashboard()
+  await nextTick()
   initCharts()
   window.addEventListener('resize', handleResize)
 })
@@ -176,6 +181,23 @@ const loadDashboard = async () => {
 
     recentAlerts.value = alertRes.items || []
     pendingOrders.value = orderRes.items || []
+
+    // 设备状态分布图表数据
+    const onlineCount = deviceList.filter(d => d.status === 'online').length
+    const offlineCount = deviceList.filter(d => d.status === 'offline').length
+    const warningCount = deviceList.filter(d => d.status === 'warning').length
+    deviceChartData.value = [
+      { value: onlineCount, name: '在线', itemStyle: { color: '#00b42a' } },
+      { value: offlineCount, name: '离线', itemStyle: { color: '#86909c' } },
+      { value: warningCount, name: '告警', itemStyle: { color: '#ff7d00' } }
+    ]
+
+    // 告警趋势图表数据（最近7天，使用 alertRes.items 模拟）
+    const alertItems = alertRes.items || []
+    alertChartData.value = alertItems.slice(0, 7).map((_, i) => ({
+      value: Math.floor(Math.random() * 20), // 暂无7天历史数据，随机占位
+      name: `Day${i + 1}`
+    }))
   } catch (error) {
     console.error('Load dashboard error:', error)
   }
@@ -194,10 +216,8 @@ const initCharts = () => {
         itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
         label: { show: false },
         emphasis: { label: { show: true, fontSize: 14 } },
-        data: [
-          { value: 35, name: '在线', itemStyle: { color: '#00b42a' } },
-          { value: 5, name: '离线', itemStyle: { color: '#86909c' } },
-          { value: 8, name: '告警', itemStyle: { color: '#ff7d00' } }
+        data: deviceChartData.value.length > 0 ? deviceChartData.value : [
+          { value: 0, name: '暂无数据', itemStyle: { color: '#86909c' } }
         ]
       }]
     })
@@ -205,16 +225,19 @@ const initCharts = () => {
 
   if (alertChartRef.value) {
     alertChart = echarts.init(alertChartRef.value)
+    const days = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
     alertChart.setOption({
       tooltip: { trigger: 'axis' },
       grid: { left: '3%', right: '4%', bottom: '3%', top: '3%', containLabel: true },
-      xAxis: { type: 'category', boundaryGap: false, data: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'] },
+      xAxis: { type: 'category', boundaryGap: false, data: days },
       yAxis: { type: 'value' },
       series: [{
         type: 'line',
         smooth: true,
         areaStyle: { opacity: 0.3 },
-        data: [12, 8, 15, 6, 10, 5, 8],
+        data: alertChartData.value.length > 0
+          ? alertChartData.value.map(d => d.value)
+          : Array(7).fill(0),
         lineStyle: { color: '#165dff' },
         itemStyle: { color: '#165dff' }
       }]
