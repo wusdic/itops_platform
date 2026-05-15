@@ -258,7 +258,7 @@ class IPScanner:
         host.services = banners
         
         # Refine OS detection with banner info
-        combined_banner = b" ".join(banners.values()) if banners else b""
+        combined_banner = " ".join(banners.values()).encode('utf-8', errors='ignore') if banners else b""
         host.os_type, host.os_version = self._detect_os(ttl, combined_banner)
         
         # Detect vendor from banners
@@ -361,16 +361,11 @@ class IPScanner:
     
     async def _tcp_check(self, ip: str, ports: List[int]) -> bool:
         """Check if host is reachable via TCP"""
-        loop = asyncio.get_event_loop()
         
         async def check_port(port):
             try:
                 reader, writer = await asyncio.wait_for(
-                    loop.create_connection(
-                        lambda: asyncio.Protocol(),
-                        ip,
-                        port,
-                    ),
+                    asyncio.open_connection(ip, port),
                     timeout=self.timeout,
                 )
                 writer.close()
@@ -384,16 +379,11 @@ class IPScanner:
     
     async def _scan_ports(self, ip: str, ports: List[int]) -> List[int]:
         """Scan ports on a host"""
-        loop = asyncio.get_event_loop()
         
         async def check_port(port):
             try:
                 reader, writer = await asyncio.wait_for(
-                    loop.create_connection(
-                        lambda: asyncio.Protocol(),
-                        ip,
-                        port,
-                    ),
+                    asyncio.open_connection(ip, port),
                     timeout=self.timeout,
                 )
                 writer.close()
@@ -408,24 +398,18 @@ class IPScanner:
     async def _grab_banners(self, ip: str, ports: List[int]) -> Dict[str, str]:
         """Grab service banners"""
         banners = {}
-        loop = asyncio.get_event_loop()
         
         async def grab_banner(port):
             try:
                 reader, writer = await asyncio.wait_for(
-                    loop.create_connection(
-                        lambda: asyncio.streams.FlowControlMixin,
-                        ip,
-                        port,
-                    ),
+                    asyncio.open_connection(ip, port),
                     timeout=self.timeout,
                 )
                 
                 # Send HTTP request for web ports
                 if port in [80, 443, 8080, 8443]:
                     writer.write(b"GET / HTTP/1.0\r\nHost: %s\r\n\r\n" % ip.encode())
-                
-                await writer.drain()
+                    await writer.drain()
                 
                 try:
                     data = await asyncio.wait_for(reader.read(1024), timeout=self.timeout)
