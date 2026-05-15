@@ -49,7 +49,7 @@
         <div class="card">
           <div class="card-header">
             <span>最近告警</span>
-            <el-button type="primary" link @click="$router.push('/alerts')">查看更多</el-button>
+            <el-button type="primary" link @click="$router.push('/monitoring/alerts')">查看更多</el-button>
           </div>
           <div class="card-body">
             <div class="alert-list">
@@ -136,26 +136,26 @@ onMounted(async () => {
 const loadDashboard = async () => {
   try {
     // 加载设备统计
-    const deviceRes = await devices.getDevices({ page: 1, page_size: 100 })
-    const deviceList = deviceRes.items || deviceRes.data?.items || []
-    stats[0].value = deviceRes.total || deviceRes.data?.total || 0
+    const deviceRes = await devices.getList({ page: 1, page_size: 100 })
+    const deviceList = deviceRes.items || []
+    stats[0].value = deviceRes.total || 0
     deviceStats.online = deviceList.filter(d => d.status === 'online').length
     deviceStats.offline = deviceList.filter(d => d.status === 'offline').length
     stats[1].value = deviceStats.online
 
     // 加载告警
-    const alertRes = await alerts.getAlerts({ page: 1, page_size: 5 })
-    recentAlerts.value = (alertRes.items || alertRes.data?.items || []).map(a => ({
+    const alertRes = await alerts.getList({ page: 1, page_size: 5 })
+    recentAlerts.value = (alertRes.items || []).map(a => ({
       ...a,
-      severity_text: { critical: '严重', high: '高', medium: '中', low: '低' }[a.severity] || a.severity
+      severity_text: { critical: '严重', high: '高', medium: '中', low: '低' }[a.level] || a.level
     }))
     stats[2].value = alertRes.total || 0
 
     // 加载工单
-    const orderRes = await workorder.getWorkOrders({ page: 1, page_size: 5, status: 'pending' })
-    pendingOrders.value = (orderRes.items || orderRes.data?.items || []).map(o => ({
+    const orderRes = await workorder.getList({ page: 1, page_size: 5, status: 'pending' })
+    pendingOrders.value = (orderRes.items || []).map(o => ({
       ...o,
-      priority_text: { high: '高', medium: '中', low: '低' }[o.priority] || o.priority
+      priority_text: { P1: '紧急', P2: '高', P3: '中', P4: '低' }[o.priority] || o.priority
     }))
     stats[3].value = orderRes.total || 0
 

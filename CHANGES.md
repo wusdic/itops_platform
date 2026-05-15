@@ -1,6 +1,64 @@
 # ITOps Platform 代码修改记录
 
-## 2026-05-15 前端仪表盘假数据清理
+## 2026-05-15 — 前端 API 适配修复
+
+### 问题
+前端大量 API 方法名/响应字段与后端不匹配，所有页面显示空白或假数据。
+
+### 修复内容
+
+#### Dashboard.vue
+- `devices.getDevices()` → `devices.getList()`
+- `alerts.getAlerts()` → `alerts.getList()`
+- `workorder.getWorkOrders()` → `workorder.getList()`
+- `a.severity` → `a.level`（告警字段统一）
+- `o.priority: {high/medium/low}` → `{P1:紧急, P2:高, P3:中, P4:低}`
+- 路由 `/alerts` → `/monitoring/alerts`
+
+#### monitoring/devices.vue（完全重写）
+- 移除 CPU/内存/磁盘进度条列（API无此数据）
+- 字段 `ip_address`（非 `ip`）、`type`（非 `device_type`）
+- 新增网络扫描弹窗：`POST /discovery/ip/scan/sync` + `POST /discovery/devices/import`
+- 新增"网络扫描"按钮（绿色），触发 CIDR 输入弹窗
+- 扫描结果可多选导入设备
+
+#### monitoring/alerts.vue（完全重写）
+- 页面标题改为"告警管理"（原为"设备监控"）
+- 字段映射：`_level_`/`level`/`alert_key`/`device_name`/`device_ip`/`metric_name`/`metric_value`/`unit`
+- 新增严重程度过滤：`critical/high/medium/low/info`
+- 新增状态过滤：`active/acknowledged/resolved`
+- 告警详情弹窗展示完整字段
+- 确认/解决操作：`POST /monitoring/alerts/{id}/handle`
+
+#### workorder/list.vue（完全重写）
+- 字段 `order_no`（非 `id`）
+- 优先级映射 P1-P4（非 urgent/high/medium/low）
+- 新增工单详情弹窗（查看完整内容）
+- 分配处理人改为真实用户列表（`GET /admin/users`）
+
+#### workorder/create.vue（完全重写）
+- 新建工单表单，含标题/类型/优先级/关联设备/处理人/描述
+- 类型：`fault`/`change`/`request`
+- 优先级：`P1`/`P2`/`P3`/`P4`
+
+### 构建修复
+- `frontend/index.html`：删除旧硬编码 `<script src="/assets/index-3BNZqWLZ.js">`，改为 `<script type="module" src="/src/main.js">`
+- 删除 `frontend/assets/` 目录（残留旧构建文件）
+
+### 验证结果
+- `npm run build` ✓（6.02s）
+- Docker 容器同步 ✓
+- 页面可正常渲染
+
+### GitHub
+```
+bf96a81 fix(frontend): remove hardcoded mock data from dashboard and KnowledgeBase
+（此前假数据清理提交）
+```
+
+---
+
+## 2026-05-15 — 假数据清理
 
 ### 问题描述
 `dashboard/index.vue` 中 `systemMetrics`、饼图数据、折线图数据均为硬编码，与真实 API 数据脱节。

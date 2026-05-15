@@ -6,6 +6,9 @@
         <p class="page-subtitle">管理和监控所有设备状态</p>
       </div>
       <div class="page-actions">
+        <el-button type="success" @click="scanDialogVisible = true">
+          <el-icon><Connection /></el-icon> 网络扫描
+        </el-button>
         <el-button type="primary" @click="handleAdd">
           <el-icon><Plus /></el-icon> 添加设备
         </el-button>
@@ -36,9 +39,9 @@
       <el-table :data="deviceList" v-loading="loading" style="width: 100%">
         <el-table-column prop="name" label="设备名称" min-width="150" />
         <el-table-column prop="ip_address" label="IP地址" width="140" />
-        <el-table-column prop="device_type" label="设备类型" width="120">
+        <el-table-column prop="type" label="设备类型" width="120">
           <template #default="{ row }">
-            <el-tag size="small">{{ getTypeText(row.device_type) }}</el-tag>
+            <el-tag size="small">{{ getTypeText(row.type) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
@@ -90,13 +93,12 @@
         <el-form-item label="IP地址" prop="ip_address">
           <el-input v-model="deviceForm.ip_address" placeholder="请输入IP地址" />
         </el-form-item>
-        <el-form-item label="设备类型" prop="device_type">
-          <el-select v-model="deviceForm.device_type" placeholder="请选择设备类型" style="width: 100%">
-            <el-option label="服务器" value="SERVER_LINUX" />
-            <el-option label="Windows服务器" value="SERVER_WINDOWS" />
-            <el-option label="网络设备" value="NETWORK_SWITCH" />
-            <el-option label="存储设备" value="STORAGE_NAS" />
-            <el-option label="安全设备" value="SECURITY_IPS" />
+        <el-form-item label="设备类型" prop="type">
+          <el-select v-model="deviceForm.type" placeholder="请选择设备类型" style="width: 100%">
+            <el-option label="服务器" value="server" />
+            <el-option label="网络设备" value="network" />
+            <el-option label="存储设备" value="storage" />
+            <el-option label="安全设备" value="security" />
           </el-select>
         </el-form-item>
         <el-form-item label="操作系统" prop="os_type">
@@ -111,13 +113,98 @@
         <el-button type="primary" @click="submitDevice">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- 网络扫描弹窗 -->
+    <el-dialog v-model="scanDialogVisible" title="网络扫描" width="800px" :close-on-click-modal="false">
+      <div v-if="!scanStarted">
+        <el-form label-width="100px">
+          <el-form-item label="扫描范围">
+            <el-input v-model="scanForm.cidr" placeholder="例如：192.168.1.0/24 或 192.168.1.1" style="width: 300px" />
+            <span style="margin-left: 12px; color: #909399; font-size: 13px;">支持 CIDR 格式或单个 IP</span>
+          </el-form-item>
+          <el-form-item label="扫描选项">
+            <el-checkbox v-model="scanForm.scan_ports">扫描端口</el-checkbox>
+            <el-checkbox v-model="scanForm.grab_banners">获取 banner</el-checkbox>
+          </el-form-item>
+          <el-form-item label="设备类型">
+            <el-select v-model="scanForm.device_type" style="width: 200px">
+              <el-option label="服务器" value="server" />
+              <el-option label="网络设备" value="network" />
+              <el-option label="存储设备" value="storage" />
+              <el-option label="安全设备" value="security" />
+            </el-select>
+          </el-form-item>
+        </el-form>
+      </div>
+
+      <!-- 扫描中状态 -->
+      <div v-else-if="scanning" style="text-align: center; padding: 40px 0;">
+        <el-icon class="is-loading" :size="40" color="#409eff"><Loading /></el-icon>
+        <p style="margin-top: 16px; color: #606266;">正在扫描 {{ scanForm.cidr }}，请稍候...</p>
+        <p style="margin-top: 8px; color: #909399; font-size: 13px;">扫描完成前请勿关闭对话框</p>
+      </div>
+
+      <!-- 扫描结果 -->
+      <div v-else>
+        <el-alert v-if="scanError" type="error" :closable="false" style="margin-bottom: 16px">
+          {{ scanError }}
+        </el-alert>
+        <div v-if="scanResults.length > 0" style="margin-bottom: 16px">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px">
+            <span style="color: #606266;">发现 <strong style="color: #409eff">{{ scanResults.length }}</strong> 台主机</span>
+            <el-button type="primary" size="small" @click="handleImportSelected" :loading="importing">
+              导入选中 ({{ selectedHosts.length }})
+            </el-button>
+          </div>
+          <el-table :data="scanResults" @selection-change="handleSelectionChange" max-height="350" stripe>
+            <el-table-column type="selection" width="50" />
+            <el-table-column prop="ip" label="IP地址" width="150" />
+            <el-table-column prop="hostname" label="主机名" min-width="150">
+              <template #default="{ row }">{{ row.hostname || '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="os_type" label="操作系统" width="120">
+              <template #default="{ row }">{{ row.os_type || '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="ports" label="开放端口" min-width="200">
+              <template #default="{ row }">
+                <span v-if="row.ports && row.ports.length">
+                  {{ row.ports.slice(0, 5).join(', ') }}{{ row.ports.length > 5 ? '...' : '' }}
+                </span>
+                <span v-else>-</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="status" label="状态" width="80">
+              <template #default="{ row }">
+                <el-tag :type="row.status === 'up' ? 'success' : 'info'" size="small">
+                  {{ row.status === 'up' ? '在线' : '离线' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+        <div v-else style="text-align: center; padding: 40px 0; color: #909399;">
+          <p>未发现主机，请确认扫描范围是否正确</p>
+        </div>
+      </div>
+
+      <template #footer">
+        <el-button @click="closeScanDialog">关闭</el-button>
+        <el-button v-if="!scanStarted" type="primary" @click="startScan" :loading="scanning">
+          开始扫描
+        </el-button>
+        <el-button v-else-if="scanResults.length > 0" type="success" @click="handleImportAll">
+          导入全部 ({{ scanResults.length }})
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Refresh } from '@element-plus/icons-vue'
+import { Plus, Refresh, Connection, Loading } from '@element-plus/icons-vue'
+import request from '@/api/request'
 import { devices } from '@/api'
 import { formatTime } from '@/utils/date'
 import { getStatusType, getStatusText } from '@/utils/status'
@@ -131,6 +218,21 @@ const deviceDialogVisible = ref(false)
 const dialogTitle = ref('添加设备')
 const deviceFormRef = ref(null)
 
+// 网络扫描相关
+const scanDialogVisible = ref(false)
+const scanStarted = ref(false)
+const scanning = ref(false)
+const scanForm = reactive({
+  cidr: '',
+  scan_ports: true,
+  grab_banners: true,
+  device_type: 'server'
+})
+const scanResults = ref([])
+const selectedHosts = ref([])
+const scanError = ref('')
+const importing = ref(false)
+
 const pagination = reactive({
   page: 1,
   pageSize: 10,
@@ -141,7 +243,7 @@ const deviceForm = reactive({
   id: null,
   name: '',
   ip_address: '',
-  device_type: 'SERVER_LINUX',
+  type: 'server',
   os_type: '',
   description: ''
 })
@@ -149,7 +251,7 @@ const deviceForm = reactive({
 const deviceRules = {
   name: [{ required: true, message: '请输入设备名称', trigger: 'blur' }],
   ip_address: [{ required: true, message: '请输入IP地址', trigger: 'blur' }],
-  device_type: [{ required: true, message: '请选择设备类型', trigger: 'change' }]
+  type: [{ required: true, message: '请选择设备类型', trigger: 'change' }]
 }
 
 onMounted(() => {
@@ -162,13 +264,14 @@ const loadData = async () => {
     const params = {
       page: pagination.page,
       page_size: pagination.pageSize,
-      keyword: searchKeyword.value,
-      status: filterStatus.value,
-      type: filterType.value
     }
+    if (searchKeyword.value) params.keyword = searchKeyword.value
+    if (filterStatus.value) params.status = filterStatus.value
+    if (filterType.value) params.type = filterType.value
+
     const res = await devices.getList(params).catch(() => ({ items: [], total: 0 }))
-    deviceList.value = res.items || res.data?.items || []
-    pagination.total = res.total || res.data?.total || 0
+    deviceList.value = res.items || []
+    pagination.total = res.total || 0
   } catch (error) {
     console.error('Load devices error:', error)
   } finally {
@@ -183,7 +286,7 @@ const handleSearch = () => {
 
 const handleAdd = () => {
   dialogTitle.value = '添加设备'
-  Object.assign(deviceForm, { id: null, name: '', ip_address: '', device_type: 'SERVER_LINUX', os_type: '', description: '' })
+  Object.assign(deviceForm, { id: null, name: '', ip_address: '', type: 'server', os_type: '', description: '' })
   deviceDialogVisible.value = true
 }
 
@@ -193,7 +296,7 @@ const handleEdit = (row) => {
     id: row.id,
     name: row.name,
     ip_address: row.ip_address,
-    device_type: row.device_type,
+    type: row.type || 'server',
     os_type: row.os_type || '',
     description: row.description || ''
   })
@@ -201,7 +304,7 @@ const handleEdit = (row) => {
 }
 
 const handleView = (row) => {
-  ElMessage.info(`查看设备: ${row.name} (${row.ip_address})`)
+  ElMessage.info(`设备: ${row.name} (${row.ip_address})`)
 }
 
 const handleDelete = (row) => {
@@ -240,23 +343,95 @@ const submitDevice = async () => {
 }
 
 const getTypeText = (type) => {
-  const map = {
-    SERVER_LINUX: 'Linux服务器',
-    SERVER_WINDOWS: 'Windows服务器',
-    SERVER_VMWARE: 'VMware虚拟机',
-    SERVER_KVM: 'KVM虚拟机',
-    NETWORK_SWITCH: '交换机',
-    NETWORK_ROUTER: '路由器',
-    NETWORK_FIREWALL: '防火墙',
-    NETWORK_WAF: 'WAF',
-    NETWORK_LB: '负载均衡',
-    STORAGE_NAS: 'NAS存储',
-    STORAGE_ARRAY: '存储阵列',
-    SECURITY_IPS: 'IPS',
-    SECURITY_AMS: 'AMS',
-    OTHER: '其他'
-  }
+  const map = { server: '服务器', network: '网络设备', storage: '存储设备', security: '安全设备' }
   return map[type] || type || '未知'
+}
+
+// ===== 网络扫描 =====
+const startScan = async () => {
+  if (!scanForm.cidr.trim()) {
+    ElMessage.warning('请输入扫描范围')
+    return
+  }
+  scanning.value = true
+  scanStarted.value = true
+  scanResults.value = []
+  scanError.value = ''
+  selectedHosts.value = []
+
+  try {
+    const res = await request.post('/discovery/ip/scan/sync', {
+      cidr: scanForm.cidr.trim(),
+      scan_ports: scanForm.scan_ports,
+      grab_banners: scanForm.grab_banners
+    })
+    // 过滤出在线主机
+    scanResults.value = (res.hosts || []).filter(h => h.status === 'up')
+    if (scanResults.value.length === 0) {
+      ElMessage.warning('未发现在线主机')
+    } else {
+      ElMessage.success(`发现 ${scanResults.value.length} 台在线主机`)
+    }
+  } catch (error) {
+    console.error('Scan error:', error)
+    scanError.value = '扫描失败：' + (error.message || '网络错误')
+    ElMessage.error('扫描失败')
+  } finally {
+    scanning.value = false
+  }
+}
+
+const handleSelectionChange = (selection) => {
+  selectedHosts.value = selection
+}
+
+const handleImportSelected = async () => {
+  if (selectedHosts.value.length === 0) {
+    ElMessage.warning('请先选择要导入的主机')
+    return
+  }
+  await doImport(selectedHosts.value.map(h => h.ip))
+}
+
+const handleImportAll = async () => {
+  if (scanResults.value.length === 0) return
+  await doImport(scanResults.value.map(h => h.ip))
+}
+
+const doImport = async (ips) => {
+  importing.value = true
+  try {
+    const res = await request.post('/discovery/devices/import', {
+      ips: JSON.stringify(ips),
+      device_type: scanForm.device_type
+    })
+    const imported = res.imported || []
+    const failed = res.failed || []
+    if (imported.length > 0) {
+      ElMessage.success(`成功导入 ${imported.length} 台设备`)
+    }
+    if (failed.length > 0) {
+      ElMessage.warning(`${failed.length} 台设备导入失败`)
+    }
+    if (imported.length > 0) {
+      loadData()
+      scanDialogVisible.value = false
+      scanStarted.value = false
+      scanForm.cidr = ''
+    }
+  } catch (error) {
+    console.error('Import error:', error)
+    ElMessage.error('导入失败：' + (error.message || '网络错误'))
+  } finally {
+    importing.value = false
+  }
+}
+
+const closeScanDialog = () => {
+  scanDialogVisible.value = false
+  scanStarted.value = false
+  scanResults.value = []
+  scanError.value = ''
 }
 </script>
 
