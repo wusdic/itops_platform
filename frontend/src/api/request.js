@@ -32,11 +32,26 @@ request.interceptors.response.use(
     if (res.access_token || res.token) {
       return res
     }
+    // 兼容直接返回 {items, total} 格式（如 /assets/device）
+    // 和 {code, data} 包装格式
     if (res.code === 200 || res.code === 0) {
       return res.data || res
     }
-    ElMessage.error(res.msg || '请求失败')
-    return Promise.reject(new Error(res.msg || '请求失败'))
+    // 如果既无 code 也无 access_token，但有 items 字段（列表 API 格式），直接返回
+    if (res.items !== undefined && res.total !== undefined) {
+      return res
+    }
+    // 如果是数组（某些列表接口直接返回数组）
+    if (Array.isArray(res)) {
+      return { items: res, total: res.length }
+    }
+    // 有 msg 说明是错误响应
+    if (res.msg) {
+      ElMessage.error(res.msg || '请求失败')
+      return Promise.reject(new Error(res.msg || '请求失败'))
+    }
+    // 兜底：直接返回原始数据
+    return res
   },
   error => {
     if (error.response) {
