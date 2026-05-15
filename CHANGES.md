@@ -1,5 +1,36 @@
 # ITOps Platform 代码修改记录
 
+## 2026-05-15 前端 axios 响应拦截器修复
+
+### 问题描述
+`frontend/src/api/request.js` 响应拦截器逻辑过严，只认 `{code: 200}` 格式。
+`/assets/device` 等列表 API 直接返回 `{items: [...], total: N}` 无 `code` 字段，
+导致所有列表请求被 `ElMessage.error('请求失败')` + `Promise.reject()` 拦截。
+
+### 修改文件
+- `frontend/src/api/request.js` — 响应拦截器增加 `{items, total}` 格式兼容
+
+### 修复代码
+```javascript
+// 原有逻辑：只认 code===200
+if (res.code === 200 || res.code === 0) { return res.data || res }
+ElMessage.error(res.msg || '请求失败')
+return Promise.reject(...)
+
+// 新增兼容：
+if (res.items !== undefined && res.total !== undefined) { return res }
+if (Array.isArray(res)) { return { items: res, total: res.length } }
+if (res.msg) { ElMessage.error(...); return Promise.reject(...) }
+return res  // 兜底
+```
+
+### 验证方法
+1. 登录后访问 `/monitoring/devices`
+2. 表格应显示28台设备，分页显示"共 28 条"
+3. 刷新页面数据应保持
+
+---
+
 ## 2026-05-15 前端设备监控页面修复
 
 ### 问题描述
