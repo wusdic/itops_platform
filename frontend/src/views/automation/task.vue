@@ -308,9 +308,12 @@ const handleEdit = async (row) => {
 
 const handleView = async (row) => {
   try {
-    const res = await scheduler.getById(row.id).catch(() => ({ data: null }))
+    const res = await scheduler.getById(row.id).catch(() => ({}))
     if (res.data) {
       currentTask.value = res.data
+      viewDialogVisible.value = true
+    } else if (res) {
+      currentTask.value = res
       viewDialogVisible.value = true
     }
   } catch (error) {

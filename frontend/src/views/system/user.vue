@@ -125,7 +125,10 @@ onMounted(() => { loadData() })
 const loadData = async () => {
   loading.value = true
   try {
-    const res = await user.getList({ page: pagination.page, page_size: pagination.pageSize, keyword: searchKeyword.value, status: filterStatus.value }).catch(() => ({ items: [], total: 0 }))
+    const params = { page: pagination.page, page_size: pagination.pageSize }
+    if (searchKeyword.value) params.keyword = searchKeyword.value
+    if (filterStatus.value) params.status = filterStatus.value
+    const res = await user.getList(params).catch(() => ({ items: [], total: 0 }))
     userList.value = res.items || []
     pagination.total = res.total || 0
   } catch (error) { console.error('Load users error:', error) }
@@ -135,8 +138,8 @@ const loadData = async () => {
 const handleSearch = () => { pagination.page = 1; loadData() }
 const getRoleText = (r) => ({ admin: '管理员', operator: '运维人员', guest: '访客' }[r] || r)
 
-const handleAdd = () => { dialogTitle.value = '添加用户'; Object.assign(form, { id: null, username: '', name: '', email: '', phone: '', role: '', status: '1' }); dialogVisible.value = true }
-const handleEdit = (row) => { dialogTitle.value = '编辑用户'; Object.assign(form, { id: row.id, username: row.username, name: row.name, email: row.email, phone: row.phone, role: row.role, status: row.status }); dialogVisible.value = true }
+const handleAdd = () => { dialogTitle.value = '添加用户'; Object.assign(form, { id: null, username: '', name: '', email: '', phone: '', role: 'operator', status: '1' }); dialogVisible.value = true }
+const handleEdit = (row) => { dialogTitle.value = '编辑用户'; Object.assign(form, { id: row.id, username: row.username, name: row.full_name || row.name, email: row.email, phone: row.phone, role: row.role || 'operator', status: row.is_active !== undefined ? (row.is_active ? '1' : '0') : (row.status === '1' ? '1' : '0') }); dialogVisible.value = true }
 
 const handleDelete = (row) => {
   ElMessageBox.confirm(`确定删除用户 "${row.username}" 吗?`, '提示', { type: 'warning' })
@@ -145,17 +148,43 @@ const handleDelete = (row) => {
 
 const handleResetPwd = (row) => {
   ElMessageBox.confirm(`确定重置用户 "${row.username}" 的密码吗?`, '提示', { type: 'warning' })
-    .then(async () => { try { await user.resetPassword(row.id); ElMessage.success('密码已重置为: 123456') } catch (error) { console.error('Reset password error:', error) } }).catch(() => {})
+    .then(async () => {
+      try {
+        const res = await user.resetPassword(row.id)
+        ElMessage.success(res.new_password ? `新密码：${res.new_password}` : '密码已重置')
+      } catch (error) {
+        console.error('Reset password error:', error)
+        ElMessage.error('重置密码失败')
+      }
+    }).catch(() => {})
 }
 
 const submitForm = async () => {
   const valid = await formRef.value.validate().catch(() => false)
   if (!valid) return
   try {
-    if (form.id) { await user.update(form.id, form); ElMessage.success('更新成功') }
-    else { await user.create(form); ElMessage.success('创建成功') }
-    dialogVisible.value = false; loadData()
-  } catch (error) { console.error('Submit error:', error) }
+    const payload = {
+      username: form.username,
+      email: form.email,
+      full_name: form.name,
+      role: form.role,
+      phone: form.phone,
+      is_active: form.status === '1'
+    }
+    if (form.id) {
+      await user.update(form.id, payload)
+      ElMessage.success('更新成功')
+    } else {
+      payload.password = 'Init@123456'
+      await user.create(payload)
+      ElMessage.success('创建成功')
+    }
+    dialogVisible.value = false
+    loadData()
+  } catch (error) {
+    console.error('Submit error:', error)
+    ElMessage.error('操作失败')
+  }
 }
 </script>
 

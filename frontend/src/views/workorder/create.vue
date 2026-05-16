@@ -65,7 +65,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Back } from '@element-plus/icons-vue'
-import { workorder, devices } from '@/api'
+import { workorder, devices, user } from '@/api'
 
 const router = useRouter()
 const formRef = ref(null)
@@ -98,7 +98,7 @@ onMounted(async () => {
 
   // 加载用户列表
   try {
-    const res = await fetch('/api/v1/admin/users').then(r => r.json())
+    const res = await user.getList({ page: 1, page_size: 100 })
     userList.value = res.items || []
   } catch (e) { console.error(e) }
 })

@@ -5,229 +5,388 @@
       <p>AI驱动的运维故障排查与优化建议</p>
     </div>
 
-    <el-tabs v-model="activeTab" class="analyze-tabs">
-      <el-tab-pane label="故障排查" name="troubleshoot">
-        <el-card>
-          <el-form label-width="120px">
-            <el-form-item label="问题描述">
-              <el-input v-model="troubleshootForm.description" type="textarea" :rows="3" placeholder="请详细描述遇到的问题..." />
-            </el-form-item>
-            <el-form-item label="监控指标（可选）">
-              <el-input v-model="troubleshootForm.metrics" type="textarea" :rows="2" placeholder="如: CPU 95%, 内存 80%, 磁盘 90%..." />
-            </el-form-item>
-            <el-form-item label="日志片段（可选）">
-              <el-input v-model="troubleshootForm.logs" type="textarea" :rows="3" placeholder="粘贴相关日志..." />
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" @click="doTroubleshoot" :loading="troubleshootLoading">开始排查</el-button>
-              <el-button @click="troubleshootForm = {description:'',metrics:'',logs:''}">重置</el-button>
-            </el-form-item>
-          </el-form>
-          <div v-if="troubleshootResult" class="result-box">
-            <h4>排查结果</h4>
-            <div v-html="renderResult(troubleshootResult)"></div>
-          </div>
-        </el-card>
-      </el-tab-pane>
+    <div class="analyze-toolbar">
+      <div class="tab-switcher">
+        <el-radio-group v-model="activeTab" @change="handleTabChange">
+          <el-radio-button value="logs">
+            <span class="tab-icon">📋</span> 日志分析
+          </el-radio-button>
+          <el-radio-button value="troubleshoot">
+            <span class="tab-icon">🔧</span> 故障诊断
+          </el-radio-button>
+          <el-radio-button value="report">
+            <span class="tab-icon">📊</span> 报告解读
+          </el-radio-button>
+        </el-radio-group>
+      </div>
+      <el-button type="primary" plain @click="handleNewAnalysis">
+        <el-icon><Plus /></el-icon> 新建分析
+      </el-button>
+    </div>
 
-      <el-tab-pane label="优化建议" name="suggest">
-        <el-card>
-          <el-form label-width="120px">
-            <el-form-item label="系统类型">
-              <el-select v-model="suggestForm.systemType" placeholder="选择系统类型" style="width:100%">
-                <el-option label="Web应用" value="web" />
-                <el-option label="数据库" value="database" />
-                <el-option label="缓存系统" value="cache" />
-                <el-option label="消息队列" value="mq" />
-                <el-option label="容器平台" value="container" />
-              </el-select>
-            </el-form-item>
-            <el-form-item label="当前状态">
-              <el-input v-model="suggestForm.status" type="textarea" :rows="3" placeholder="描述当前系统状态和性能指标..." />
-            </el-form-item>
-            <el-form-item label="关注领域">
-              <el-checkbox-group v-model="suggestForm.focusAreas">
-                <el-checkbox label="performance">性能</el-checkbox>
-                <el-checkbox label="security">安全</el-checkbox>
-                <el-checkbox label="cost">成本</el-checkbox>
-                <el-checkbox label="stability">稳定性</el-checkbox>
-              </el-checkbox-group>
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" @click="doSuggest" :loading="suggestLoading">获取建议</el-button>
-            </el-form-item>
-          </el-form>
-          <div v-if="suggestResult" class="result-box">
-            <h4>优化建议</h4>
-            <div v-html="renderResult(suggestResult)"></div>
+    <div class="analyze-content">
+      <el-card class="input-card">
+        <template #header>
+          <div class="card-header">
+            <span>{{ tabConfig[activeTab].title }}</span>
           </div>
-        </el-card>
-      </el-tab-pane>
+        </template>
+        <el-form :model="formData" label-position="top">
+          <el-form-item :label="tabConfig[activeTab].inputLabel">
+            <el-input
+              v-model="formData.content"
+              type="textarea"
+              :rows="8"
+              :placeholder="tabConfig[activeTab].placeholder"
+              resize="vertical"
+            />
+          </el-form-item>
+          <el-form-item v-if="activeTab === 'report'">
+            <el-select v-model="formData.reportType" placeholder="选择报告类型" style="width: 200px">
+              <el-option label="性能报告" value="performance" />
+              <el-option label="安全报告" value="security" />
+              <el-option label="运维报告" value="ops" />
+              <el-option label="容量报告" value="capacity" />
+            </el-select>
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" :loading="loading" @click="handleAnalyze" :disabled="!formData.content.trim()">
+              {{ loading ? '分析中...' : '开始分析' }}
+            </el-button>
+            <el-button @click="handleReset">重置</el-button>
+          </el-form-item>
+        </el-form>
+      </el-card>
 
-      <el-tab-pane label="报告解读" name="report">
-        <el-card>
-          <el-form label-width="120px">
-            <el-form-item label="报告类型">
-              <el-select v-model="reportForm.type" placeholder="选择报告类型" style="width:100%">
-                <el-option label="性能报告" value="performance" />
-                <el-option label="安全报告" value="security" />
-                <el-option label="运维报告" value="ops" />
-                <el-option label="容量报告" value="capacity" />
-              </el-select>
-            </el-form-item>
-            <el-form-item label="报告内容">
-              <el-input v-model="reportForm.content" type="textarea" :rows="6" placeholder="粘贴报告内容或关键指标..." />
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" @click="doInterpret" :loading="reportLoading">解读报告</el-button>
-            </el-form-item>
-          </el-form>
-          <div v-if="reportResult" class="result-box">
-            <h4>解读结果</h4>
-            <div v-html="renderResult(reportResult)"></div>
-          </div>
-        </el-card>
-      </el-tab-pane>
+      <div v-if="loading" class="loading-state">
+        <el-icon class="loading-spinner"><Loading /></el-icon>
+        <p>AI 正在分析，请稍候...</p>
+      </div>
 
-      <el-tab-pane label="日志分析" name="logs">
-        <el-card>
-          <el-form label-width="120px">
-            <el-form-item label="日志级别">
-              <el-select v-model="logForm.level" placeholder="选择日志级别" style="width:100%">
-                <el-option label="全部" value="" />
-                <el-option label="ERROR" value="error" />
-                <el-option label="WARNING" value="warning" />
-                <el-option label="INFO" value="info" />
-              </el-select>
-            </el-form-item>
-            <el-form-item label="时间范围">
-              <el-input v-model="logForm.timeRange" placeholder="如: 最近1小时, 2024-05-15 10:00-12:00" style="width:100%" />
-            </el-form-item>
-            <el-form-item label="日志内容">
-              <el-input v-model="logForm.content" type="textarea" :rows="6" placeholder="粘贴日志内容..." />
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" @click="doAnalyzeLog" :loading="logLoading">分析日志</el-button>
-            </el-form-item>
-          </el-form>
-          <div v-if="logResult" class="result-box">
-            <h4>分析结果</h4>
-            <div v-html="renderResult(logResult)"></div>
+      <el-card v-if="result && !loading" class="result-card">
+        <template #header>
+          <div class="card-header">
+            <span>分析结果</span>
+            <el-button size="small" text @click="handleCopy">
+              <el-icon><CopyDocument /></el-icon> 复制
+            </el-button>
           </div>
-        </el-card>
-      </el-tab-pane>
-    </el-tabs>
+        </template>
+        <div class="result-content" v-html="renderedResult"></div>
+      </el-card>
+
+      <el-card v-if="error && !loading" class="error-card">
+        <el-alert type="error" :closable="false">
+          <template #title>
+            <span>{{ error }}</span>
+          </template>
+        </el-alert>
+      </el-card>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Plus, Loading, CopyDocument } from '@element-plus/icons-vue'
 import { ai } from '@/api'
 
-const activeTab = ref('troubleshoot')
+const activeTab = ref('logs')
+const loading = ref(false)
+const result = ref('')
+const error = ref('')
 
-const troubleshootForm = reactive({ description: '', metrics: '', logs: '' })
-const troubleshootLoading = ref(false)
-const troubleshootResult = ref('')
+const formData = reactive({
+  content: '',
+  reportType: 'performance'
+})
 
-const suggestForm = reactive({ systemType: '', status: '', focusAreas: [] })
-const suggestLoading = ref(false)
-const suggestResult = ref('')
+const tabConfig = {
+  logs: {
+    title: '日志分析',
+    inputLabel: '日志内容',
+    placeholder: '请粘贴日志内容，AI将分析可能的问题和异常...',
+    promptTemplate: (content) => `请分析以下日志，识别潜在问题、错误和异常模式，并提供解决方案建议。\n\n日志内容：\n${content}`
+  },
+  troubleshoot: {
+    title: '故障诊断',
+    inputLabel: '故障描述',
+    placeholder: '请描述设备故障或告警信息，AI将诊断可能的原因并给出解决方案...',
+    promptTemplate: (content) => `请诊断以下故障，分析可能的原因并提供详细的解决步骤。\n\n故障/告警信息：\n${content}`
+  },
+  report: {
+    title: '报告解读',
+    inputLabel: '报告内容',
+    placeholder: '请粘贴报告内容或关键指标，AI将解读关键指标和发现...',
+    promptTemplate: (content, reportType) => `请解读以下${reportType}报告，提取关键指标、分析发现并给出建议。\n\n报告内容：\n${content}`
+  }
+}
 
-const reportForm = reactive({ type: 'performance', content: '' })
-const reportLoading = ref(false)
-const reportResult = ref('')
+const renderedResult = computed(() => {
+  if (!result.value) return ''
+  return renderMarkdown(result.value)
+})
 
-const logForm = reactive({ level: '', timeRange: '', content: '' })
-const logLoading = ref(false)
-const logResult = ref('')
-
-const renderResult = (text) => {
+const renderMarkdown = (text) => {
   if (!text) return ''
-  return text.replace(/\n/g, '<br>')
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+  
+  let html = text
+    // 转义 HTML 特殊字符
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    // 代码块
+    .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>')
+    // 行内代码
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    // 加粗
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    // 斜体
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    // 标题
+    .replace(/^### (.+)$/gm, '<h4>$1</h4>')
+    .replace(/^## (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^# (.+)$/gm, '<h2>$1</h2>')
+    // 列表
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    .replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>')
+    // 换行
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/\n/g, '<br>')
+  
+  // 包装列表
+  html = html.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>')
+  // 清理连续列表
+  html = html.replace(/<\/ul><ul>/g, '')
+  
+  return `<p>${html}</p>`
 }
 
-const doTroubleshoot = async () => {
-  if (!troubleshootForm.description) { ElMessage.warning('请输入问题描述'); return }
-  troubleshootLoading.value = true
-  troubleshootResult.value = ''
+const handleTabChange = () => {
+  result.value = ''
+  error.value = ''
+  formData.content = ''
+}
+
+const handleNewAnalysis = () => {
+  handleTabChange()
+}
+
+const handleReset = () => {
+  formData.content = ''
+  result.value = ''
+  error.value = ''
+}
+
+const handleAnalyze = async () => {
+  if (!formData.content.trim()) {
+    ElMessage.warning('请输入分析内容')
+    return
+  }
+
+  loading.value = true
+  error.value = ''
+  result.value = ''
+
   try {
-    const res = await ai.troubleshoot({
-      description: troubleshootForm.description,
-      metrics: troubleshootForm.metrics,
-      logs: troubleshootForm.logs
+    const config = tabConfig[activeTab.value]
+    const prompt = activeTab.value === 'report' 
+      ? config.promptTemplate(formData.content, formData.reportType)
+      : config.promptTemplate(formData.content)
+
+    const res = await ai.chat({
+      message: prompt,
+      stream: false
     })
-    troubleshootResult.value = typeof res === 'string' ? res : (res.result || res.response || JSON.stringify(res))
+
+    // 提取响应内容
+    result.value = typeof res === 'string' 
+      ? res 
+      : (res.result || res.response || res.data?.response || JSON.stringify(res))
+      
   } catch (e) {
-    troubleshootResult.value = '排查服务暂不可用，请稍后重试。'
+    console.error('AI analysis error:', e)
+    error.value = '分析服务暂不可用，请稍后重试。错误信息：' + (e.message || '未知错误')
   } finally {
-    troubleshootLoading.value = false
+    loading.value = false
   }
 }
 
-const doSuggest = async () => {
-  if (!suggestForm.systemType || !suggestForm.status) { ElMessage.warning('请填写完整信息'); return }
-  suggestLoading.value = true
-  suggestResult.value = ''
+const handleCopy = async () => {
+  if (!result.value) return
   try {
-    const res = await ai.suggest({
-      system_type: suggestForm.systemType,
-      status: suggestForm.status,
-      focus_areas: suggestForm.focusAreas.join(',')
-    })
-    suggestResult.value = typeof res === 'string' ? res : (res.result || res.response || JSON.stringify(res))
+    await navigator.clipboard.writeText(result.value)
+    ElMessage.success('已复制到剪贴板')
   } catch (e) {
-    suggestResult.value = '建议服务暂不可用，请稍后重试。'
-  } finally {
-    suggestLoading.value = false
-  }
-}
-
-const doInterpret = async () => {
-  if (!reportForm.content) { ElMessage.warning('请输入报告内容'); return }
-  reportLoading.value = true
-  reportResult.value = ''
-  try {
-    const res = await ai.interpretReport({
-      report_type: reportForm.type,
-      content: reportForm.content
-    })
-    reportResult.value = typeof res === 'string' ? res : (res.result || res.response || JSON.stringify(res))
-  } catch (e) {
-    reportResult.value = '解读服务暂不可用，请稍后重试。'
-  } finally {
-    reportLoading.value = false
-  }
-}
-
-const doAnalyzeLog = async () => {
-  if (!logForm.content) { ElMessage.warning('请输入日志内容'); return }
-  logLoading.value = true
-  logResult.value = ''
-  try {
-    const res = await ai.analyzeLogs({
-      level: logForm.level,
-      time_range: logForm.timeRange,
-      content: logForm.content
-    })
-    logResult.value = typeof res === 'string' ? res : (res.result || res.response || JSON.stringify(res))
-  } catch (e) {
-    logResult.value = '日志分析服务暂不可用，请稍后重试。'
-  } finally {
-    logLoading.value = false
+    ElMessage.error('复制失败')
   }
 }
 </script>
 
 <style scoped>
-.ai-analyze-container { padding: 24px; }
-.page-header { margin-bottom: 24px; }
-.page-header h1 { margin: 0 0 8px 0; font-size: 24px; font-weight: 600; }
-.page-header p { margin: 0; color: #909399; }
-.analyze-tabs { background: #fff; padding: 0; }
-.result-box { margin-top: 20px; padding: 16px; background: #f5f7fa; border-radius: 8px; line-height: 1.8; }
-.result-box h4 { margin: 0 0 12px 0; color: #409eff; }
+.ai-analyze-container {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.page-header {
+  margin-bottom: 24px;
+}
+
+.page-header h1 {
+  margin: 0 0 8px 0;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.page-header p {
+  margin: 0;
+  color: #909399;
+}
+
+.analyze-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  background: #fff;
+  padding: 16px 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.tab-switcher :deep(.el-radio-button__inner) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 20px;
+}
+
+.tab-icon {
+  font-size: 16px;
+}
+
+.analyze-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.input-card {
+  border-radius: 8px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  background: #fff;
+  border-radius: 8px;
+}
+
+.loading-spinner {
+  font-size: 32px;
+  color: #409eff;
+  animation: rotate 1s linear infinite;
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.loading-state p {
+  margin-top: 16px;
+  color: #606266;
+}
+
+.result-card {
+  border-radius: 8px;
+}
+
+.result-content {
+  line-height: 1.8;
+  color: #303133;
+}
+
+.result-content :deep(p) {
+  margin: 0 0 12px 0;
+}
+
+.result-content :deep(h2) {
+  font-size: 18px;
+  margin: 20px 0 12px 0;
+  color: #409eff;
+}
+
+.result-content :deep(h3) {
+  font-size: 16px;
+  margin: 16px 0 10px 0;
+  color: #409eff;
+}
+
+.result-content :deep(h4) {
+  font-size: 15px;
+  margin: 14px 0 8px 0;
+  color: #303133;
+}
+
+.result-content :deep(ul) {
+  margin: 8px 0;
+  padding-left: 24px;
+}
+
+.result-content :deep(li) {
+  margin: 4px 0;
+}
+
+.result-content :deep(pre) {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 16px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 12px 0;
+}
+
+.result-content :deep(code) {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 13px;
+}
+
+.result-content :deep(strong) {
+  color: #409eff;
+  font-weight: 600;
+}
+
+.result-content :deep(em) {
+  color: #67c23a;
+}
+
+.error-card {
+  border-radius: 8px;
+}
+
+@media (max-width: 768px) {
+  .analyze-toolbar {
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .tab-switcher :deep(.el-radio-group) {
+    display: flex;
+    flex-direction: column;
+  }
+}
 </style>

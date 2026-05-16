@@ -25,6 +25,10 @@
           <div v-if="loading" class="chart-loading">
             <el-icon class="is-loading"><Loading /></el-icon>
           </div>
+          <div v-else-if="deviceChartError" class="chart-error">
+            <el-icon><WarningFilled /></el-icon>
+            <span>{{ deviceChartError }}</span>
+          </div>
           <div v-else ref="deviceChartRef" class="chart-container"></div>
         </div>
       </div>
@@ -36,6 +40,10 @@
         <div class="card-body">
           <div v-if="loading" class="chart-loading">
             <el-icon class="is-loading"><Loading /></el-icon>
+          </div>
+          <div v-else-if="alertChartError" class="chart-error">
+            <el-icon><WarningFilled /></el-icon>
+            <span>{{ alertChartError }}</span>
           </div>
           <div v-else ref="alertChartRef" class="chart-container"></div>
         </div>
@@ -50,7 +58,11 @@
           <div v-if="loading" class="table-loading">
             <el-icon class="is-loading"><Loading /></el-icon>
           </div>
-          <el-table v-else :data="recentAlerts" style="width: 100%" :show-header="true">
+          <div v-else-if="recentAlertsError" class="table-error">
+            <el-icon><WarningFilled /></el-icon>
+            <span>{{ recentAlertsError }}</span>
+          </div>
+          <el-table v-else-if="recentAlerts.length > 0" :data="recentAlerts" style="width: 100%" :show-header="true">
             <el-table-column prop="level" label="级别" width="80">
               <template #default="{ row }">
                 <el-tag :type="getSeverityType(row.level)" size="small">{{ getSeverityText(row.level) }}</el-tag>
@@ -63,6 +75,7 @@
               </template>
             </el-table-column>
           </el-table>
+          <div v-else class="empty-tip">暂无告警数据</div>
         </div>
       </div>
 
@@ -75,7 +88,11 @@
           <div v-if="loading" class="table-loading">
             <el-icon class="is-loading"><Loading /></el-icon>
           </div>
-          <el-table v-else :data="pendingOrders" style="width: 100%">
+          <div v-else-if="pendingOrdersError" class="table-error">
+            <el-icon><WarningFilled /></el-icon>
+            <span>{{ pendingOrdersError }}</span>
+          </div>
+          <el-table v-else-if="pendingOrders.length > 0" :data="pendingOrders" style="width: 100%">
             <el-table-column prop="priority" label="优先级" width="80">
               <template #default="{ row }">
                 <el-tag :type="getPriorityType(row.priority)" size="small">{{ getPriorityText(row.priority) }}</el-tag>
@@ -88,6 +105,7 @@
               </template>
             </el-table-column>
           </el-table>
+          <div v-else class="empty-tip">暂无待处理工单</div>
         </div>
       </div>
     </div>
@@ -102,6 +120,9 @@
           <div class="metric-item" v-for="i in 4" :key="i">
             <el-skeleton :rows="0" animated />
           </div>
+        </div>
+        <div v-else-if="systemMetricsError" class="system-metrics">
+          <div class="metric-error">{{ systemMetricsError }}</div>
         </div>
         <div v-else class="system-metrics">
           <div class="metric-item">
@@ -130,7 +151,7 @@
               <span class="metric-label">网络带宽</span>
               <span class="metric-value">{{ systemMetrics.network }}Mbps</span>
             </div>
-            <el-progress :percentage="systemMetrics.network / 10" :color="getProgressColor(systemMetrics.network / 10)" :stroke-width="10" />
+            <el-progress :percentage="Math.min(systemMetrics.network / 10, 100)" :color="getProgressColor(systemMetrics.network / 10)" :stroke-width="10" />
           </div>
         </div>
       </div>
@@ -141,10 +162,10 @@
 <script setup>
 import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
-import { Monitor, Bell, Tickets, Loading } from '@element-plus/icons-vue'
+import { Monitor, Bell, Tickets, Loading, WarningFilled } from '@element-plus/icons-vue'
 import { formatTime } from '@/utils/date'
 import { getSeverityType, getSeverityText, getPriorityType, getPriorityText, getWorkOrderStatusType, getWorkOrderStatusText } from '@/utils/status'
-import { performance, alerts, workorder } from '@/api'
+import { performance, alerts, workorder, devices } from '@/api'
 
 const deviceChartRef = ref(null)
 const alertChartRef = ref(null)
@@ -153,7 +174,11 @@ let alertChart = null
 
 const loading = ref(true)
 const loadingSystem = ref(true)
-const error = ref(null)
+const deviceChartError = ref(null)
+const alertChartError = ref(null)
+const recentAlertsError = ref(null)
+const pendingOrdersError = ref(null)
+const systemMetricsError = ref(null)
 
 const stats = reactive([
   { title: '设备总数', value: 0, icon: Monitor, color: '#165dff', bg: '#e8f0ff' },
@@ -167,9 +192,10 @@ const recentAlerts = ref([])
 const pendingOrders = ref([])
 const systemMetrics = reactive({ cpu: 0, memory: 0, disk: 0, network: 0 })
 
-// 图表数据
+// 图表数据（必须来自API）
 const deviceChartData = ref([])
 const alertChartData = ref([])
+const alertChartLabels = ref([])
 
 onMounted(async () => {
   await Promise.all([
@@ -201,76 +227,121 @@ const loadDashboardStats = async () => {
       stats[3].value = res.alerts?.critical || 0
       stats[4].value = res.workorders?.pending || 0
 
-      // 设备状态分布
+      // 设备状态分布 - 来自API真实数据
       deviceChartData.value = [
         { value: res.devices?.online || 0, name: '在线', itemStyle: { color: '#00b42a' } },
         { value: res.devices?.offline || 0, name: '离线', itemStyle: { color: '#86909c' } },
-        { value: res.devices?.maintenance || 0, name: '维护', itemStyle: { color: '#ff7d00' } }
+        { value: res.devices?.warning || 0, name: '警告', itemStyle: { color: '#ff7d00' } }
       ]
-
-      // 告警趋势
-      alertChartData.value = (res.alerts?.trend || []).map(item => item.count)
+    } else {
+      deviceChartError.value = '无法获取设备统计数据'
     }
   } catch (err) {
     console.error('加载仪表盘统计失败:', err)
-    error.value = '加载仪表盘统计失败'
+    deviceChartError.value = '加载设备统计数据失败'
   }
 }
 
 // 加载最近告警列表
 const loadRecentAlerts = async () => {
   try {
-    const res = await alerts.getList({ page: 1, page_size: 5, status: 'active' })
-    recentAlerts.value = res?.items || []
+    const res = await alerts.getList({ page: 1, page_size: 100, status: 'active' })
+    const items = res?.items || res?.data?.items || []
+    recentAlerts.value = items.slice(0, 5)
+
+    // 从告警列表计算告警趋势（按日期分组最近7天）
+    computeAlertTrend(items)
   } catch (err) {
     console.error('加载告警列表失败:', err)
+    recentAlertsError.value = '加载告警列表失败'
     recentAlerts.value = []
+    alertChartError.value = '无法获取告警趋势数据'
   }
+}
+
+// 从告警列表计算告警趋势
+const computeAlertTrend = (alertsList) => {
+  if (!alertsList || alertsList.length === 0) {
+    alertChartData.value = []
+    alertChartLabels.value = []
+    return
+  }
+
+  // 按日期分组统计
+  const dateCountMap = {}
+  const now = new Date()
+
+  // 初始化最近7天的数据
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date(now)
+    date.setDate(date.getDate() - i)
+    const dateStr = date.toISOString().split('T')[0]
+    dateCountMap[dateStr] = 0
+  }
+
+  // 统计每个日期的告警数量
+  for (const alert of alertsList) {
+    const occurredAt = alert.occurred_at || alert.created_at || alert.time
+    if (!occurredAt) continue
+
+    const dateStr = new Date(occurredAt).toISOString().split('T')[0]
+    if (dateStr in dateCountMap) {
+      dateCountMap[dateStr]++
+    }
+  }
+
+  // 转换为图表数据
+  alertChartLabels.value = Object.keys(dateCountMap).map(date => {
+    const d = new Date(date)
+    return `${d.getMonth() + 1}/${d.getDate()}`
+  })
+  alertChartData.value = Object.values(dateCountMap)
 }
 
 // 加载待处理工单列表
 const loadPendingOrders = async () => {
   try {
     // 查询 pending 和 processing 状态的工单
-    const res = await workorder.getList({ 
-      page: 1, 
+    const res = await workorder.getList({
+      page: 1,
       page_size: 5,
       status: 'pending'
     })
+    let items = res?.items || res?.data?.items || []
+
     // 如果 pending 为空，尝试 processing
-    if (!res?.items || res.items.length === 0) {
+    if (items.length === 0) {
       const processingRes = await workorder.getList({
         page: 1,
         page_size: 5,
         status: 'processing'
       })
-      pendingOrders.value = processingRes?.items || []
-    } else {
-      pendingOrders.value = res?.items || []
+      items = processingRes?.items || processingRes?.data?.items || []
     }
+
+    pendingOrders.value = items.slice(0, 5)
   } catch (err) {
     console.error('加载工单列表失败:', err)
+    pendingOrdersError.value = '加载工单列表失败'
     pendingOrders.value = []
   }
 }
 
-// 加载系统监控指标（从有数据的设备聚合）
+// 加载系统监控指标
 const loadSystemMetrics = async () => {
   loadingSystem.value = true
   try {
     const res = await performance.getMetrics({ limit: 100 })
     if (res?.metrics && res.metrics.length > 0) {
-      // 简单聚合：取所有设备指标的平均值
       let cpuSum = 0, memSum = 0, diskSum = 0, netSum = 0
       let cpuCount = 0, memCount = 0, diskCount = 0, netCount = 0
-      
+
       for (const metric of res.metrics) {
         const points = metric.points || []
         if (points.length === 0) continue
-        
-        // 取最新值
+
         const latestValue = points[0].value
-        
+
         if (metric.metric === 'cpu_usage' || metric.metric === 'cpu') {
           cpuSum += latestValue
           cpuCount++
@@ -285,13 +356,12 @@ const loadSystemMetrics = async () => {
           netCount++
         }
       }
-      
+
       systemMetrics.cpu = cpuCount > 0 ? Math.round(cpuSum / cpuCount) : 0
       systemMetrics.memory = memCount > 0 ? Math.round(memSum / memCount) : 0
       systemMetrics.disk = diskCount > 0 ? Math.round(diskSum / diskCount) : 0
       systemMetrics.network = netCount > 0 ? Math.round(netSum / netCount) : 0
     } else {
-      // 无监控数据时显示占位数据
       systemMetrics.cpu = 0
       systemMetrics.memory = 0
       systemMetrics.disk = 0
@@ -299,7 +369,7 @@ const loadSystemMetrics = async () => {
     }
   } catch (err) {
     console.error('加载系统监控指标失败:', err)
-    // 出错时使用默认值
+    systemMetricsError.value = '加载系统监控指标失败'
     systemMetrics.cpu = 0
     systemMetrics.memory = 0
     systemMetrics.disk = 0
@@ -310,8 +380,10 @@ const loadSystemMetrics = async () => {
 }
 
 const initCharts = () => {
+  // 设备状态分布饼图
   if (deviceChartRef.value) {
     deviceChart = echarts.init(deviceChartRef.value)
+    const hasData = deviceChartData.value.some(item => item.value > 0)
     deviceChart.setOption({
       tooltip: { trigger: 'item' },
       legend: { bottom: 0, left: 'center' },
@@ -322,28 +394,33 @@ const initCharts = () => {
         itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
         label: { show: false },
         emphasis: { label: { show: true, fontSize: 14 } },
-        data: deviceChartData.value.length > 0 ? deviceChartData.value : [
-          { value: 0, name: '暂无数据', itemStyle: { color: '#86909c' } }
+        data: hasData ? deviceChartData.value : [
+          { value: 1, name: '暂无数据', itemStyle: { color: '#e4e7ed' } }
         ]
       }]
     })
   }
 
+  // 告警趋势折线图
   if (alertChartRef.value) {
     alertChart = echarts.init(alertChartRef.value)
-    const days = alertChartData.value.length === 7 
-      ? ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+    const labels = alertChartLabels.value.length > 0
+      ? alertChartLabels.value
       : ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+    const data = alertChartData.value.length > 0
+      ? alertChartData.value
+      : [0, 0, 0, 0, 0, 0, 0]
+
     alertChart.setOption({
       tooltip: { trigger: 'axis' },
       grid: { left: '3%', right: '4%', bottom: '3%', top: '3%', containLabel: true },
-      xAxis: { type: 'category', boundaryGap: false, data: days },
+      xAxis: { type: 'category', boundaryGap: false, data: labels },
       yAxis: { type: 'value' },
       series: [{
         type: 'line',
         smooth: true,
         areaStyle: { opacity: 0.3 },
-        data: alertChartData.value.length > 0 ? alertChartData.value : Array(7).fill(0),
+        data: data,
         lineStyle: { color: '#165dff' },
         itemStyle: { color: '#165dff' }
       }]
@@ -431,6 +508,25 @@ const getProgressColor = (value) => {
   font-size: 24px;
 }
 
+.chart-error, .table-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 100%;
+  color: #f53f3f;
+  font-size: 14px;
+}
+
+.empty-tip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #86909c;
+  font-size: 14px;
+}
+
 .chart-container {
   width: 100%;
   height: 100%;
@@ -459,6 +555,13 @@ const getProgressColor = (value) => {
         color: #1d2129;
       }
     }
+  }
+
+  .metric-error {
+    grid-column: span 4;
+    text-align: center;
+    color: #f53f3f;
+    padding: 20px;
   }
 }
 

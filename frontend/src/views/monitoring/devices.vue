@@ -415,17 +415,13 @@ const startAutoRefresh = (silent = false) => {
 }
 
 const loadDataSilent = async () => {
-  loading.value = true
   try {
-    const params = { page: 1, page_size: 500 }
+    const params = { page: 1, page_size: 500, ...buildFilterParams() }
     const res = await devices.getList(params).catch(() => ({ items: [], total: 0 }))
-    allDevices.value = res.items || []
-    onlineCount.value = allDevices.value.filter(d => d.status === 'online' || d.status === 1).length
-    offlineCount.value = allDevices.value.filter(d => d.status === 'offline' || d.status === 0).length
+    deviceList.value = res.items || []
+    pagination.total = res.total || 0
   } catch (e) {
     console.error('Auto-refresh failed', e)
-  } finally {
-    loading.value = false
   }
 }
 
