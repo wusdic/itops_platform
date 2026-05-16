@@ -108,3 +108,4 @@ export const backup = {
 }
 
 export { devices, alerts, performance, auth, user, role, menu, dict, config, system, assets, scheduler, notification }
+export { default as request } from './request'

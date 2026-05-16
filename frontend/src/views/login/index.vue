@@ -1,38 +1,41 @@
 <template>
-  <div class="login-container">
-    <div class="login-box">
+  <div class="login-page">
+    <div class="login-bg">
+      <div class="bg-shape shape1"></div>
+      <div class="bg-shape shape2"></div>
+      <div class="bg-shape shape3"></div>
+    </div>
+    <div class="login-card">
       <div class="login-header">
-        <div class="logo">
-          <svg width="48" height="48" viewBox="0 0 32 32" fill="none">
-            <rect width="32" height="32" rx="8" fill="#165dff"/>
-            <path d="M8 12L16 8L24 12V20L16 24L8 20V12Z" stroke="white" stroke-width="2"/>
-            <circle cx="16" cy="16" r="3" fill="white"/>
-          </svg>
-        </div>
-        <h1 class="title">智能运维平台</h1>
-        <p class="subtitle">IT Operations Platform</p>
+        <n-icon size="48" color="#18a058"><ServerOutline /></n-icon>
+        <h1>ITOps 智能运维平台</h1>
+        <p>IT Operations Platform</p>
       </div>
 
-      <el-form ref="formRef" :model="form" :rules="rules" class="login-form" @keyup.enter="handleLogin">
-        <el-form-item prop="username">
-          <el-input v-model="form.username" placeholder="请输入用户名" size="large" prefix-icon="User" />
-        </el-form-item>
-        <el-form-item prop="password">
-          <el-input v-model="form.password" type="password" placeholder="请输入密码" size="large" prefix-icon="Lock" show-password />
-        </el-form-item>
-        <el-form-item>
-          <el-checkbox v-model="form.remember">记住密码</el-checkbox>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" size="large" :loading="loading" style="width: 100%" @click="handleLogin">
+      <n-form ref="formRef" :model="form" :rules="rules" size="large">
+        <n-form-item path="username" label="用户名">
+          <n-input v-model:value="form.username" placeholder="请输入用户名" @keydown.enter="handleLogin">
+            <template #prefix><n-icon><PersonOutline /></n-icon></template>
+          </n-input>
+        </n-form-item>
+        <n-form-item path="password" label="密码">
+          <n-input v-model:value="form.password" type="password" placeholder="请输入密码" show-password-on="mousedown" @keydown.enter="handleLogin">
+            <template #prefix><n-icon><LockClosedOutline /></n-icon></template>
+          </n-input>
+        </n-form-item>
+        <n-form-item>
+          <n-checkbox v-model:checked="form.remember">记住密码</n-checkbox>
+        </n-form-item>
+        <n-form-item>
+          <n-button type="primary" :loading="loading" block size="large" @click="handleLogin">
             {{ loading ? '登录中...' : '登 录' }}
-          </el-button>
-        </el-form-item>
-      </el-form>
+          </n-button>
+        </n-form-item>
+      </n-form>
 
       <div class="login-footer">
-        <span class="copyright">© 2024 智能运维平台 v3.0</span>
-        <span class="default-hint">默认账号: admin / Admin@123456</span>
+        <span>© 2024 ITOps Platform v3.0</span>
+        <span>默认账号: admin / Admin@123456</span>
       </div>
     </div>
   </div>
@@ -41,12 +44,12 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { useMessage } from 'naive-ui'
+import { ServerOutline, PersonOutline, LockClosedOutline } from '@vicons/ionicons5'
 import { auth } from '@/api'
-import { useAppStore } from '@/stores/app'
 
 const router = useRouter()
-const appStore = useAppStore()
+const message = useMessage()
 const formRef = ref(null)
 const loading = ref(false)
 
@@ -70,24 +73,24 @@ onMounted(() => {
 })
 
 const handleLogin = async () => {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
+  try {
+    await formRef.value?.validate()
+  } catch {
+    return
+  }
 
   loading.value = true
   try {
-    // 后端返回: { access_token, token_type, user }
     const res = await auth.login({
       username: form.username,
       password: form.password
     })
 
-    // 保存token（后端返回 access_token）
     const token = res.access_token
-    appStore.setToken(token)
+    localStorage.setItem('token', token)
 
-    // 后端返回 user 对象
     const userInfo = res.user || {}
-    appStore.setUserInfo(userInfo)
+    localStorage.setItem('user', JSON.stringify(userInfo))
 
     if (form.remember) {
       localStorage.setItem('savedUsername', form.username)
@@ -95,106 +98,79 @@ const handleLogin = async () => {
       localStorage.removeItem('savedUsername')
     }
 
-    ElMessage.success('登录成功')
+    message.success('登录成功')
     router.push('/dashboard')
   } catch (error) {
-    console.error('Login error:', error)
-    ElMessage.error(error.message || '登录失败')
+    message.error(error.response?.data?.message || error.message || '登录失败')
   } finally {
     loading.value = false
   }
 }
 </script>
 
-<style lang="scss" scoped>
-.login-container {
+<style scoped>
+.login-page {
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 20px;
+  background: linear-gradient(135deg, #0c7a43 0%, #18a058 40%, #36ad6a 100%);
+  position: relative;
+  overflow: hidden;
 }
 
-.login-box {
+.bg-shape {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.1;
+}
+.shape1 { width: 600px; height: 600px; background: #fff; top: -200px; right: -100px; }
+.shape2 { width: 400px; height: 400px; background: #fff; bottom: -150px; left: -100px; }
+.shape3 { width: 300px; height: 300px; background: #fff; top: 50%; left: 10%; }
+
+.login-card {
+  position: relative;
+  z-index: 1;
   width: 420px;
-  background: #fff;
+  background: rgba(255,255,255,0.97);
+  backdrop-filter: blur(20px);
   border-radius: 16px;
-  padding: 40px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  padding: 48px 40px 32px;
+  box-shadow: 0 25px 60px rgba(0,0,0,0.2);
 }
 
 .login-header {
   text-align: center;
-  margin-bottom: 32px;
-
-  .logo {
-    margin-bottom: 16px;
-  }
-
-  .title {
-    font-size: 24px;
-    font-weight: 600;
-    color: #1d2129;
-    margin: 0 0 8px;
-  }
-
-  .subtitle {
-    font-size: 14px;
-    color: #86909c;
-    margin: 0;
-  }
+  margin-bottom: 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
 }
 
-.login-form {
-  .captcha-row {
-    display: flex;
-    gap: 12px;
-    width: 100%;
-  }
+.login-header h1 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
 
-  .captcha-img {
-    width: 120px;
-    height: 40px;
-    border-radius: 8px;
-    overflow: hidden;
-    cursor: pointer;
-    background: #f7f8fa;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-  }
+.login-header p {
+  margin: 0;
+  font-size: 13px;
+  color: #8c8c8c;
 }
 
 .login-footer {
   text-align: center;
   margin-top: 24px;
-
-  .copyright {
-    font-size: 12px;
-    color: #86909c;
-  }
-
-  .default-hint {
-    display: block;
-    margin-top: 8px;
-    font-size: 12px;
-    color: #86909c;
-  }
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-:deep(.el-input__wrapper) {
-  padding: 12px 16px;
-}
-
-:deep(.el-button--large) {
-  height: 44px;
-  font-size: 16px;
+.login-footer span {
+  font-size: 12px;
+  color: #8c8c8c;
 }
 </style>

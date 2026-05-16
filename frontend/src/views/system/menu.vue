@@ -1,141 +1,113 @@
-<template>
-  <div class="page-container">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">菜单管理</h1>
-        <p class="page-subtitle">系统菜单和权限管理</p>
-      </div>
-      <div class="page-actions">
-        <el-button type="primary" @click="handleAdd(null)">
-          <el-icon><Plus /></el-icon> 添加菜单
-        </el-button>
-      </div>
-    </div>
-
-    <div class="table-container">
-      <el-table :data="menuList" v-loading="loading" style="width: 100%" row-key="id" :tree-props="{ children: 'children' }">
-        <el-table-column prop="name" label="菜单名称" min-width="180" />
-        <el-table-column prop="icon" label="图标" width="100">
-          <template #default="{ row }">
-            <el-icon v-if="row.icon"><component :is="row.icon" /></el-icon>
-          </template>
-        </el-table-column>
-        <el-table-column prop="path" label="路由路径" min-width="200" />
-        <el-table-column prop="component" label="组件路径" min-width="200" />
-        <el-table-column prop="sort" label="排序" width="80" />
-        <el-table-column prop="status" label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="row.status === '1' ? 'success' : 'info'" size="small">{{ row.status === '1' ? '启用' : '禁用' }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
-          <template #default="{ row }">
-            <el-button type="primary" link size="small" @click="handleAdd(row)">添加子菜单</el-button>
-            <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
-            <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </div>
-
-    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="600px">
-      <el-form :model="form" label-width="100px" :rules="rules" ref="formRef">
-        <el-form-item label="上级菜单">
-          <el-tree-select v-model="form.parent_id" :data="treeData" placeholder="请选择上级菜单" clearable check-strictly style="width: 100%" />
-        </el-form-item>
-        <el-form-item label="菜单名称" prop="name">
-          <el-input v-model="form.name" placeholder="请输入菜单名称" />
-        </el-form-item>
-        <el-form-item label="菜单图标">
-          <el-input v-model="form.icon" placeholder="请输入图标名称" />
-        </el-form-item>
-        <el-form-item label="路由路径" prop="path">
-          <el-input v-model="form.path" placeholder="请输入路由路径" />
-        </el-form-item>
-        <el-form-item label="组件路径">
-          <el-input v-model="form.component" placeholder="请输入组件路径" />
-        </el-form-item>
-        <el-form-item label="排序" prop="sort">
-          <el-input-number v-model="form.sort" :min="0" :max="999" />
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-radio-group v-model="form.status">
-            <el-radio value="1">启用</el-radio>
-            <el-radio value="0">禁用</el-radio>
-          </el-radio-group>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitForm">确定</el-button>
-      </template>
-    </el-dialog>
-  </div>
-</template>
-
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
-import { menu } from '@/api'
+import { ref, onMounted } from 'vue'
+import { NCard, NDataTable, NButton, NInput, NModal, NForm, NFormItem, NSpace, NTree, NSpin } from 'naive-ui'
 
+const menus = ref([])
 const loading = ref(false)
-const menuList = ref([])
-const dialogVisible = ref(false)
-const dialogTitle = ref('添加菜单')
-const formRef = ref(null)
+const modalVisible = ref(false)
+const editingItem = ref(null)
+const formData = ref({ name: '', path: '', parent_id: null, icon: '', order_num: 0 })
+const columns = [
+  { title: 'ID', key: 'id', width: 80 },
+  { title: '菜单名称', key: 'name' },
+  { title: '路径', key: 'path' },
+  { title: '图标', key: 'icon' },
+  { title: '排序', key: 'order_num', width: 80 },
+  { title: '操作', key: 'actions', render(row) { return h(NSpace, null, { default: () => [h(NButton, { size: 'small', onClick: () => handleEdit(row) }, { default: () => '编辑' }), h(NButton, { size: 'small', type: 'error', onClick: () => handleDelete(row.id) }, { default: () => '删除' })] }) } }
+]
 
-const form = reactive({ id: null, parent_id: null, name: '', icon: '', path: '', component: '', sort: 0, status: '1' })
-const rules = {
-  name: [{ required: true, message: '请输入菜单名称', trigger: 'blur' }],
-  path: [{ required: true, message: '请输入路由路径', trigger: 'blur' }],
-  sort: [{ required: true, message: '请输入排序', trigger: 'blur' }]
+import { h } from 'vue'
+const { useAuthStore } = require('@/stores/auth')
+
+function getToken() {
+  try {
+    const store = useAuthStore()
+    return store.token || ''
+  } catch {
+    return ''
+  }
 }
 
-const treeData = computed(() => [{ id: 0, label: '顶级菜单', children: menuList.value.map(m => ({ id: m.id, label: m.name })) }])
-
-onMounted(() => { loadData() })
-
-const loadData = async () => {
+async function fetchMenus() {
   loading.value = true
   try {
-    const res = await menu.getList().catch(() => [])
-    menuList.value = res || []
-  } catch (error) { console.error('Load menus error:', error) }
-  finally { loading.value = false }
+    const res = await fetch('/api/v1/menus', {
+      headers: { 'Authorization': `Bearer ${getToken()}` }
+    })
+    menus.value = await res.json()
+  } finally {
+    loading.value = false
+  }
 }
 
-const handleAdd = (parent) => {
-  dialogTitle.value = '添加菜单'
-  Object.assign(form, { id: null, parent_id: parent?.id || null, name: '', icon: '', path: '', component: '', sort: 0, status: '1' })
-  dialogVisible.value = true
+function handleAdd() {
+  editingItem.value = null
+  formData.value = { name: '', path: '', parent_id: null, icon: '', order_num: 0 }
+  modalVisible.value = true
 }
 
-const handleEdit = (row) => {
-  dialogTitle.value = '编辑菜单'
-  Object.assign(form, { id: row.id, parent_id: row.parent_id, name: row.name, icon: row.icon, path: row.path, component: row.component, sort: row.sort, status: row.status })
-  dialogVisible.value = true
+function handleEdit(row) {
+  editingItem.value = row
+  formData.value = { ...row }
+  modalVisible.value = true
 }
 
-const handleDelete = (row) => {
-  ElMessageBox.confirm(`确定删除菜单 "${row.name}" 吗?`, '提示', { type: 'warning' })
-    .then(async () => {
-      try { await menu.delete(row.id); ElMessage.success('删除成功'); loadData() }
-      catch (error) { console.error('Delete error:', error) }
-    }).catch(() => {})
+async function handleSave() {
+  const method = editingItem.value ? 'PUT' : 'POST'
+  const url = editingItem.value ? `/api/v1/menus/${editingItem.value.id}` : '/api/v1/menus'
+  await fetch(url, {
+    method,
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+    body: JSON.stringify(formData.value)
+  })
+  modalVisible.value = false
+  fetchMenus()
 }
 
-const submitForm = async () => {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
-  try {
-    if (form.id) { await menu.update(form.id, form); ElMessage.success('更新成功') }
-    else { await menu.create(form); ElMessage.success('创建成功') }
-    dialogVisible.value = false; loadData()
-  } catch (error) { console.error('Submit error:', error) }
+async function handleDelete(id) {
+  await fetch(`/api/v1/menus/${id}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${getToken()}` }
+  })
+  fetchMenus()
 }
+
+onMounted(fetchMenus)
 </script>
 
-<style lang="scss" scoped>
-:deep(.el-table .el-table__header th) { background: #f7f8fa; }
+<template>
+  <n-spin :show="loading">
+    <n-card title="菜单管理">
+      <template #header-extra>
+        <n-button type="primary" @click="handleAdd">新增菜单</n-button>
+      </template>
+      <n-data-table :columns="columns" :data="menus" :bordered="false" />
+    </n-card>
+  </n-spin>
+
+  <n-modal v-model:show="modalVisible" preset="card" :title="editingItem ? '编辑菜单' : '新增菜单'" style="width: 500px;">
+    <n-form :model="formData" label-placement="top">
+      <n-form-item label="菜单名称">
+        <n-input v-model:value="formData.name" placeholder="请输入菜单名称" />
+      </n-form-item>
+      <n-form-item label="路径">
+        <n-input v-model:value="formData.path" placeholder="请输入菜单路径" />
+      </n-form-item>
+      <n-form-item label="图标">
+        <n-input v-model:value="formData.icon" placeholder="请输入图标" />
+      </n-form-item>
+      <n-form-item label="排序">
+        <n-input-number v-model:value="formData.order_num" :min="0" />
+      </n-form-item>
+    </n-form>
+    <template #footer>
+      <n-space justify="end">
+        <n-button @click="modalVisible = false">取消</n-button>
+        <n-button type="primary" @click="handleSave">保存</n-button>
+      </n-space>
+    </template>
+  </n-modal>
+</template>
+
+<style scoped>
 </style>

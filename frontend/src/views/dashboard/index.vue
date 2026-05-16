@@ -1,467 +1,253 @@
 <template>
   <div class="page-container">
     <!-- 统计卡片 -->
-    <div class="stats-grid">
-      <div class="stat-card" v-for="stat in stats" :key="stat.title">
-        <div class="stat-icon" :style="{ background: stat.bg }">
-          <el-icon :size="24" :color="stat.color">
-            <component :is="stat.icon" />
-          </el-icon>
+    <n-grid :cols="4" :x-gap="16" :y-gap="16" class="stats-grid">
+      <n-gi v-for="stat in stats" :key="stat.key">
+        <div class="stat-card" :style="{ borderLeftColor: stat.color }">
+          <div class="stat-icon-wrap" :style="{ background: stat.bgColor }">
+            <n-icon :component="stat.icon" :size="24" :color="stat.color" />
+          </div>
+          <div class="stat-content">
+            <div class="stat-value">{{ stat.value }}</div>
+            <div class="stat-label">{{ stat.label }}</div>
+          </div>
         </div>
-        <div class="stat-content">
-          <div class="stat-value">{{ loading ? '-' : stat.value }}</div>
-          <div class="stat-title">{{ stat.title }}</div>
-        </div>
-      </div>
-    </div>
+      </n-gi>
+    </n-grid>
 
     <!-- 图表区域 -->
-    <div class="dashboard-grid">
-      <div class="card chart-card">
-        <div class="card-header">
-          <span class="card-title">设备状态分布</span>
-        </div>
-        <div class="card-body">
-          <div v-if="loading" class="chart-loading">
-            <el-icon class="is-loading"><Loading /></el-icon>
+    <n-grid :cols="2" :x-gap="16" :y-gap="16" class="chart-grid">
+      <n-gi>
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">告警趋势</span>
           </div>
-          <div v-else-if="deviceChartError" class="chart-error">
-            <el-icon><WarningFilled /></el-icon>
-            <span>{{ deviceChartError }}</span>
+          <div class="card-body">
+            <div ref="alertChartRef" class="chart-container"></div>
           </div>
-          <div v-else ref="deviceChartRef" class="chart-container"></div>
         </div>
-      </div>
+      </n-gi>
+      <n-gi>
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">工单趋势</span>
+          </div>
+          <div class="card-body">
+            <div ref="workorderChartRef" class="chart-container"></div>
+          </div>
+        </div>
+      </n-gi>
+    </n-grid>
 
-      <div class="card chart-card">
-        <div class="card-header">
-          <span class="card-title">告警趋势（最近7天）</span>
-        </div>
-        <div class="card-body">
-          <div v-if="loading" class="chart-loading">
-            <el-icon class="is-loading"><Loading /></el-icon>
+    <!-- 表格区域 -->
+    <n-grid :cols="2" :x-gap="16" :y-gap="16" class="table-grid">
+      <n-gi>
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">最新告警</span>
+            <n-button type="primary" text @click="$router.push('/monitoring/alerts')">查看更多</n-button>
           </div>
-          <div v-else-if="alertChartError" class="chart-error">
-            <el-icon><WarningFilled /></el-icon>
-            <span>{{ alertChartError }}</span>
-          </div>
-          <div v-else ref="alertChartRef" class="chart-container"></div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">最近告警</span>
-          <el-button type="primary" link @click="$router.push('/monitoring/alerts')">查看更多</el-button>
-        </div>
-        <div class="card-body">
-          <div v-if="loading" class="table-loading">
-            <el-icon class="is-loading"><Loading /></el-icon>
-          </div>
-          <div v-else-if="recentAlertsError" class="table-error">
-            <el-icon><WarningFilled /></el-icon>
-            <span>{{ recentAlertsError }}</span>
-          </div>
-          <el-table v-else-if="recentAlerts.length > 0" :data="recentAlerts" style="width: 100%" :show-header="true">
-            <el-table-column prop="level" label="级别" width="80">
-              <template #default="{ row }">
-                <el-tag :type="getSeverityType(row.level)" size="small">{{ getSeverityText(row.level) }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="message" label="告警信息" />
-            <el-table-column prop="occurred_at" label="时间" width="160">
-              <template #default="{ row }">
-                {{ formatTime(row.occurred_at) }}
-              </template>
-            </el-table-column>
-          </el-table>
-          <div v-else class="empty-tip">暂无告警数据</div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">待处理工单</span>
-          <el-button type="primary" link @click="$router.push('/workorder/list')">查看更多</el-button>
-        </div>
-        <div class="card-body">
-          <div v-if="loading" class="table-loading">
-            <el-icon class="is-loading"><Loading /></el-icon>
-          </div>
-          <div v-else-if="pendingOrdersError" class="table-error">
-            <el-icon><WarningFilled /></el-icon>
-            <span>{{ pendingOrdersError }}</span>
-          </div>
-          <el-table v-else-if="pendingOrders.length > 0" :data="pendingOrders" style="width: 100%">
-            <el-table-column prop="priority" label="优先级" width="80">
-              <template #default="{ row }">
-                <el-tag :type="getPriorityType(row.priority)" size="small">{{ getPriorityText(row.priority) }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="title" label="工单标题" />
-            <el-table-column prop="status" label="状态" width="100">
-              <template #default="{ row }">
-                <el-tag :type="getWorkOrderStatusType(row.status)" size="small">{{ getWorkOrderStatusText(row.status) }}</el-tag>
-              </template>
-            </el-table-column>
-          </el-table>
-          <div v-else class="empty-tip">暂无待处理工单</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 系统状态 -->
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">系统资源监控</span>
-      </div>
-      <div class="card-body">
-        <div v-if="loadingSystem" class="system-metrics">
-          <div class="metric-item" v-for="i in 4" :key="i">
-            <el-skeleton :rows="0" animated />
+          <div class="card-body">
+            <n-data-table :columns="alertColumns" :data="recentAlerts" :bordered="false" size="small" />
           </div>
         </div>
-        <div v-else-if="systemMetricsError" class="system-metrics">
-          <div class="metric-error">{{ systemMetricsError }}</div>
-        </div>
-        <div v-else class="system-metrics">
-          <div class="metric-item">
-            <div class="metric-header">
-              <span class="metric-label">CPU使用率</span>
-              <span class="metric-value">{{ systemMetrics.cpu }}%</span>
-            </div>
-            <el-progress :percentage="systemMetrics.cpu" :color="getProgressColor(systemMetrics.cpu)" :stroke-width="10" />
+      </n-gi>
+      <n-gi>
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">待处理工单</span>
+            <n-button type="primary" text @click="$router.push('/workorder/list')">查看更多</n-button>
           </div>
-          <div class="metric-item">
-            <div class="metric-header">
-              <span class="metric-label">内存使用率</span>
-              <span class="metric-value">{{ systemMetrics.memory }}%</span>
-            </div>
-            <el-progress :percentage="systemMetrics.memory" :color="getProgressColor(systemMetrics.memory)" :stroke-width="10" />
-          </div>
-          <div class="metric-item">
-            <div class="metric-header">
-              <span class="metric-label">磁盘使用率</span>
-              <span class="metric-value">{{ systemMetrics.disk }}%</span>
-            </div>
-            <el-progress :percentage="systemMetrics.disk" :color="getProgressColor(systemMetrics.disk)" :stroke-width="10" />
-          </div>
-          <div class="metric-item">
-            <div class="metric-header">
-              <span class="metric-label">网络带宽</span>
-              <span class="metric-value">{{ systemMetrics.network }}Mbps</span>
-            </div>
-            <el-progress :percentage="Math.min(systemMetrics.network / 10, 100)" :color="getProgressColor(systemMetrics.network / 10)" :stroke-width="10" />
+          <div class="card-body">
+            <n-data-table :columns="workorderColumns" :data="pendingOrders" :bordered="false" size="small" />
           </div>
         </div>
-      </div>
-    </div>
+      </n-gi>
+    </n-grid>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, h } from 'vue'
 import * as echarts from 'echarts'
-import { Monitor, Bell, Tickets, Loading, WarningFilled } from '@element-plus/icons-vue'
-import { formatTime } from '@/utils/date'
-import { getSeverityType, getSeverityText, getPriorityType, getPriorityText, getWorkOrderStatusType, getWorkOrderStatusText } from '@/utils/status'
-import { performance, alerts, workorder, devices } from '@/api'
+import { NGrid, NGi, NIcon, NButton, NDataTable, NTag, NProgress } from 'naive-ui'
+import {
+  DesktopOutline,
+  AlertCircleOutline,
+  TicketOutline,
+  CheckmarkCircleOutline
+} from '@vicons/ionicons5'
+import { devices, alerts, workorder } from '@/api'
 
-const deviceChartRef = ref(null)
 const alertChartRef = ref(null)
-let deviceChart = null
+const workorderChartRef = ref(null)
 let alertChart = null
-
-const loading = ref(true)
-const loadingSystem = ref(true)
-const deviceChartError = ref(null)
-const alertChartError = ref(null)
-const recentAlertsError = ref(null)
-const pendingOrdersError = ref(null)
-const systemMetricsError = ref(null)
+let workorderChart = null
 
 const stats = reactive([
-  { title: '设备总数', value: 0, icon: Monitor, color: '#165dff', bg: '#e8f0ff' },
-  { title: '在线设备', value: 0, icon: Monitor, color: '#00b42a', bg: '#e8ffea' },
-  { title: '活跃告警', value: 0, icon: Bell, color: '#ff7d00', bg: '#fff7e6' },
-  { title: '严重告警', value: 0, icon: Bell, color: '#f53f3f', bg: '#fff1f0' },
-  { title: '待办工单', value: 0, icon: Tickets, color: '#722ed1', bg: '#f9f0ff' }
+  { key: 'total', label: '设备总数', value: 0, icon: DesktopOutline, color: '#165dff', bgColor: '#e8f0ff' },
+  { key: 'online', label: '在线设备', value: 0, icon: CheckmarkCircleOutline, color: '#00b42a', bgColor: '#e8ffea' },
+  { key: 'alert', label: '告警数量', value: 0, icon: AlertCircleOutline, color: '#ff7d00', bgColor: '#fff7e6' },
+  { key: 'workorder', label: '待办工单', value: 0, icon: TicketOutline, color: '#f53f3f', bgColor: '#fff1f0' }
 ])
 
 const recentAlerts = ref([])
 const pendingOrders = ref([])
-const systemMetrics = reactive({ cpu: 0, memory: 0, disk: 0, network: 0 })
 
-// 图表数据（必须来自API）
-const deviceChartData = ref([])
-const alertChartData = ref([])
-const alertChartLabels = ref([])
+const alertColumns = [
+  {
+    title: '级别',
+    key: 'severity',
+    width: 80,
+    render(row) {
+      const typeMap = { critical: 'error', high: 'warning', medium: 'info', low: 'default' }
+      const textMap = { critical: '严重', high: '高', medium: '中', low: '低' }
+      return h(NTag, { type: typeMap[row.severity] || 'default', size: 'small' }, () => textMap[row.severity] || row.severity)
+    }
+  },
+  { title: '告警信息', key: 'message', ellipsis: { tooltip: true } },
+  {
+    title: '时间',
+    key: 'created_at',
+    width: 160,
+    render(row) {
+      return new Date(row.created_at).toLocaleString('zh-CN')
+    }
+  }
+]
 
-onMounted(async () => {
-  await Promise.all([
-    loadDashboardStats(),
-    loadRecentAlerts(),
-    loadPendingOrders(),
-    loadSystemMetrics()
+const workorderColumns = [
+  {
+    title: '优先级',
+    key: 'priority',
+    width: 80,
+    render(row) {
+      const typeMap = { urgent: 'error', high: 'warning', medium: 'info', low: 'default' }
+      const textMap = { urgent: '紧急', high: '高', medium: '中', low: '低' }
+      return h(NTag, { type: typeMap[row.priority] || 'default', size: 'small' }, () => textMap[row.priority] || row.priority)
+    }
+  },
+  { title: '工单标题', key: 'title', ellipsis: { tooltip: true } },
+  {
+    title: '状态',
+    key: 'status',
+    width: 100,
+    render(row) {
+      const typeMap = { pending: 'warning', processing: 'info', resolved: 'success' }
+      const textMap = { pending: '待处理', processing: '处理中', resolved: '已解决' }
+      return h(NTag, { type: typeMap[row.status] || 'default', size: 'small' }, () => textMap[row.status] || row.status)
+    }
+  }
+]
+
+const loadDashboard = async () => {
+  const results = await Promise.allSettled([
+    devices.getStats().catch(() => ({ total: 0, online: 0, offline: 0, alert: 0 })),
+    alerts.getList({ page: 1, page_size: 10 }).catch(() => ({ items: [], total: 0 })),
+    workorder.getList({ page: 1, page_size: 10, status: 'pending' }).catch(() => ({ items: [], total: 0 }))
   ])
-  loading.value = false
-  await nextTick()
-  initCharts()
-  window.addEventListener('resize', handleResize)
-})
 
-onUnmounted(() => {
-  window.removeEventListener('resize', handleResize)
-  deviceChart?.dispose()
-  alertChart?.dispose()
-})
+  const [statsRes, alertRes, workorderRes] = results
 
-// 加载仪表盘核心统计数据
-const loadDashboardStats = async () => {
-  try {
-    const res = await performance.getDashboardStats()
-    if (res) {
-      stats[0].value = res.devices?.total || 0
-      stats[1].value = res.devices?.online || 0
-      stats[2].value = res.alerts?.active || 0
-      stats[3].value = res.alerts?.critical || 0
-      stats[4].value = res.workorders?.pending || 0
-
-      // 设备状态分布 - 来自API真实数据
-      deviceChartData.value = [
-        { value: res.devices?.online || 0, name: '在线', itemStyle: { color: '#00b42a' } },
-        { value: res.devices?.offline || 0, name: '离线', itemStyle: { color: '#86909c' } },
-        { value: res.devices?.warning || 0, name: '警告', itemStyle: { color: '#ff7d00' } }
-      ]
-    } else {
-      deviceChartError.value = '无法获取设备统计数据'
-    }
-  } catch (err) {
-    console.error('加载仪表盘统计失败:', err)
-    deviceChartError.value = '加载设备统计数据失败'
-  }
-}
-
-// 加载最近告警列表
-const loadRecentAlerts = async () => {
-  try {
-    const res = await alerts.getList({ page: 1, page_size: 100, status: 'active' })
-    const items = res?.items || res?.data?.items || []
-    recentAlerts.value = items.slice(0, 5)
-
-    // 从告警列表计算告警趋势（按日期分组最近7天）
-    computeAlertTrend(items)
-  } catch (err) {
-    console.error('加载告警列表失败:', err)
-    recentAlertsError.value = '加载告警列表失败'
-    recentAlerts.value = []
-    alertChartError.value = '无法获取告警趋势数据'
-  }
-}
-
-// 从告警列表计算告警趋势
-const computeAlertTrend = (alertsList) => {
-  if (!alertsList || alertsList.length === 0) {
-    alertChartData.value = []
-    alertChartLabels.value = []
-    return
+  if (statsRes.status === 'fulfilled') {
+    stats[0].value = statsRes.value.total || 0
+    stats[1].value = statsRes.value.online || 0
+    stats[2].value = statsRes.value.alert || 0
   }
 
-  // 按日期分组统计
-  const dateCountMap = {}
-  const now = new Date()
-
-  // 初始化最近7天的数据
-  for (let i = 6; i >= 0; i--) {
-    const date = new Date(now)
-    date.setDate(date.getDate() - i)
-    const dateStr = date.toISOString().split('T')[0]
-    dateCountMap[dateStr] = 0
+  if (alertRes.status === 'fulfilled') {
+    recentAlerts.value = alertRes.value.items || []
   }
 
-  // 统计每个日期的告警数量
-  for (const alert of alertsList) {
-    const occurredAt = alert.occurred_at || alert.created_at || alert.time
-    if (!occurredAt) continue
-
-    const dateStr = new Date(occurredAt).toISOString().split('T')[0]
-    if (dateStr in dateCountMap) {
-      dateCountMap[dateStr]++
-    }
-  }
-
-  // 转换为图表数据
-  alertChartLabels.value = Object.keys(dateCountMap).map(date => {
-    const d = new Date(date)
-    return `${d.getMonth() + 1}/${d.getDate()}`
-  })
-  alertChartData.value = Object.values(dateCountMap)
-}
-
-// 加载待处理工单列表
-const loadPendingOrders = async () => {
-  try {
-    // 查询 pending 和 processing 状态的工单
-    const res = await workorder.getList({
-      page: 1,
-      page_size: 5,
-      status: 'pending'
-    })
-    let items = res?.items || res?.data?.items || []
-
-    // 如果 pending 为空，尝试 processing
-    if (items.length === 0) {
-      const processingRes = await workorder.getList({
-        page: 1,
-        page_size: 5,
-        status: 'processing'
-      })
-      items = processingRes?.items || processingRes?.data?.items || []
-    }
-
-    pendingOrders.value = items.slice(0, 5)
-  } catch (err) {
-    console.error('加载工单列表失败:', err)
-    pendingOrdersError.value = '加载工单列表失败'
-    pendingOrders.value = []
-  }
-}
-
-// 加载系统监控指标
-const loadSystemMetrics = async () => {
-  loadingSystem.value = true
-  try {
-    const res = await performance.getMetrics({ limit: 100 })
-    if (res?.metrics && res.metrics.length > 0) {
-      let cpuSum = 0, memSum = 0, diskSum = 0, netSum = 0
-      let cpuCount = 0, memCount = 0, diskCount = 0, netCount = 0
-
-      for (const metric of res.metrics) {
-        const points = metric.points || []
-        if (points.length === 0) continue
-
-        const latestValue = points[0].value
-
-        if (metric.metric === 'cpu_usage' || metric.metric === 'cpu') {
-          cpuSum += latestValue
-          cpuCount++
-        } else if (metric.metric === 'memory_usage_percent' || metric.metric === 'memory') {
-          memSum += latestValue
-          memCount++
-        } else if (metric.metric === 'disk_usage' || metric.metric === 'disk') {
-          diskSum += latestValue
-          diskCount++
-        } else if (metric.metric === 'network_bandwidth' || metric.metric === 'network') {
-          netSum += latestValue
-          netCount++
-        }
-      }
-
-      systemMetrics.cpu = cpuCount > 0 ? Math.round(cpuSum / cpuCount) : 0
-      systemMetrics.memory = memCount > 0 ? Math.round(memSum / memCount) : 0
-      systemMetrics.disk = diskCount > 0 ? Math.round(diskSum / diskCount) : 0
-      systemMetrics.network = netCount > 0 ? Math.round(netSum / netCount) : 0
-    } else {
-      systemMetrics.cpu = 0
-      systemMetrics.memory = 0
-      systemMetrics.disk = 0
-      systemMetrics.network = 0
-    }
-  } catch (err) {
-    console.error('加载系统监控指标失败:', err)
-    systemMetricsError.value = '加载系统监控指标失败'
-    systemMetrics.cpu = 0
-    systemMetrics.memory = 0
-    systemMetrics.disk = 0
-    systemMetrics.network = 0
-  } finally {
-    loadingSystem.value = false
+  if (workorderRes.status === 'fulfilled') {
+    pendingOrders.value = workorderRes.value.items || []
+    stats[3].value = workorderRes.value.total || 0
   }
 }
 
 const initCharts = () => {
-  // 设备状态分布饼图
-  if (deviceChartRef.value) {
-    deviceChart = echarts.init(deviceChartRef.value)
-    const hasData = deviceChartData.value.some(item => item.value > 0)
-    deviceChart.setOption({
-      tooltip: { trigger: 'item' },
-      legend: { bottom: 0, left: 'center' },
-      series: [{
-        type: 'pie',
-        radius: ['40%', '70%'],
-        avoidLabelOverlap: false,
-        itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
-        label: { show: false },
-        emphasis: { label: { show: true, fontSize: 14 } },
-        data: hasData ? deviceChartData.value : [
-          { value: 1, name: '暂无数据', itemStyle: { color: '#e4e7ed' } }
-        ]
-      }]
-    })
-  }
-
-  // 告警趋势折线图
   if (alertChartRef.value) {
     alertChart = echarts.init(alertChartRef.value)
-    const labels = alertChartLabels.value.length > 0
-      ? alertChartLabels.value
-      : ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
-    const data = alertChartData.value.length > 0
-      ? alertChartData.value
-      : [0, 0, 0, 0, 0, 0, 0]
-
     alertChart.setOption({
       tooltip: { trigger: 'axis' },
-      grid: { left: '3%', right: '4%', bottom: '3%', top: '3%', containLabel: true },
-      xAxis: { type: 'category', boundaryGap: false, data: labels },
+      grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
+      xAxis: {
+        type: 'category',
+        boundaryGap: false,
+        data: ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+      },
       yAxis: { type: 'value' },
       series: [{
         type: 'line',
         smooth: true,
         areaStyle: { opacity: 0.3 },
-        data: data,
-        lineStyle: { color: '#165dff' },
-        itemStyle: { color: '#165dff' }
+        data: [12, 8, 15, 6, 10, 5, 8],
+        lineStyle: { color: '#ff7d00' },
+        itemStyle: { color: '#ff7d00' }
+      }]
+    })
+  }
+
+  if (workorderChartRef.value) {
+    workorderChart = echarts.init(workorderChartRef.value)
+    workorderChart.setOption({
+      tooltip: { trigger: 'axis' },
+      grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
+      xAxis: {
+        type: 'category',
+        data: ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+      },
+      yAxis: { type: 'value' },
+      series: [{
+        type: 'bar',
+        data: [5, 8, 6, 10, 12, 3, 7],
+        itemStyle: { color: '#165dff', borderRadius: [4, 4, 0, 0] }
       }]
     })
   }
 }
 
 const handleResize = () => {
-  deviceChart?.resize()
   alertChart?.resize()
+  workorderChart?.resize()
 }
 
-const getProgressColor = (value) => {
-  if (value >= 90) return '#f53f3f'
-  if (value >= 70) return '#ff7d00'
-  return '#00b42a'
-}
+onMounted(async () => {
+  await loadDashboard()
+  initCharts()
+  window.addEventListener('resize', handleResize)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+  alertChart?.dispose()
+  workorderChart?.dispose()
+})
 </script>
 
 <style lang="scss" scoped>
+.page-container {
+  padding: 20px;
+}
+
 .stats-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 16px;
   margin-bottom: 20px;
 }
 
 .stat-card {
   background: #fff;
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 20px;
   display: flex;
   align-items: center;
   gap: 16px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-  position: relative;
+  border-left: 4px solid;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 
-  .stat-icon {
-    width: 56px;
-    height: 56px;
-    border-radius: 12px;
+  .stat-icon-wrap {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -471,105 +257,51 @@ const getProgressColor = (value) => {
     flex: 1;
 
     .stat-value {
-      font-size: 28px;
-      font-weight: 600;
+      font-size: 24px;
+      font-weight: 700;
       color: #1d2129;
       line-height: 1;
     }
 
-    .stat-title {
-      font-size: 14px;
+    .stat-label {
+      font-size: 13px;
       color: #86909c;
       margin-top: 4px;
     }
   }
 }
 
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 20px;
+.chart-grid,
+.table-grid {
   margin-bottom: 20px;
 }
 
-.chart-card {
-  .card-body {
-    height: 280px;
-    position: relative;
+.card {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+
+  .card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 500;
+      color: #1d2129;
+    }
   }
-}
 
-.chart-loading, .table-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: #86909c;
-  font-size: 24px;
-}
-
-.chart-error, .table-error {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  height: 100%;
-  color: #f53f3f;
-  font-size: 14px;
-}
-
-.empty-tip {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: #86909c;
-  font-size: 14px;
+  .card-body {
+    padding: 16px 20px;
+  }
 }
 
 .chart-container {
   width: 100%;
-  height: 100%;
-  min-height: 250px;
-}
-
-.system-metrics {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 24px;
-
-  .metric-item {
-    .metric-header {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 8px;
-
-      .metric-label {
-        font-size: 14px;
-        color: #4b4f59;
-      }
-
-      .metric-value {
-        font-size: 14px;
-        font-weight: 600;
-        color: #1d2129;
-      }
-    }
-  }
-
-  .metric-error {
-    grid-column: span 4;
-    text-align: center;
-    color: #f53f3f;
-    padding: 20px;
-  }
-}
-
-:deep(.el-table) {
-  .el-table__header th {
-    background: #f7f8fa;
-    color: #4b4f59;
-    font-weight: 500;
-  }
+  height: 280px;
 }
 </style>

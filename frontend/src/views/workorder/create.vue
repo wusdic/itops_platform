@@ -2,138 +2,142 @@
   <div class="page-container">
     <div class="page-header">
       <div>
-        <h1 class="page-title">创建工单</h1>
-        <p class="page-subtitle">提交新的运维工单</p>
+        <h1 class="page-title">工单列表</h1>
+        <p class="page-subtitle">查看和管理所有工单</p>
       </div>
-      <el-button @click="$router.push('/workorder/list')">
-        <el-icon><Back /></el-icon> 返回列表
-      </el-button>
+      <div class="page-actions">
+        <n-button type="primary" @click="$router.push('/workorder/create')">
+          <n-icon><AddOutline /></n-icon> 创建工单
+        </n-button>
+      </div>
     </div>
-
-    <div class="form-container">
-      <el-card>
-        <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
-          <el-form-item label="工单标题" prop="title">
-            <el-input v-model="form.title" placeholder="请输入工单标题" maxlength="100" show-word-limit />
-          </el-form-item>
-
-          <el-form-item label="工单类型" prop="order_type">
-            <el-radio-group v-model="form.order_type">
-              <el-radio value="fault">故障报修</el-radio>
-              <el-radio value="change">变更申请</el-radio>
-              <el-radio value="request">服务请求</el-radio>
-            </el-radio-group>
-          </el-form-item>
-
-          <el-form-item label="优先级" prop="priority">
-            <el-select v-model="form.priority" placeholder="请选择优先级" style="width: 200px">
-              <el-option label="P1 - 紧急" value="P1" />
-              <el-option label="P2 - 高" value="P2" />
-              <el-option label="P3 - 中" value="P3" />
-              <el-option label="P4 - 低" value="P4" />
-            </el-select>
-          </el-form-item>
-
-          <el-form-item label="关联设备">
-            <el-select v-model="form.device_id" placeholder="选择关联设备（可选）" filterable clearable style="width: 100%">
-              <el-option v-for="d in deviceList" :key="d.id" :label="`${d.name} (${d.ip_address})`" :value="d.id" />
-            </el-select>
-          </el-form-item>
-
-          <el-form-item label="处理人" prop="assignee">
-            <el-select v-model="form.assignee" placeholder="选择处理人（可选）" filterable clearable style="width: 100%">
-              <el-option v-for="u in userList" :key="u.username" :label="u.username" :value="u.username" />
-            </el-select>
-          </el-form-item>
-
-          <el-form-item label="工单描述" prop="description">
-            <el-input v-model="form.description" type="textarea" :rows="6" placeholder="请详细描述工单内容" maxlength="500" show-word-limit />
-          </el-form-item>
-
-          <el-form-item>
-            <el-button type="primary" @click="handleSubmit" :loading="submitting">提交工单</el-button>
-            <el-button @click="$router.push('/workorder/list')">取消</el-button>
-          </el-form-item>
-        </el-form>
-      </el-card>
+    <div class="filter-bar">
+      <n-input v-model="searchKeyword" placeholder="搜索工单标题" style="width: 200px" clearable @change="handleSearch" />
+      <n-select v-model="filterStatus" placeholder="工单状态" style="width: 120px" clearable @change="handleSearch">
+        <n-option label="待处理" value="pending" />
+        <n-option label="处理中" value="processing" />
+        <n-option label="已完成" value="completed" />
+        <n-option label="已关闭" value="closed" />
+      </n-select>
+      <n-select v-model="filterPriority" placeholder="优先级" style="width: 120px" clearable @change="handleSearch">
+        <n-option label="紧急" value="urgent" />
+        <n-option label="高" value="high" />
+        <n-option label="中" value="medium" />
+        <n-option label="低" value="low" />
+      </n-select>
     </div>
+    <div class="table-container">
+      <n-data-table :data="workorderList" style="width: 100%">
+        <n-data-table-column prop="id" label="工单号" width="100" />
+        <n-data-table-column prop="title" label="工单标题" min-width="200" />
+        <n-data-table-column prop="priority" label="优先级" width="100">
+          <template #default="{ row }">
+            <n-tag :type="getPriorityType(row.priority)" size="small">{{ getPriorityText(row.priority) }}</n-tag>
+          </template>
+        <n-data-table-column prop="status" label="状态" width="100">
+          <template #default="{ row }">
+            <n-tag :type="getWorkOrderStatusType(row.status)" size="small">{{ getWorkOrderStatusText(row.status) }}</n-tag>
+          </template>
+        <n-data-table-column prop="creator" label="创建人" width="120" />
+        <n-data-table-column prop="handler" label="处理人" width="120" />
+        <n-data-table-column prop="created_at" label="创建时间" width="160">
+          <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
+        <n-data-table-column label="操作" width="180" fixed="right">
+          <template #default="{ row }">
+            <n-button type="primary" link size="small" @click="handleView(row)">查看</n-button>
+            <n-button type="primary" link size="small" @click="handleAssign(row)" v-if="row.status === 'pending'">分配</n-button>
+            <n-button type="success" link size="small" @click="handleComplete(row)" v-if="row.status === 'processing'">完成</n-button>
+          </template>
+      <div class="pagination">
+        <n-pagination
+          v-model:current-page="pagination.page"
+          v-model:page-size="pagination.pageSize"
+          :total="pagination.total"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next"
+          @size-change="loadData"
+          @current-change="loadData"
+        />
+      </div>
+    </div>
+    <n-modal v-model="assignDialogVisible" title="分配工单" width="500px">
+      <n-form :model="assignForm" label-width="80px">
+        <n-form-item label="处理人">
+          <n-select v-model="assignForm.handler_id" placeholder="请选择处理人" style="width: 100%">
+            <n-option label="张三" value="1" />
+            <n-option label="李四" value="2" />
+            <n-option label="王五" value="3" />
+          </n-select>
+        </n-form-item>
+        <n-form-item label="备注">
+          <n-input v-model="assignForm.remark" type="textarea" :rows="3" placeholder="请输入备注" />
+        </n-form-item>
+      </n-form>
+      <template #footer>
+        <n-button @click="assignDialogVisible = false">取消</n-button>
+        <n-button type="primary" @click="submitAssign">确定</n-button>
+      </template>
+    </n-modal>
   </div>
 </template>
-
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import { Back } from '@element-plus/icons-vue'
-import { workorder, devices, user } from '@/api'
-
-const router = useRouter()
-const formRef = ref(null)
-const submitting = ref(false)
-const deviceList = ref([])
-const userList = ref([])
-
-const form = reactive({
-  title: '',
-  order_type: 'fault',
-  priority: 'P3',
-  device_id: null,
-  assignee: '',
-  description: ''
-})
-
-const rules = {
-  title: [{ required: true, message: '请输入工单标题', trigger: 'blur' }],
-  order_type: [{ required: true, message: '请选择工单类型', trigger: 'change' }],
-  priority: [{ required: true, message: '请选择优先级', trigger: 'change' }],
-  description: [{ required: true, message: '请输入工单描述', trigger: 'blur' }]
-}
-
-onMounted(async () => {
-  // 加载设备列表
+import { workorder } from '@/api'
+import { formatTime } from '@/utils/date'
+import { getPriorityType, getPriorityText, getWorkOrderStatusType, getWorkOrderStatusText } from '@/utils/status'
+const loading = ref(false)
+const searchKeyword = ref('')
+const filterStatus = ref('')
+const filterPriority = ref('')
+const workorderList = ref([])
+const assignDialogVisible = ref(false)
+const currentOrder = ref(null)
+const pagination = reactive({ page: 1, pageSize: 10, total: 0 })
+const assignForm = reactive({ handler_id: '', remark: '' })
+onMounted(() => { loadData() })
+const loadData = async () => {
+  loading.value = true
   try {
-    const res = await devices.getList({ page: 1, page_size: 100 })
-    deviceList.value = res.items || []
-  } catch (e) { console.error(e) }
-
-  // 加载用户列表
-  try {
-    const res = await user.getList({ page: 1, page_size: 100 })
-    userList.value = res.items || []
-  } catch (e) { console.error(e) }
-})
-
-const handleSubmit = async () => {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
-
-  submitting.value = true
-  try {
-    const payload = {
-      title: form.title,
-      order_type: form.order_type,
-      priority: form.priority,
-      description: form.description
-    }
-    if (form.device_id) payload.device_id = form.device_id
-    if (form.assignee) payload.assignee = form.assignee
-
-    await workorder.create(payload)
-    ElMessage.success('工单创建成功')
-    router.push('/workorder/list')
+    const res = await workorder.getList({
+      page: pagination.page,
+      page_size: pagination.pageSize,
+      keyword: searchKeyword.value,
+      status: filterStatus.value,
+      priority: filterPriority.value
+    }).catch(() => ({ items: [], total: 0 }))
+    workorderList.value = res.items || []
+    pagination.total = res.total || 0
   } catch (error) {
-    console.error('Create workorder error:', error)
-    ElMessage.error('创建失败')
+    console.error('Load workorder error:', error)
   } finally {
-    submitting.value = false
+    loading.value = false
   }
 }
+const handleSearch = () => { pagination.page = 1; loadData() }
+const handleView = (row) => { message.info(`查看工单: ${row.title}`) }
+const handleAssign = (row) => {
+  currentOrder.value = row
+  Object.assign(assignForm, { handler_id: '', remark: '' })
+  assignDialogVisible.value = true
+}
+const submitAssign = async () => {
+  try {
+    await workorder.assign(currentOrder.value.id, assignForm)
+    message.success('分配成功')
+    assignDialogVisible.value = false
+    loadData()
+  } catch (error) { console.error('Assign error:', error) }
+}
+const handleComplete = async (row) => {
+  try {
+    await workorder.complete(row.id, {})
+    message.success('工单已完成')
+    loadData()
+  } catch (error) { console.error('Complete error:', error) }
+}
 </script>
-
 <style lang="scss" scoped>
-.page-container { padding: 20px; }
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-.page-title { margin: 0; font-size: 20px; font-weight: 600; }
-.page-subtitle { margin: 4px 0 0; color: #909399; font-size: 13px; }
-.form-container { max-width: 700px; }
+.filter-bar { display: flex; gap: 12px; margin-bottom: 16px; padding: 16px; background: #fff; border-radius: 8px; }
+.pagination { display: flex; justify-content: flex-end; margin-top: 16px; }
+:deep(.el-table .el-table__header th) { background: #f7f8fa; }
 </style>

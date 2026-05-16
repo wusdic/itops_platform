@@ -2,49 +2,47 @@
   <div class="page-container">
     <div class="page-header">
       <div>
-        <h1 class="page-title">恢复历史</h1>
-        <p class="page-subtitle">数据恢复操作记录</p>
+        <h1 class="page-title">备份记录</h1>
+        <p class="page-subtitle">系统数据备份管理</p>
+      </div>
+      <div class="page-actions">
+        <n-button type="primary" @click="handleCreate">
+          <n-icon><AddOutline /></n-icon> 创建备份
+        </n-button>
       </div>
     </div>
-
     <div class="filter-bar">
-      <el-input v-model="searchKeyword" placeholder="搜索备份名称" style="width: 200px" clearable @change="handleSearch" />
-      <el-select v-model="filterStatus" placeholder="恢复状态" style="width: 140px" clearable @change="handleSearch">
-        <el-option label="成功" value="success" />
-        <el-option label="失败" value="failed" />
-        <el-option label="进行中" value="running" />
-      </el-select>
+      <n-input v-model="searchKeyword" placeholder="搜索备份名称" style="width: 200px" clearable @change="handleSearch" />
+      <n-select v-model="filterType" placeholder="备份类型" style="width: 140px" clearable @change="handleSearch">
+        <n-option label="全量备份" value="full" />
+        <n-option label="增量备份" value="incremental" />
+      </n-select>
     </div>
-
     <div class="table-container">
-      <el-table :data="restoreList" v-loading="loading" style="width: 100%">
-        <el-table-column prop="backup_name" label="备份名称" min-width="180" />
-        <el-table-column prop="type" label="备份类型" width="120">
+      <n-data-table :data="backupList" style="width: 100%">
+        <n-data-table-column prop="name" label="备份名称" min-width="180" />
+        <n-data-table-column prop="type" label="类型" width="120">
           <template #default="{ row }">
-            <el-tag size="small">{{ row.backup_type === 'full' ? '全量备份' : '增量备份' }}</el-tag>
+            <n-tag size="small">{{ row.type === 'full' ? '全量备份' : '增量备份' }}</n-tag>
           </template>
-        </el-table-column>
-        <el-table-column prop="status" label="恢复状态" width="100">
+        <n-data-table-column prop="size" label="大小" width="120" />
+        <n-data-table-column prop="creator" label="创建人" width="120" />
+        <n-data-table-column prop="created_at" label="备份时间" width="180">
+          <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
+        <n-data-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)" size="small">{{ getStatusText(row.status) }}</el-tag>
+            <n-tag :type="row.status === 'completed' ? 'success' : row.status === 'failed' ? 'danger' : 'warning'" size="small">
+              {{ row.status === 'completed' ? '已完成' : row.status === 'failed' ? '失败' : '进行中' }}
+            </n-tag>
           </template>
-        </el-table-column>
-        <el-table-column prop="operator" label="操作人" width="120" />
-        <el-table-column prop="started_at" label="开始时间" width="180">
-          <template #default="{ row }">{{ formatTime(row.started_at) }}</template>
-        </el-table-column>
-        <el-table-column prop="completed_at" label="完成时间" width="180">
-          <template #default="{ row }">{{ formatTime(row.completed_at) || '-' }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="120" fixed="right">
+        <n-data-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link size="small" @click="handleViewDetail(row)">详情</el-button>
+            <n-button type="primary" link size="small" @click="handleRestore(row)" :disabled="row.status !== 'completed'">恢复</n-button>
+            <n-button type="primary" link size="small" @click="handleDownload(row)">下载</n-button>
+            <n-button type="danger" link size="small" @click="handleDelete(row)">删除</n-button>
           </template>
-        </el-table-column>
-      </el-table>
-
       <div class="pagination">
-        <el-pagination
+        <n-pagination
           v-model:current-page="pagination.page"
           v-model:page-size="pagination.pageSize"
           :total="pagination.total"
@@ -55,77 +53,55 @@
         />
       </div>
     </div>
-
-    <el-dialog v-model="detailDialogVisible" title="恢复详情" width="600px">
-      <el-descriptions v-if="currentRestore" :column="2" border>
-        <el-descriptions-item label="备份名称">{{ currentRestore.backup_name }}</el-descriptions-item>
-        <el-descriptions-item label="备份类型">{{ currentRestore.backup_type === 'full' ? '全量备份' : '增量备份' }}</el-descriptions-item>
-        <el-descriptions-item label="恢复状态">
-          <el-tag :type="getStatusType(currentRestore.status)" size="small">{{ getStatusText(currentRestore.status) }}</el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="操作人">{{ currentRestore.operator }}</el-descriptions-item>
-        <el-descriptions-item label="开始时间">{{ formatTime(currentRestore.started_at) }}</el-descriptions-item>
-        <el-descriptions-item label="完成时间">{{ formatTime(currentRestore.completed_at) || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="恢复说明" :span="2">{{ currentRestore.description || '-' }}</el-descriptions-item>
-      </el-descriptions>
-      <template #footer><el-button @click="detailDialogVisible = false">关闭</el-button></template>
-    </el-dialog>
   </div>
 </template>
-
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { request } from '@/api'
+import { backup } from '@/api'
 import { formatTime } from '@/utils/date'
-
 const loading = ref(false)
 const searchKeyword = ref('')
-const filterStatus = ref('')
-const restoreList = ref([])
-const detailDialogVisible = ref(false)
-const currentRestore = ref(null)
-
+const filterType = ref('')
+const backupList = ref([])
 const pagination = reactive({ page: 1, pageSize: 10, total: 0 })
-
 onMounted(() => { loadData() })
-
 const loadData = async () => {
   loading.value = true
   try {
-    const params = {
-      page: pagination.page,
-      page_size: pagination.pageSize
-    }
-    if (searchKeyword.value) params.keyword = searchKeyword.value
-    if (filterStatus.value) params.status = filterStatus.value
-    const res = await request.get('/admin/restores', { params }).catch(() => ({ items: [], total: 0 }))
-    restoreList.value = res.items || []
+    const res = await backup.getList({ page: pagination.page, page_size: pagination.pageSize, keyword: searchKeyword.value, type: filterType.value }).catch(() => ({ items: [], total: 0 }))
+    backupList.value = res.items || []
     pagination.total = res.total || 0
-  } catch (error) {
-    console.error('Load restore history error:', error)
-  } finally {
-    loading.value = false
-  }
+  } catch (error) { console.error('Load backup error:', error) }
+  finally { loading.value = false }
 }
-
 const handleSearch = () => { pagination.page = 1; loadData() }
-
-const handleViewDetail = (row) => {
-  currentRestore.value = row
-  detailDialogVisible.value = true
+const handleCreate = async () => {
+  try {
+    await backup.create({ type: 'full', name: `备份_${new Date().toLocaleString()}` })
+    message.success('备份任务已创建')
+    loadData()
+  } catch (error) { console.error('Create backup error:', error) }
 }
-
-const getStatusType = (s) => ({ success: 'success', failed: 'danger', running: 'warning' }[s] || 'info')
-const getStatusText = (s) => ({ success: '成功', failed: '失败', running: '进行中' }[s] || s)
+const handleRestore = async (row) => {
+  dialog.warning({ title: '警告', content: `确定要恢复备份 "${row.name}" 吗? 这将覆盖当前数据。`, positiveText: '确定', negativeText: '取消', onPositiveClick: () => { }, onNegativeClick: () => { } })
+    .then(async () => {
+      try {
+        await backup.restore(row.id)
+        message.success('恢复任务已启动')
+      } catch (error) { console.error('Restore error:', error) }
+    }).catch(() => {})
+}
+const handleDownload = (row) => { message.info(`下载备份: ${row.name}`) }
+const handleDelete = (row) => {
+  dialog.warning({ title: '提示', content: `确定删除备份 "${row.name}" 吗?`, positiveText: '确定', negativeText: '取消', onPositiveClick: () => { }, onNegativeClick: () => { } })
+    .then(async () => {
+      try { await backup.delete(row.id); message.success('删除成功'); loadData() }
+      catch (error) { console.error('Delete error:', error) }
+    }).catch(() => {})
+}
 </script>
-
 <style lang="scss" scoped>
-.page-container { padding: 20px; }
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-.page-title { font-size: 20px; font-weight: 600; margin: 0; }
-.page-subtitle { font-size: 14px; color: #909399; margin: 4px 0 0; }
 .filter-bar { display: flex; gap: 12px; margin-bottom: 16px; padding: 16px; background: #fff; border-radius: 8px; }
-.table-container { background: #fff; border-radius: 8px; padding: 16px; }
 .pagination { display: flex; justify-content: flex-end; margin-top: 16px; }
 :deep(.el-table .el-table__header th) { background: #f7f8fa; }
 </style>

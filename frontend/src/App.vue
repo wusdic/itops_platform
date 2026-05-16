@@ -1,31 +1,27 @@
 <template>
-  <router-view />
+  <n-config-provider :theme-overrides="themeOverrides" :locale="zhCN" :date-locale="dateZhCN">
+    <n-message-provider>
+      <n-dialog-provider>
+        <n-notification-provider>
+          <n-loading-bar-provider>
+            <router-view />
+          </n-loading-bar-provider>
+        </n-notification-provider>
+      </n-dialog-provider>
+    </n-message-provider>
+  </n-config-provider>
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
-import { useAppStore } from '@/stores/app'
+import { NConfigProvider, NMessageProvider, NDialogProvider, NNotificationProvider, NLoadingBarProvider, zhCN, dateZhCN } from 'naive-ui'
 
-const appStore = useAppStore()
-
-onMounted(() => {
-  // 初始化用户信息
-  appStore.init()
-})
+const themeOverrides = {
+  common: {
+    primaryColor: '#18a058',
+    primaryColorHover: '#36ad6a',
+    primaryColorPressed: '#0c7a43',
+    primaryColorSuppl: '#36ad6a',
+    borderRadius: '6px'
+  }
+}
 </script>
-
-<style>
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-html, body {
-  height: 100%;
-}
-
-#app {
-  height: 100%;
-}
-</style>

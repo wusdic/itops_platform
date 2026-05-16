@@ -2,294 +2,260 @@
   <div class="page-container">
     <div class="page-header">
       <div>
-        <h1 class="page-title">我的消息</h1>
+        <h1 class="page-title">消息中心</h1>
         <p class="page-subtitle">查看系统通知和告警消息</p>
       </div>
-      <el-button type="primary" @click="handleMarkAllRead" :loading="markingRead">
-        全部标为已读
-      </el-button>
-    </div>
-
-    <!-- 筛选栏 -->
-    <div class="filter-bar">
-      <el-radio-group v-model="filterStatus" @change="handleFilterChange">
-        <el-radio-button label="all">全部</el-radio-button>
-        <el-radio-button label="unread">未读</el-radio-button>
-        <el-radio-button label="read">已读</el-radio-button>
-      </el-radio-group>
-    </div>
-
-    <!-- 消息列表 -->
-    <div class="message-list" v-loading="loading">
-      <el-empty v-if="!loading && messageList.length === 0" description="暂无消息" />
-
-      <div
-        v-for="msg in messageList"
-        :key="msg.id"
-        class="message-item"
-        :class="{ unread: !msg.is_read }"
-        @click="handleClickMessage(msg)"
-      >
-        <div class="message-icon">
-          <el-badge :is-dot="!msg.is_read">
-            <el-icon size="20"><Bell /></el-icon>
-          </el-badge>
-        </div>
-        <div class="message-content">
-          <div class="message-header">
-            <span class="message-title">{{ msg.title }}</span>
-            <el-tag v-if="msg.type" size="small" type="info">{{ getTypeLabel(msg.type) }}</el-tag>
-          </div>
-          <div class="message-body">{{ msg.content || '暂无内容' }}</div>
-          <div class="message-footer">
-            <span class="message-time">{{ formatTime(msg.created_at) }}</span>
-            <span v-if="msg.sender" class="message-sender">发送者: {{ msg.sender }}</span>
-          </div>
-        </div>
-        <div class="message-actions">
-          <el-button
-            v-if="!msg.is_read"
-            type="primary"
-            link
-            size="small"
-            @click.stop="handleMarkRead(msg)"
-          >
-            标为已读
-          </el-button>
-          <el-button
-            type="danger"
-            link
-            size="small"
-            @click.stop="handleDelete(msg)"
-          >
-            删除
-          </el-button>
-        </div>
+      <div class="page-actions">
+        <n-button type="primary" @click="loadData">刷新</n-button>
       </div>
     </div>
 
-    <!-- 分页 -->
-    <div class="pagination" v-if="pagination.total > 0">
-      <el-pagination
-        v-model:current-page="pagination.page"
-        v-model:page-size="pagination.pageSize"
-        :total="pagination.total"
-        :page-sizes="[10, 20, 50]"
-        layout="total, sizes, prev, pager, next"
-        @size-change="loadData"
-        @current-change="loadData"
-      />
-    </div>
+    <n-card class="filter-bar">
+      <n-space>
+        <n-select
+          v-model:value="filterRead"
+          placeholder="消息状态"
+          :options="readOptions"
+          clearable
+          style="width: 140px"
+          @change="handleSearch"
+        />
+        <n-button @click="handleMarkAllRead">全部标为已读</n-button>
+      </n-space>
+    </n-card>
+
+    <n-card class="message-list-container">
+      <n-list v-if="messages.length > 0">
+        <n-list-item
+          v-for="msg in messages"
+          :key="msg.id"
+          @click="handleViewMessage(msg)"
+        >
+          <n-thing>
+            <template #header>
+              <n-space justify="space-between" align="center">
+                <n-badge :dot="!msg.is_read">
+                  <span :class="{ 'unread-title': !msg.is_read }">{{ msg.title }}</span>
+                </n-badge>
+                <n-tag :type="getTypeTag(msg.type)" size="small">{{ getTypeText(msg.type) }}</n-tag>
+              </n-space>
+            </template>
+            <template #description>
+              <p class="message-content">{{ msg.content }}</p>
+            </template>
+            <template #header-extra>
+              <span class="message-time">{{ formatTime(msg.created_at) }}</span>
+            </template>
+          </n-thing>
+        </n-list-item>
+      </n-list>
+      <n-empty v-else description="暂无消息" />
+      <div class="pagination">
+        <n-pagination
+          v-model:page="pagination.page"
+          v-model:page-size="pagination.pageSize"
+          :page-count="totalPages"
+          show-quick-jumper
+          @update:page="loadData"
+          @update:page-size="loadData"
+        />
+      </div>
+    </n-card>
+
+    <n-modal v-model:show="detailModalVisible" preset="card" title="消息详情" style="max-width: 500px;">
+      <n-descriptions label-placement="top" :column="1" v-if="currentMessage">
+        <n-descriptions-item label="标题">{{ currentMessage.title }}</n-descriptions-item>
+        <n-descriptions-item label="类型">{{ getTypeText(currentMessage.type) }}</n-descriptions-item>
+        <n-descriptions-item label="时间">{{ formatTime(currentMessage.created_at) }}</n-descriptions-item>
+        <n-descriptions-item label="内容">{{ currentMessage.content }}</n-descriptions-item>
+      </n-descriptions>
+      <template #footer>
+        <n-space justify="end">
+          <n-button @click="detailModalVisible = false">关闭</n-button>
+          <n-button
+            v-if="currentMessage && !currentMessage.is_read"
+            type="primary"
+            @click="handleMarkRead(currentMessage)"
+          >
+            标为已读
+          </n-button>
+        </n-space>
+      </template>
+    </n-modal>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Bell } from '@element-plus/icons-vue'
-import { notification } from '@/api'
-import { formatTime } from '@/utils/date'
+import { ref, reactive, computed, onMounted, h } from 'vue'
+import { useAppStore } from '@/stores/app'
+import {
+  NCard, NSelect, NButton, NSpace, NList, NListItem,
+  NThing, NBadge, NTag, NPagination, NEmpty, NModal,
+  NDescriptions, NDescriptionsItem
+} from 'naive-ui'
+import { useMessage } from 'naive-ui'
+
+const appStore = useAppStore()
+const message = useMessage()
 
 const loading = ref(false)
-const markingRead = ref(false)
-const messageList = ref([])
-const filterStatus = ref('all')
-const pagination = reactive({ page: 1, pageSize: 10, total: 0 })
+const filterRead = ref(null)
+const messages = ref([])
+const detailModalVisible = ref(false)
+const currentMessage = ref(null)
 
-const typeMap = {
-  email: '邮件',
-  sms: '短信',
-  webhook: 'Webhook',
-  dingtalk: '钉钉',
-  feishu: '飞书',
-  wechat: '企业微信',
-  system: '系统通知',
-  alert: '告警'
+const pagination = reactive({ page: 1, pageSize: 10, total: 0 })
+const totalPages = computed(() => Math.ceil(pagination.total / pagination.pageSize) || 1)
+
+const readOptions = [
+  { label: '未读', value: 0 },
+  { label: '已读', value: 1 }
+]
+
+const getTypeTag = (type) => {
+  const map = { info: 'info', warning: 'warning', error: 'error', success: 'success' }
+  return map[type] || 'default'
 }
 
-const getTypeLabel = (type) => typeMap[type] || type || '通知'
+const getTypeText = (type) => {
+  const map = { info: '通知', warning: '警告', error: '错误', success: '成功' }
+  return map[type] || '通知'
+}
 
-onMounted(() => { loadData() })
+const formatTime = (time) => {
+  if (!time) return '-'
+  return new Date(time).toLocaleString('zh-CN')
+}
 
-const handleFilterChange = () => {
-  pagination.page = 1
-  loadData()
+const fetchApi = async (url, options = {}) => {
+  const token = appStore.token
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': token ? `Bearer ${token}` : '',
+      ...options.headers
+    }
+  })
+  if (!res.ok) throw new Error(`HTTP error ${res.status}`)
+  return res.json()
 }
 
 const loadData = async () => {
   loading.value = true
   try {
-    const params = {
+    const params = new URLSearchParams({
       page: pagination.page,
       page_size: pagination.pageSize
+    })
+    if (filterRead.value !== null && filterRead.value !== '') {
+      params.append('is_read', filterRead.value)
     }
-    if (filterStatus.value === 'unread') {
-      params.is_read = false
-    } else if (filterStatus.value === 'read') {
-      params.is_read = true
+
+    const res = await fetchApi(`/api/v1/notification/messages?${params}`)
+    // Support both {items, total} and {data, total} formats
+    if (res.items) {
+      messages.value = res.items
+      pagination.total = res.total || 0
+    } else if (res.data && Array.isArray(res.data)) {
+      messages.value = res.data
+      pagination.total = res.total || 0
+    } else if (Array.isArray(res)) {
+      messages.value = res
+      pagination.total = res.length
+    } else {
+      messages.value = []
+      pagination.total = 0
     }
-    const res = await notification.getHistory(params).catch(() => ({ items: [], total: 0 }))
-    messageList.value = res.items || res.list || []
-    pagination.total = res.total || 0
   } catch (error) {
     console.error('Load messages error:', error)
+    messages.value = []
   } finally {
     loading.value = false
   }
 }
 
-const handleClickMessage = async (msg) => {
+const handleSearch = () => {
+  pagination.page = 1
+  loadData()
+}
+
+const handleViewMessage = (msg) => {
+  currentMessage.value = msg
+  detailModalVisible.value = true
+  // Auto mark as read when viewed
   if (!msg.is_read) {
-    await handleMarkRead(msg)
+    handleMarkRead(msg)
   }
 }
 
 const handleMarkRead = async (msg) => {
   try {
-    // 尝试调用标记已读API，如果后端没有此接口则使用本地更新
-    if (notification.markRead) {
-      await notification.markRead(msg.id)
-    } else {
-      // 本地更新状态
-      msg.is_read = true
-    }
-    loadData()
+    await fetchApi(`/api/v1/notification/messages/${msg.id}/read`, {
+      method: 'PUT'
+    })
+    msg.is_read = true
+    message.success('已标为已读')
   } catch (error) {
     console.error('Mark read error:', error)
-    ElMessage.error('标记已读失败')
   }
 }
 
 const handleMarkAllRead = async () => {
   try {
-    await ElMessageBox.confirm('确定要将所有消息标为已读吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
+    await fetchApi('/api/v1/notification/messages/read-all', {
+      method: 'PUT'
     })
-    markingRead.value = true
-    // 尝试调用全部标记已读API
-    if (notification.markAllRead) {
-      await notification.markAllRead()
-    }
-    ElMessage.success('操作成功')
+    message.success('全部已标为已读')
     loadData()
   } catch (error) {
-    if (error !== 'cancel') {
-      console.error('Mark all read error:', error)
-      ElMessage.error('操作失败')
-    }
-  } finally {
-    markingRead.value = false
+    console.error('Mark all read error:', error)
   }
 }
 
-const handleDelete = async (msg) => {
-  try {
-    await ElMessageBox.confirm('确定要删除该消息吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-    await notification.deleteHistory(msg.id)
-    ElMessage.success('删除成功')
-    loadData()
-  } catch (error) {
-    if (error !== 'cancel') {
-      console.error('Delete message error:', error)
-      ElMessage.error('删除失败')
-    }
-  }
-}
+onMounted(() => {
+  loadData()
+})
 </script>
 
-<style lang="scss" scoped>
+<style scoped>
+.page-container {
+  padding: 20px;
+}
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 20px;
 }
-
-.filter-bar {
-  margin: 16px 0;
+.page-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
 }
-
-.message-list {
-  min-height: 200px;
-}
-
-.message-item {
-  display: flex;
-  align-items: flex-start;
-  padding: 16px;
-  border-bottom: 1px solid #f0f0f0;
-  cursor: pointer;
-  transition: background-color 0.2s;
-
-  &:hover {
-    background-color: #f7f8fa;
-  }
-
-  &.unread {
-    background-color: #f0f7ff;
-
-    &:hover {
-      background-color: #e6f0ff;
-    }
-
-    .message-title {
-      font-weight: 600;
-    }
-  }
-}
-
-.message-icon {
-  flex-shrink: 0;
-  margin-right: 12px;
-  color: #909399;
-}
-
-.message-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.message-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.message-title {
+.page-subtitle {
   font-size: 14px;
-  color: #303133;
+  color: #666;
+  margin: 4px 0 0 0;
 }
-
-.message-body {
-  font-size: 13px;
-  color: #909399;
-  margin-bottom: 8px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.filter-bar {
+  margin-bottom: 16px;
 }
-
-.message-footer {
-  display: flex;
-  gap: 16px;
+.message-list-container {
+  margin-bottom: 16px;
+}
+.unread-title {
+  font-weight: 600;
+}
+.message-content {
+  margin: 8px 0 0 0;
+  color: #666;
+  font-size: 14px;
+}
+.message-time {
   font-size: 12px;
-  color: #c0c4cc;
+  color: #999;
 }
-
-.message-actions {
-  flex-shrink: 0;
-  margin-left: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
 .pagination {
   display: flex;
   justify-content: flex-end;

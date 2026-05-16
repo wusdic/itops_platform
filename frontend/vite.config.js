@@ -3,17 +3,16 @@ import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
 import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
-import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
+import { NaiveUiResolver } from 'unplugin-vue-components/resolvers'
 
 export default defineConfig({
   plugins: [
     vue(),
     AutoImport({
-      imports: ['vue', 'vue-router', 'pinia'],
-      resolvers: [ElementPlusResolver()]
+      imports: ['vue', 'vue-router', 'pinia']
     }),
     Components({
-      resolvers: [ElementPlusResolver()]
+      resolvers: [NaiveUiResolver()]
     })
   ],
   resolve: {
@@ -28,7 +27,6 @@ export default defineConfig({
       '/api': {
         target: 'http://172.20.0.7:8000',
         changeOrigin: true,
-        // 强制使用 IPv4，避免 Vite 代理尝试 IPv6 导致 ECONNREFUSED
         configure: (proxy) => {
           proxy.on('error', (err, req, res) => {
             if (err.code === 'ECONNREFUSED') {

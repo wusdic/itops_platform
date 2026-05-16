@@ -1,5 +1,8 @@
 import axios from 'axios'
-import { ElMessage } from 'element-plus'
+import { useMessage } from 'naive-ui'
+import router from '../router'
+
+const message = useMessage()
 
 const request = axios.create({
   baseURL: '/api/v1',
@@ -45,11 +48,9 @@ request.interceptors.response.use(
     if (Array.isArray(res)) {
       return { items: res, total: res.length }
     }
-    // 有 msg 或 detail 字段通常是后端错误响应（但 detail 也可能是正常返回，需结合上下文判断）
-    // 对于 /devices/{name}/metrics 这类接口，detail="设备无指标数据" 是业务正常返回（空数据）
-    // 因此只对明确包含 error/失败 类关键词的 detail 报错
+    // 有 msg 或 detail 字段通常是后端错误响应
     if (res.msg) {
-      ElMessage.error(res.msg || '请求失败')
+      message.error(res.msg || '请求失败')
       return Promise.reject(new Error(res.msg || '请求失败'))
     }
     // 兜底：直接返回原始数据
@@ -59,22 +60,22 @@ request.interceptors.response.use(
     if (error.response) {
       const data = error.response.data
       if (error.response.status === 401) {
-        ElMessage.error('登录已过期，请重新登录')
+        message.error('登录已过期，请重新登录')
         localStorage.removeItem('token')
-        window.location.href = '/login'
+        router.push('/login')
       } else if (error.response.status === 403) {
-        ElMessage.error('没有权限访问')
+        message.error('没有权限访问')
       } else if (error.response.status === 404 && data?.detail?.includes('无指标数据')) {
         // 设备指标暂无数据，是正常状态，不弹错误提示，静默返回空数据
         return Promise.reject(new Error('NO_DATA'))
       } else if (data?.msg || data?.detail) {
-        ElMessage.error(data.msg || data.detail)
+        message.error(data.msg || data.detail)
         return Promise.reject(new Error(data.msg || data.detail))
       } else {
-        ElMessage.error('请求失败')
+        message.error('请求失败')
       }
     } else {
-      ElMessage.error('网络错误')
+      message.error('网络错误')
     }
     return Promise.reject(error)
   }
