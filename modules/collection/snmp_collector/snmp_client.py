@@ -14,8 +14,7 @@ import threading
 
 # 尝试导入pysnmp
 try:
-    from pysnmp.hlapi import *
-    from pysnmp.entity.rfc3413.oneliner import cmdgen
+    from pysnmp.hlapi.v1arch.asyncio import *
     from pysnmp.proto import rfc1902
     from pysnmp.smi import builder, view
     # 注意: asyncio carrier需要asyncio.coroutine (Python 3.10及之前)
@@ -316,9 +315,6 @@ class AsyncSNMPClient:
         self._transport = None
         self._connected = False
         
-        if _pysnmp_available:
-            self._engine = cmdgen.CommandGenerator()
-    
     async def get(self, oid: str) -> Optional[Any]:
         """异步SNMP Get"""
         loop = asyncio.get_event_loop()
@@ -338,18 +334,21 @@ class AsyncSNMPClient:
             else:
                 auth = CommunityData(self._config.community, mpModel=1)
             
-            target = UdpTransportTarget(
-                (self._config.host, self._config.port),
-                timeout=self._config.timeout,
-                retries=self._config.retries
-            )
-            
             oid = self._resolve_oid(oid)
             
-            error_indication, error_status, error_index, var_binds = next(
-                getCmd(self._engine.snmpEngine, auth, target, ContextData(), 
-                       ObjectType(ObjectIdentity(oid)))
-            )
+            async def _async_get():
+                snmp_dispatcher = SnmpDispatcher()
+                transport = await UdpTransportTarget.create(
+                    (self._config.host, self._config.port),
+                    timeout=self._config.timeout,
+                    retries=self._config.retries
+                )
+                return await get_cmd(
+                    snmp_dispatcher, auth, transport,
+                    ObjectType(ObjectIdentity(oid))
+                )
+            
+            error_indication, error_status, error_index, var_binds = asyncio.run(_async_get())
             
             if error_indication:
                 logger.debug(f"SNMP Get错误: {error_indication}")
@@ -383,16 +382,19 @@ class AsyncSNMPClient:
             else:
                 auth = CommunityData(self._config.community, mpModel=1)
             
-            target = UdpTransportTarget(
-                (self._config.host, self._config.port),
-                timeout=self._config.timeout,
-                retries=self._config.retries
-            )
+            async def _async_walk():
+                snmp_dispatcher = SnmpDispatcher()
+                transport = await UdpTransportTarget.create(
+                    (self._config.host, self._config.port),
+                    timeout=self._config.timeout,
+                    retries=self._config.retries
+                )
+                return await next_cmd(
+                    snmp_dispatcher, auth, transport,
+                    ObjectType(ObjectIdentity(oid)), lexicographicMode=False
+                )
             
-            error_indication, error_status, error_index, var_bind_table = next(
-                nextCmd(self._engine.snmpEngine, auth, target, ContextData(), 
-                       ObjectType(ObjectIdentity(oid)), lexicographicMode=False)
-            )
+            error_indication, error_status, error_index, var_bind_table = asyncio.run(_async_walk())
             
             if error_indication:
                 logger.debug(f"SNMP Walk错误: {error_indication}")
@@ -505,11 +507,9 @@ class SNMPClient:
         self._mib_mapper = VendorMIBMapper()
         self._async_client: Optional[AsyncSNMPClient] = None
         
-        if _pysnmp_available:
-            self._engine = cmdgen.CommandGenerator()
-        elif _easysnmp_available:
+        if _easysnmp_available:
             self._session = self._create_easysnmp_session()
-        else:
+        elif not _pysnmp_available:
             logger.warning("未安装pysnmp或easysnmp，SNMP功能将不可用")
         
         # 如果启用异步，创建异步客户端
@@ -634,15 +634,19 @@ class SNMPClient:
             else:
                 auth = CommunityData(self._config.community, mpModel=1)
             
-            target = UdpTransportTarget(
-                (self._config.host, self._config.port),
-                timeout=self._config.timeout,
-                retries=self._config.retries
-            )
+            async def _async_get():
+                snmp_dispatcher = SnmpDispatcher()
+                transport = await UdpTransportTarget.create(
+                    (self._config.host, self._config.port),
+                    timeout=self._config.timeout,
+                    retries=self._config.retries
+                )
+                return await get_cmd(
+                    snmp_dispatcher, auth, transport,
+                    ObjectType(ObjectIdentity(oid))
+                )
             
-            error_indication, error_status, error_index, var_binds = next(
-                getCmd(self._engine.snmpEngine, auth, target, ContextData(), ObjectType(ObjectIdentity(oid)))
-            )
+            error_indication, error_status, error_index, var_binds = asyncio.run(_async_get())
             
             if error_indication:
                 logger.debug(f"SNMP Get错误: {error_indication}")
@@ -723,15 +727,19 @@ class SNMPClient:
             else:
                 auth = CommunityData(self._config.community, mpModel=1)
             
-            target = UdpTransportTarget(
-                (self._config.host, self._config.port),
-                timeout=self._config.timeout,
-                retries=self._config.retries
-            )
+            async def _async_walk():
+                snmp_dispatcher = SnmpDispatcher()
+                transport = await UdpTransportTarget.create(
+                    (self._config.host, self._config.port),
+                    timeout=self._config.timeout,
+                    retries=self._config.retries
+                )
+                return await next_cmd(
+                    snmp_dispatcher, auth, transport,
+                    ObjectType(ObjectIdentity(oid)), lexicographicMode=False
+                )
             
-            error_indication, error_status, error_index, var_bind_table = next(
-                nextCmd(self._engine.snmpEngine, auth, target, ContextData(), ObjectType(ObjectIdentity(oid)), lexicographicMode=False)
-            )
+            error_indication, error_status, error_index, var_bind_table = asyncio.run(_async_walk())
             
             if error_indication:
                 logger.debug(f"SNMP Walk错误: {error_indication}")
