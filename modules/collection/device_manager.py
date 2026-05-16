@@ -8,7 +8,6 @@
 
 import asyncio
 import logging
-import subprocess
 from typing import Any, Callable, Dict, List, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -515,17 +514,17 @@ class DeviceManager:
             raise
 
     def _ping_device(self, ip: str, timeout: int = 3) -> bool:
-        """Ping 检测设备是否可达（采集前连通性验证）"""
-        try:
-            result = subprocess.run(
-                ['ping', '-c', '2', '-W', str(timeout), ip],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                timeout=timeout + 2,
-            )
-            return result.returncode == 0
-        except Exception:
-            return False
+        """TCP 端口连通性检测（采集前验证，替代 ping）"""
+        import socket
+        # 常见端口优先尝试：SSH(22)、HTTP(80)、HTTPS(443)、MySQL(3306)
+        ports = [22, 80, 443, 3306, 6379, 8080]
+        for port in ports:
+            try:
+                with socket.create_connection((ip, port), timeout=timeout):
+                    return True
+            except (socket.timeout, socket.error, OSError):
+                continue
+        return False
 
     def _collect_ssh_based(self, collector, device_config: Dict) -> DeviceMetrics:
         """SSH/WinRM采集"""
