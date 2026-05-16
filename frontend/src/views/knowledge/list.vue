@@ -140,40 +140,32 @@ const faultTotal = ref(0)
 const faultDetailVisible = ref(false)
 const currentFault = ref(null)
 
-const demoSopList = [
-  { id: 1, title: '服务器重启标准操作流程', category: 'server', status: 'published', updated_at: '2026-05-10T10:00:00Z', content: '<p>1. 提前通知相关人员<br>2. 检查是否有正在执行的任务<br>3. 执行关机命令: shutdown -h now<br>4. 等待5分钟后重新加电<br>5. 启动后检查服务状态</p>' },
-  { id: 2, title: '数据库备份恢复操作手册', category: 'database', status: 'published', updated_at: '2026-05-08T14:30:00Z', content: '<p>备份: mysqldump -u root -p database_name > backup.sql<br>恢复: mysql -u root -p database_name < backup.sql</p>' },
-  { id: 3, title: '网络设备巡检标准流程', category: 'network', status: 'published', updated_at: '2026-05-06T09:00:00Z', content: '<p>1. 检查端口状态<br>2. 检查流量统计<br>3. 检查日志告警<br>4. 检查配置变更记录</p>' },
-  { id: 4, title: '防火墙规则添加操作流程', category: 'security', status: 'draft', updated_at: '2026-05-05T16:00:00Z', content: '<p>1. 填写防火墙变更申请单<br>2. 审批通过后执行<br>3. 验证规则生效<br>4. 更新文档记录</p>' },
-  { id: 5, title: '应用程序部署标准流程', category: 'application', status: 'published', updated_at: '2026-05-03T11:00:00Z', content: '<p>1. 代码审查<br>2. 测试环境验证<br>3. 预发布环境验证<br>4. 生产环境灰度发布<br>5. 监控观察</p>' }
-]
 
-const demoFaultList = [
-  { id: 1, title: 'MySQL数据库连接数打满', severity: 'P1-紧急', status: 'resolved', updated_at: '2026-05-12T08:00:00Z', impact: '所有依赖数据库的应用无法访问', root_cause: '某个查询没有limit导致全表扫描', solution: '优化SQL并添加连接池限制' },
-  { id: 2, title: 'Nginx 502 Bad Gateway', severity: 'P2-高', status: 'resolved', updated_at: '2026-05-11T15:00:00Z', impact: '部分用户无法访问API', root_cause: '后端PHP-FPM进程崩溃', solution: '重启PHP-FPM服务' },
-  { id: 3, title: '磁盘空间不足告警', severity: 'P2-高', status: 'resolved', updated_at: '2026-05-10T10:00:00Z', impact: '日志写入失败', root_cause: '日志文件未按期清理', solution: '清理30天前的日志文件' },
-  { id: 4, title: 'Redis内存达到上限', severity: 'P3-中', status: 'resolved', updated_at: '2026-05-09T14:00:00Z', impact: '新数据无法写入缓存', root_cause: 'keys命令导致内存碎片化', solution: '重启Redis并使用scan替代keys' },
-  { id: 5, title: 'SSL证书过期', severity: 'P1-紧急', status: 'resolved', updated_at: '2026-05-08T09:00:00Z', impact: 'HTTPS无法访问', root_cause: '证书续期未及时处理', solution: '重新申请并安装SSL证书' }
-]
 
 const loadSop = async () => {
   sopLoading.value = true
   try {
     const res = await knowledge.getSopList({ page: sopPage.value, page_size: 20, search: sopSearch.value })
-    if (res.items && res.items.length > 0) { sopList.value = res.items; sopTotal.value = res.total }
-    else { sopList.value = demoSopList; sopTotal.value = demoSopList.length }
-  } catch { sopList.value = demoSopList; sopTotal.value = demoSopList.length }
-  finally { sopLoading.value = false }
+    sopList.value = res.items || []
+    sopTotal.value = res.total || 0
+  } catch (error) {
+    console.error('Load SOP error:', error)
+    ElMessage.error('加载SOP列表失败')
+    sopList.value = []
+  } finally { sopLoading.value = false }
 }
 
 const loadFault = async () => {
   faultLoading.value = true
   try {
     const res = await knowledge.getFaultCaseList({ page: faultPage.value, page_size: 20, search: faultSearch.value })
-    if (res.items && res.items.length > 0) { faultList.value = res.items; faultTotal.value = res.total }
-    else { faultList.value = demoFaultList; faultTotal.value = demoFaultList.length }
-  } catch { faultList.value = demoFaultList; faultTotal.value = demoFaultList.length }
-  finally { faultLoading.value = false }
+    faultList.value = res.items || []
+    faultTotal.value = res.total || 0
+  } catch (error) {
+    console.error('Load fault cases error:', error)
+    ElMessage.error('加载故障案例失败')
+    faultList.value = []
+  } finally { faultLoading.value = false }
 }
 
 const viewSop = (row) => { currentSop.value = row; sopDetailVisible.value = true }
@@ -195,11 +187,9 @@ const createSop = async () => {
     ElMessage.success('创建成功')
     showSopDialog.value = false
     loadSop()
-  } catch {
-    demoSopList.unshift({ id: Date.now(), ...sopForm.value, status: 'draft', updated_at: new Date().toISOString() })
-    ElMessage.success('创建成功（本地演示）')
-    showSopDialog.value = false
-    loadSop()
+  } catch (error) {
+    console.error('Create SOP error:', error)
+    ElMessage.error('创建失败')
   } finally { sopCreating.value = false }
 }
 

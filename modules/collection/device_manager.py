@@ -119,6 +119,155 @@ class DeviceManager:
         """获取设备状态"""
         return self._device_status.get(device_name, CollectionStatus.UNKNOWN)
     
+    def _get_device_config_from_db(self, device_name: str) -> Optional[Dict[str, Any]]:
+        """
+        从MySQL数据库获取设备配置（用于采集）
+        
+        从数据库读取设备信息，转换为采集所需的配置格式。
+        如果设备在YAML配置中也有定义，YAML中的协议/凭据配置优先。
+        
+        Args:
+            device_name: 设备名称
+            
+        Returns:
+            设备配置字典，如果设备不存在则返回None
+        """
+        try:
+            from modules.foundation.db_models.device import Device, DeviceType as DBDeviceType
+            from modules.foundation.db.client import get_db_session
+            
+            with get_db_session() as session:
+                # 按名称或主机名查询设备
+                device = session.query(Device).filter(
+                    (Device.name == device_name) | (Device.hostname == device_name)
+                ).first()
+                
+                if not device:
+                    return None
+                
+                # 构建基础配置
+                config = {
+                    'name': device.name,
+                    'ip': device.ip_address,
+                    'type': self._map_db_device_type(device.device_type),
+                    'vendor': device.vendor or device.manufacturer,
+                    'os': device.os_type,
+                    'os_version': device.os_version,
+                    'monitor_enabled': device.monitor_enabled if device.monitor_enabled is not None else True,
+                    'protocols': {},
+                    'credentials': {},
+                    'collect': {
+                        'enabled': device.monitor_enabled if device.monitor_enabled is not None else True,
+                    },
+                    '_db_device_id': device.id,
+                }
+                
+                # 添加SSH配置
+                if device.ssh_port:
+                    config['ssh_port'] = device.ssh_port
+                if device.ssh_username:
+                    config['credentials']['ssh_username'] = device.ssh_username
+                if device.ssh_password_encrypted:
+                    config['credentials']['ssh_password'] = device.ssh_password_encrypted
+                if device.ssh_key_path:
+                    config['credentials']['ssh_key_path'] = device.ssh_key_path
+                
+                # 添加SNMP配置
+                if device.snmp_enabled:
+                    config['protocols']['snmp'] = {
+                        'enabled': True,
+                        'community': device.snmp_community or 'public',
+                        'version': device.snmp_version or 'v2c',
+                    }
+                
+                # 检查YAML配置是否覆盖凭据/协议
+                yaml_config = self._config_loader.get_device_by_name(device_name)
+                if yaml_config:
+                    # YAML中的protocols和credentials优先
+                    if yaml_config.get('protocols'):
+                        config['protocols'].update(yaml_config['protocols'])
+                    if yaml_config.get('credentials'):
+                        config['credentials'].update(yaml_config['credentials'])
+                    # YAML中的采集配置
+                    if yaml_config.get('collect'):
+                        config['collect'].update(yaml_config['collect'])
+                
+                return config
+                
+        except Exception as e:
+            logger.warning(f"从数据库获取设备配置失败: {e}")
+            return None
+    
+    def _map_db_device_type(self, db_device_type) -> str:
+        """将数据库设备类型映射为采集配置类型"""
+        if db_device_type is None:
+            return 'server'
+        
+        type_str = db_device_type.value if hasattr(db_device_type, 'value') else str(db_device_type)
+        
+        mapping = {
+            'server_windows': 'server',
+            'server_linux': 'server',
+            'server_vmware': 'virtual',
+            'server_hyperv': 'virtual',
+            'server_kvm': 'virtual',
+            'network_switch': 'network',
+            'network_router': 'network',
+            'network_firewall': 'security',
+            'network_waf': 'security',
+            'network_loadbalancer': 'network',
+            'network_vpn': 'security',
+            'network_ap': 'network',
+            'network_ac': 'network',
+            'security_ids': 'security',
+            'security_ips': 'security',
+            'security_antivirus': 'server',
+            'storage_array': 'storage',
+            'storage_nas': 'storage',
+            'storage_tape': 'storage',
+            'other': 'server',
+        }
+        return mapping.get(type_str, 'server')
+    
+    def get_devices_from_db(self) -> List[Dict[str, Any]]:
+        """
+        从MySQL数据库获取所有设备列表（用于采集）
+        
+        Returns:
+            设备配置列表
+        """
+        try:
+            from modules.foundation.db_models.device import Device
+            from modules.foundation.db.client import get_db_session
+            
+            devices = []
+            with get_db_session() as session:
+                db_devices = session.query(Device).all()
+                for d in db_devices:
+                    # 跳过退役设备
+                    if hasattr(d, 'status') and d.status and d.status.value == 'decommissioned':
+                        continue
+                    # 跳过未启用监控的设备
+                    if d.monitor_enabled is False:
+                        continue
+                    
+                    config = {
+                        'name': d.name,
+                        'ip': d.ip_address,
+                        'type': self._map_db_device_type(d.device_type),
+                        'vendor': d.vendor or d.manufacturer,
+                        'os': d.os_type,
+                        'os_version': d.os_version,
+                        'monitor_enabled': d.monitor_enabled if d.monitor_enabled is not None else True,
+                    }
+                    devices.append(config)
+            
+            return devices
+            
+        except Exception as e:
+            logger.warning(f"从数据库获取设备列表失败: {e}")
+            return []
+    
     def _update_device_status_in_db(self, device_name: str, status: CollectionStatus) -> None:
         """更新数据库中的设备状态"""
         try:
@@ -150,7 +299,10 @@ class DeviceManager:
     def get_stats(self) -> Dict[str, Any]:
         """获取采集统计"""
         stats = self._stats.copy()
-        stats['device_count'] = len(self._config_loader.get_devices())
+        # 优先使用MySQL设备数，回退到YAML配置设备数
+        db_devices = self.get_devices_from_db()
+        yaml_devices = self._config_loader.get_devices()
+        stats['device_count'] = len(db_devices) if db_devices else len(yaml_devices)
         stats['running'] = self._running
         return stats
     
@@ -165,7 +317,12 @@ class DeviceManager:
         Returns:
             设备指标数据
         """
-        device_config = self._config_loader.get_device_by_name(device_name)
+        # 优先从MySQL数据库获取设备配置，失败时回退到YAML配置
+        device_config = self._get_device_config_from_db(device_name)
+        if not device_config:
+            # 回退到YAML配置文件
+            device_config = self._config_loader.get_device_by_name(device_name)
+        
         if not device_config:
             logger.error(f"设备未找到: {device_name}")
             return None
@@ -462,13 +619,24 @@ class DeviceManager:
         """
         批量采集所有设备
         
+        优先从MySQL数据库获取设备列表，失败时回退到YAML配置。
+        
         Args:
             enabled_only: 只采集已启用的设备
             
         Returns:
             采集结果列表
         """
-        devices = self._config_loader.get_devices(enabled_only=enabled_only)
+        # 优先从MySQL数据库获取设备列表
+        devices = self.get_devices_from_db()
+        
+        if not devices:
+            # 回退到YAML配置文件
+            devices = self._config_loader.get_devices(enabled_only=enabled_only)
+        
+        if not devices:
+            logger.warning("没有可采集的设备")
+            return []
         
         tasks = [self.collect_device(d.get('name')) for d in devices]
         results = await asyncio.gather(*tasks, return_exceptions=True)

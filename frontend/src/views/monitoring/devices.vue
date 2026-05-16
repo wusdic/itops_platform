@@ -418,8 +418,8 @@ const loadDataSilent = async () => {
   loading.value = true
   try {
     const params = { page: 1, page_size: 500 }
-    const res = await devices.list(params)
-    allDevices.value = res.data.items || res.data.list || res.data || []
+    const res = await devices.getList(params).catch(() => ({ items: [], total: 0 }))
+    allDevices.value = res.items || []
     onlineCount.value = allDevices.value.filter(d => d.status === 'online' || d.status === 1).length
     offlineCount.value = allDevices.value.filter(d => d.status === 'offline' || d.status === 0).length
   } catch (e) {

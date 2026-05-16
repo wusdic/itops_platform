@@ -34,6 +34,14 @@ export const alerts = {
   delete: (id) => request.delete(`/monitoring/alerts/${id}`),
   acknowledge: (id, data) => request.put(`/monitoring/alerts/${id}/acknowledge`, data),
   resolve: (id, data) => request.put(`/monitoring/alerts/${id}/resolve`, data),
+  // 统一处理接口：action 为 'acknowledge' 或 'resolve'
+  handle: (id, data = {}) => {
+    const action = data.action || 'acknowledge'
+    if (action === 'resolve') {
+      return request.put(`/monitoring/alerts/${id}/resolve`, { resolution: data.resolution || '' })
+    }
+    return request.put(`/monitoring/alerts/${id}/acknowledge`, {})
+  },
   getAuditLogs: (id) => request.get(`/monitoring/alerts/${id}/audit-logs`),
   createAuditLog: (id, data) => request.post(`/monitoring/alerts/${id}/audit-logs`, data),
   getRules: () => request.get('/monitoring/rules'),
@@ -58,6 +66,8 @@ export const performance = {
   // 仪表盘
   getDashboards: () => request.get('/monitoring/dashboards'),
   getDashboard: (id) => request.get(`/monitoring/dashboards/${id}`),
+  // 仪表盘统计
+  getDashboardStats: () => request.get('/monitoring/dashboard/stats'),
   // 采集项配置
   getMetricConfigs: (params) => request.get('/monitoring/metric-configs', { params }),
   getMetricConfig: (id) => request.get(`/monitoring/metric-configs/${id}`),

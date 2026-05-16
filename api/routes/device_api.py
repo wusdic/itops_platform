@@ -11,8 +11,10 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query, HTTPException, BackgroundTasks
 from pydantic import BaseModel, Field
+from sqlalchemy import func
 
-from api.dependencies import get_db, get_current_user, CurrentUser, PaginationParams
+from api.dependencies import get_db, get_current_user, CurrentUser, PaginationParams, Session
+from modules.foundation.db_models.device import Device
 
 logger = logging.getLogger(__name__)
 
@@ -85,52 +87,69 @@ async def list_devices(
     tag: Optional[str] = Query(None, description="标签过滤"),
     pagination: PaginationParams = Depends(PaginationParams),
     current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """
     获取设备列表
-    支持分页和过滤
+    优先从MySQL数据库获取设备，支持分页和过滤。
     """
     try:
         from modules.collection.device_manager import get_device_manager
-        from modules.collection.config_loader import get_config_loader
         
         manager = get_device_manager()
-        loader = get_config_loader()
         
-        # 获取设备配置
-        devices = loader.get_devices(
-            enabled_only=enabled,
-            device_type=device_type,
-            vendor=vendor,
-            tag=tag,
-        )
+        # 从MySQL数据库获取设备列表
+        query = db.query(Device)
         
-        # 应用分页
-        total = len(devices)
-        start = (pagination.page - 1) * pagination.page_size
-        end = start + pagination.page_size
-        paginated_devices = devices[start:end]
+        # 应用过滤条件
+        if device_type:
+            from modules.foundation.db_models.device import DeviceType as DBDeviceType
+            type_mapping = {
+                'server': DBDeviceType.SERVER_LINUX,
+                'network': DBDeviceType.NETWORK_SWITCH,
+                'storage': DBDeviceType.STORAGE_NAS,
+                'security': DBDeviceType.SECURITY_IPS,
+                'virtual': DBDeviceType.SERVER_VMWARE,
+                'cloud': DBDeviceType.OTHER,
+                'other': DBDeviceType.OTHER,
+            }
+            db_type = type_mapping.get(device_type, DBDeviceType.OTHER)
+            query = query.filter(Device.device_type == db_type)
         
-        # 转换为响应格式
+        if vendor:
+            query = query.filter(Device.vendor.ilike(f"%{vendor}%"))
+        
+        if tag:
+            query = query.filter(Device.tags.ilike(f"%{tag}%"))
+        
+        # 获取总数并分页
+        total = query.count()
+        devices = query.offset(pagination.offset).limit(pagination.limit).all()
+        
+        # 转换为响应格式，合并实时状态
         items = []
-        for dev in paginated_devices:
-            # 获取设备状态
-            status = manager.get_device_status(dev.get('name'))
-            last_metrics = manager.get_last_metrics(dev.get('name'))
+        for dev in devices:
+            status = manager.get_device_status(dev.name)
+            last_metrics = manager.get_last_metrics(dev.name)
             
             items.append({
-                "name": dev.get("name"),
-                "ip": dev.get("ip"),
-                "type": dev.get("type"),
-                "os": dev.get("os"),
-                "os_version": dev.get("os_version"),
-                "vendor": dev.get("vendor"),
-                "protocols": dev.get("protocols", {}),
-                "collect_enabled": dev.get("collect", {}).get("enabled", True),
-                "collect_interval": dev.get("collect", {}).get("interval", 60),
-                "tags": dev.get("tags", {}),
-                "status": status.value if status else "unknown",
+                "name": dev.name,
+                "ip": dev.ip_address,
+                "type": dev.device_type.value if dev.device_type else "other",
+                "os": dev.os_type,
+                "os_version": dev.os_version,
+                "vendor": dev.vendor,
+                "manufacturer": dev.manufacturer,
+                "model": dev.model,
+                "protocols": {},  # 从数据库读取可扩展
+                "collect_enabled": dev.monitor_enabled if dev.monitor_enabled is not None else True,
+                "collect_interval": 60,
+                "tags": dev.tags,
+                "status": status.value if status else dev.status.value if dev.status else "unknown",
                 "last_collect_time": last_metrics.timestamp.isoformat() if last_metrics and last_metrics.timestamp else None,
+                "location": dev.location,
+                "idc": dev.idc,
+                "cabinet": dev.cabinet,
             })
         
         return {
@@ -148,45 +167,48 @@ async def list_devices(
 @router.get("/stats", summary="获取设备统计")
 async def get_device_stats(
     current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """
-    获取设备统计信息
+    获取设备统计信息，优先从MySQL数据库统计
     """
     try:
         from modules.collection.device_manager import get_device_manager
-        from modules.collection.config_loader import get_config_loader
         
         manager = get_device_manager()
-        loader = get_config_loader()
         
-        devices = loader.get_devices()
+        # 从MySQL数据库获取统计
+        total = db.query(Device).count()
+        
+        from modules.foundation.db_models.device import DeviceStatus as DBDeviceStatus
+        online = db.query(Device).filter(Device.status == DBDeviceStatus.ONLINE).count()
+        offline = db.query(Device).filter(Device.status == DBDeviceStatus.OFFLINE).count()
+        unknown = db.query(Device).filter(Device.status == DBDeviceStatus.UNKNOWN).count()
+        
+        # 按类型统计
+        from modules.foundation.db_models.device import DeviceType as DBDeviceType
+        by_type = {}
+        for dt in DBDeviceType:
+            count = db.query(Device).filter(Device.device_type == dt).count()
+            if count > 0:
+                by_type[dt.value] = count
+        
+        # 按厂商统计
+        by_vendor = {}
+        vendor_results = db.query(Device.vendor, func.count(Device.id)).filter(
+            Device.vendor.isnot(None)
+        ).group_by(Device.vendor).all()
+        for vendor, count in vendor_results:
+            by_vendor[vendor] = count
         
         stats = {
-            "total": len(devices),
-            "online": 0,
-            "offline": 0,
-            "unknown": 0,
-            "by_type": {},
-            "by_vendor": {},
+            "total": total,
+            "online": online,
+            "offline": offline,
+            "unknown": unknown,
+            "by_type": by_type,
+            "by_vendor": by_vendor,
         }
-        
-        for dev in devices:
-            dev_type = dev.get("type", "unknown")
-            vendor = dev.get("vendor", "unknown")
-            
-            stats["by_type"][dev_type] = stats["by_type"].get(dev_type, 0) + 1
-            stats["by_vendor"][vendor] = stats["by_vendor"].get(vendor, 0) + 1
-            
-            status = manager.get_device_status(dev.get("name"))
-            if status:
-                if status.value == "online":
-                    stats["online"] += 1
-                elif status.value == "offline":
-                    stats["offline"] += 1
-                else:
-                    stats["unknown"] += 1
-            else:
-                stats["unknown"] += 1
         
         return stats
         
@@ -199,20 +221,50 @@ async def get_device_stats(
 async def get_device(
     device_name: str,
     current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """
-    获取指定设备的详细信息
+    获取指定设备的详细信息，优先从MySQL数据库获取
     """
     try:
         from modules.collection.device_manager import get_device_manager
-        from modules.collection.config_loader import get_config_loader
         
         manager = get_device_manager()
-        loader = get_config_loader()
         
-        device = loader.get_device_by_name(device_name)
-        if not device:
-            raise HTTPException(status_code=404, detail=f"设备不存在: {device_name}")
+        # 优先从MySQL数据库获取设备详情
+        db_device = db.query(Device).filter(
+            (Device.name == device_name) | (Device.hostname == device_name)
+        ).first()
+        
+        if db_device:
+            device = {
+                "name": db_device.name,
+                "ip": db_device.ip_address,
+                "type": db_device.device_type.value if db_device.device_type else "other",
+                "os": db_device.os_type,
+                "os_version": db_device.os_version,
+                "vendor": db_device.vendor,
+                "manufacturer": db_device.manufacturer,
+                "model": db_device.model,
+                "serial_number": db_device.serial_number,
+                "protocols": {},
+                "collect_enabled": db_device.monitor_enabled if db_device.monitor_enabled is not None else True,
+                "tags": db_device.tags,
+                "location": db_device.location,
+                "idc": db_device.idc,
+                "cabinet": db_device.cabinet,
+                "status": db_device.status.value if db_device.status else "unknown",
+                "cpu": db_device.cpu,
+                "memory": db_device.memory,
+                "disk": db_device.disk,
+            }
+        else:
+            # 回退到YAML配置
+            from modules.collection.config_loader import get_config_loader
+            loader = get_config_loader()
+            device = loader.get_device_by_name(device_name)
+            if not device:
+                raise HTTPException(status_code=404, detail=f"设备不存在: {device_name}")
         
         # 获取设备状态和最近指标
         status = manager.get_device_status(device_name)

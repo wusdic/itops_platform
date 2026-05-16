@@ -545,7 +545,7 @@ async def acknowledge_alert(
 @router.put("/alerts/{alert_id}/resolve", summary="解决告警")
 async def resolve_alert(
     alert_id: int,
-    resolution: str = Query(..., description="解决方案描述"),
+    resolution: str = Query("", description="解决方案描述"),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -1671,3 +1671,73 @@ async def get_dashboard_columns(
     获取仪表盘列配置（显示/隐藏、宽度等）
     """
     return _build_response(data=DEFAULT_COLUMNS)
+
+
+# ============== 仪表盘统计接口 ==============
+
+@router.get("/dashboard/stats", summary="获取仪表盘统计数据")
+async def get_dashboard_stats(
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    获取仪表盘统计数据，包括：
+    - 设备总数、在线数、离线数、维护数
+    - 活跃告警数
+    - 待处理工单数（pending + processing）
+    - 最近7天告警趋势
+    """
+    from modules.foundation.db_models.device import Device, DeviceStatus
+    from modules.foundation.db_models.alert import Alert, AlertStatus, AlertLevel
+    from modules.foundation.db_models.workorder import WorkOrder, WorkOrderStatus
+    
+    # 设备统计
+    total_devices = db.query(Device).count()
+    online_devices = db.query(Device).filter(Device.status == DeviceStatus.ONLINE).count()
+    offline_devices = db.query(Device).filter(Device.status == DeviceStatus.OFFLINE).count()
+    maintenance_devices = db.query(Device).filter(Device.status == DeviceStatus.MAINTENANCE).count()
+    
+    # 活跃告警数
+    active_alerts = db.query(Alert).filter(Alert.status == AlertStatus.ACTIVE).count()
+    
+    # 严重告警数（critical）
+    critical_alerts = db.query(Alert).filter(
+        Alert.status == AlertStatus.ACTIVE,
+        Alert.level == AlertLevel.CRITICAL
+    ).count()
+    
+    # 待处理工单数（pending + processing）
+    pending_orders = db.query(WorkOrder).filter(
+        WorkOrder.status.in_([WorkOrderStatus.PENDING, WorkOrderStatus.PROCESSING])
+    ).count()
+    
+    # 最近7天告警趋势
+    alert_trend = []
+    for i in range(6, -1, -1):
+        day_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=i)
+        day_end = day_start + timedelta(days=1)
+        count = db.query(Alert).filter(
+            Alert.occurred_at >= day_start,
+            Alert.occurred_at < day_end
+        ).count()
+        alert_trend.append({
+            'date': day_start.strftime('%Y-%m-%d'),
+            'count': count
+        })
+    
+    return {
+        'devices': {
+            'total': total_devices,
+            'online': online_devices,
+            'offline': offline_devices,
+            'maintenance': maintenance_devices,
+        },
+        'alerts': {
+            'active': active_alerts,
+            'critical': critical_alerts,
+            'trend': alert_trend,
+        },
+        'workorders': {
+            'pending': pending_orders,
+        }
+    }
