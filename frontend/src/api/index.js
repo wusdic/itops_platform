@@ -2,7 +2,7 @@ import request from './request'
 import { devices, alerts, performance } from './monitoring'
 import { auth, user, role, menu, dict, config, system } from './system'
 import { assets } from './assets'
-import { scheduler, reports } from './scheduler'
+import { scheduler } from './scheduler'
 import { notification } from './notification'
 
 export const workorder = {
@@ -107,4 +107,4 @@ export const backup = {
   restore: (id, data) => request.post(`/admin/backup/${id}/restore`, data)
 }
 
-export { devices, alerts, performance, auth, user, role, menu, dict, config, system, assets, scheduler, reports, notification }
+export { devices, alerts, performance, auth, user, role, menu, dict, config, system, assets, scheduler, notification }
