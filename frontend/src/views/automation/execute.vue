@@ -2,57 +2,60 @@
   <div class="page-container">
     <div class="page-header">
       <div>
-        <h1 class="page-title">任务调度</h1>
-        <p class="page-subtitle">定时任务配置与管理</p>
+        <h1 class="page-title">执行历史</h1>
+        <p class="page-subtitle">查看自动化脚本执行记录并进行回滚操作</p>
       </div>
       <div class="page-actions">
-        <el-button type="primary" @click="handleAdd">
-          <el-icon><Plus /></el-icon> 新建任务
+        <el-button @click="handleRefresh">
+          <el-icon><Refresh /></el-icon> 刷新
         </el-button>
       </div>
     </div>
 
     <div class="filter-bar">
-      <el-input v-model="searchKeyword" placeholder="搜索任务名称" style="width: 200px" clearable @change="handleSearch" />
-      <el-select v-model="filterStatus" placeholder="任务状态" style="width: 140px" clearable @change="handleSearch">
-        <el-option label="运行中" value="running" />
-        <el-option label="已停止" value="stopped" />
-        <el-option label="已禁用" value="disabled" />
+      <el-input v-model="searchKeyword" placeholder="搜索执行ID或脚本名称" style="width: 240px" clearable @change="handleSearch" />
+      <el-select v-model="filterStatus" placeholder="执行状态" style="width: 140px" clearable @change="handleSearch">
+        <el-option label="成功" value="success" />
+        <el-option label="失败" value="failed" />
+        <el-option label="进行中" value="running" />
+        <el-option label="已回滚" value="rolled_back" />
       </el-select>
     </div>
 
     <div class="table-container">
-      <el-table :data="taskList" v-loading="loading" style="width: 100%">
-        <el-table-column prop="name" label="任务名称" min-width="180" />
-        <el-table-column prop="type" label="任务类型" width="120">
-          <template #default="{ row }">
-            <el-tag size="small">{{ getTypeText(row.type) }}</el-tag>
-          </template>
+      <el-table :data="executionList" v-loading="loading" style="width: 100%" :empty-text="emptyText">
+        <el-table-column prop="execution_id" label="执行ID" min-width="140" show-overflow-tooltip />
+        <el-table-column prop="script_name" label="脚本名称" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="start_time" label="开始时间" width="160">
+          <template #default="{ row }">{{ formatTime(row.start_time) }}</template>
         </el-table-column>
-        <el-table-column prop="cron" label="执行周期" width="150" />
-        <el-table-column prop="last_run" label="上次执行" width="160">
-          <template #default="{ row }">{{ formatTime(row.last_run) }}</template>
+        <el-table-column prop="end_time" label="结束时间" width="160">
+          <template #default="{ row }">{{ formatTime(row.end_time) }}</template>
         </el-table-column>
-        <el-table-column prop="next_run" label="下次执行" width="160">
-          <template #default="{ row }">{{ formatTime(row.next_run) }}</template>
+        <el-table-column prop="duration" label="耗时" width="100">
+          <template #default="{ row }">{{ row.duration ? row.duration + 's' : '-' }}</template>
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'running' ? 'success' : row.status === 'stopped' ? 'warning' : 'info'" size="small">
-              {{ row.status === 'running' ? '运行中' : row.status === 'stopped' ? '已停止' : '已禁用' }}
-            </el-tag>
+            <el-tag :type="getStatusType(row.status)" size="small">{{ getStatusText(row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column prop="executor" label="执行人" width="100" show-overflow-tooltip />
+        <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
-            <el-switch v-model="row.enabled" @change="handleToggle(row)" :loading="row.loading" />
-            <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
-            <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
+            <el-button type="primary" link size="small" @click="handleCheckpoint(row)" :loading="row.checkpointLoading">保存检查点</el-button>
+            <el-button type="warning" link size="small" @click="handleRollback(row)" :loading="row.rollbackLoading">回滚</el-button>
           </template>
         </el-table-column>
       </el-table>
 
-      <div class="pagination">
+      <div v-if="!loading && executionList.length === 0" class="empty-state">
+        <el-empty description="暂无执行记录">
+          <el-button type="primary" @click="handleRefresh">刷新页面</el-button>
+        </el-empty>
+      </div>
+
+      <div class="pagination" v-if="pagination.total > 0">
         <el-pagination
           v-model:current-page="pagination.page"
           v-model:page-size="pagination.pageSize"
@@ -64,108 +67,171 @@
         />
       </div>
     </div>
-
-    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="600px">
-      <el-form :model="form" label-width="100px" :rules="rules" ref="formRef">
-        <el-form-item label="任务名称" prop="name">
-          <el-input v-model="form.name" placeholder="请输入任务名称" />
-        </el-form-item>
-        <el-form-item label="任务类型" prop="type">
-          <el-select v-model="form.type" placeholder="请选择任务类型" style="width: 100%">
-            <el-option label="脚本执行" value="script" />
-            <el-option label="API调用" value="api" />
-            <el-option label="数据备份" value="backup" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="CRON表达式" prop="cron">
-          <el-input v-model="form.cron" placeholder="如: 0 0 * * *" />
-        </el-form-item>
-        <el-form-item label="关联脚本" v-if="form.type === 'script'">
-          <el-select v-model="form.script_id" placeholder="请选择脚本" style="width: 100%">
-            <el-option label="系统备份脚本" value="1" />
-            <el-option label="日志清理脚本" value="2" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="描述">
-          <el-input v-model="form.description" type="textarea" :rows="2" placeholder="请输入描述" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitForm">确定</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Refresh } from '@element-plus/icons-vue'
 import { automation } from '@/api'
 import { formatTime } from '@/utils/date'
 
 const loading = ref(false)
 const searchKeyword = ref('')
 const filterStatus = ref('')
-const taskList = ref([])
-const dialogVisible = ref(false)
-const dialogTitle = ref('新建任务')
-const formRef = ref(null)
+const executionList = ref([])
 
 const pagination = reactive({ page: 1, pageSize: 10, total: 0 })
-const form = reactive({ id: null, name: '', type: '', cron: '', script_id: '', description: '' })
-const rules = {
-  name: [{ required: true, message: '请输入任务名称', trigger: 'blur' }],
-  type: [{ required: true, message: '请选择任务类型', trigger: 'change' }],
-  cron: [{ required: true, message: '请输入CRON表达式', trigger: 'blur' }]
-}
+
+const emptyText = computed(() => {
+  if (loading.value) return '加载中...'
+  if (searchKeyword.value || filterStatus.value) return '没有找到匹配的执行记录'
+  return '暂无执行记录'
+})
 
 onMounted(() => { loadData() })
 
 const loadData = async () => {
   loading.value = true
   try {
-    const res = await automation.getTasks({ page: pagination.page, page_size: pagination.pageSize, keyword: searchKeyword.value }).catch(() => ({ items: [], total: 0 }))
-    taskList.value = res.items || []
+    const params = {
+      page: pagination.page,
+      page_size: pagination.pageSize
+    }
+    if (searchKeyword.value) params.keyword = searchKeyword.value
+    if (filterStatus.value) params.status = filterStatus.value
+
+    const res = await automation.getExecutions(params).catch(() => ({ items: [], total: 0 }))
+    executionList.value = (res.items || res.list || []).map(item => ({
+      ...item,
+      checkpointLoading: false,
+      rollbackLoading: false
+    }))
     pagination.total = res.total || 0
-  } catch (error) { console.error('Load tasks error:', error) }
-  finally { loading.value = false }
-}
-
-const handleSearch = () => { pagination.page = 1; loadData() }
-const getTypeText = (t) => ({ script: '脚本执行', api: 'API调用', backup: '数据备份' }[t] || t)
-
-const handleAdd = () => { dialogTitle.value = '新建任务'; Object.assign(form, { id: null, name: '', type: '', cron: '', script_id: '', description: '' }); dialogVisible.value = true }
-const handleEdit = (row) => { dialogTitle.value = '编辑任务'; Object.assign(form, { id: row.id, name: row.name, type: row.type, cron: row.cron, script_id: row.script_id, description: row.description }); dialogVisible.value = true }
-const handleDelete = (row) => { ElMessageBox.confirm(`确定删除任务 "${row.name}" 吗?`, '提示', { type: 'warning' }).then(async () => { try { await automation.deleteTask(row.id); ElMessage.success('删除成功'); loadData() } catch (error) { console.error('Delete error:', error) } }).catch(() => {}) }
-
-const handleToggle = async (row) => {
-  row.loading = true
-  try {
-    await automation.toggleTask(row.id, row.enabled)
-    ElMessage.success(row.enabled ? '任务已启用' : '任务已禁用')
   } catch (error) {
-    row.enabled = !row.enabled
-    console.error('Toggle error:', error)
+    console.error('Load executions error:', error)
+    executionList.value = []
+  } finally {
+    loading.value = false
   }
-  row.loading = false
 }
 
-const submitForm = async () => {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
+const handleSearch = () => {
+  pagination.page = 1
+  loadData()
+}
+
+const handleRefresh = () => {
+  loadData()
+}
+
+const getStatusType = (status) => {
+  const map = {
+    success: 'success',
+    failed: 'danger',
+    running: 'primary',
+    rolled_back: 'warning'
+  }
+  return map[status] || 'info'
+}
+
+const getStatusText = (status) => {
+  const map = {
+    success: '成功',
+    failed: '失败',
+    running: '进行中',
+    rolled_back: '已回滚'
+  }
+  return map[status] || status
+}
+
+const handleCheckpoint = async (row) => {
+  row.checkpointLoading = true
   try {
-    if (form.id) { await automation.updateTask(form.id, form); ElMessage.success('更新成功') }
-    else { await automation.createTask(form); ElMessage.success('创建成功') }
-    dialogVisible.value = false; loadData()
-  } catch (error) { console.error('Submit error:', error) }
+    await automation.checkpoint(row.execution_id, { snapshot_type: 'script_output' })
+    ElMessage.success('检查点保存成功')
+  } catch (error) {
+    console.error('Checkpoint error:', error)
+    ElMessage.error('保存检查点失败')
+  } finally {
+    row.checkpointLoading = false
+  }
+}
+
+const handleRollback = async (row) => {
+  ElMessageBox.confirm(
+    `确定要对执行 ${row.execution_id} 进行回滚吗？这将恢复系统到执行前的状态。`,
+    '确认回滚',
+    { type: 'warning' }
+  ).then(async () => {
+    row.rollbackLoading = true
+    try {
+      await automation.rollback(row.execution_id, {})
+      ElMessage.success('回滚操作已提交')
+      loadData()
+    } catch (error) {
+      console.error('Rollback error:', error)
+      ElMessage.error('回滚操作失败')
+    } finally {
+      row.rollbackLoading = false
+    }
+  }).catch(() => {})
 }
 </script>
 
 <style lang="scss" scoped>
-.filter-bar { display: flex; gap: 12px; margin-bottom: 16px; padding: 16px; background: #fff; border-radius: 8px; }
-.pagination { display: flex; justify-content: flex-end; margin-top: 16px; }
-:deep(.el-table .el-table__header th) { background: #f7f8fa; }
-:deep(.el-switch) { margin-right: 12px; }
+.page-container {
+  padding: 24px;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.page-subtitle {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: #909399;
+}
+
+.filter-bar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 16px;
+  background: #fff;
+  border-radius: 8px;
+}
+
+.table-container {
+  background: #fff;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.empty-state {
+  padding: 60px 0;
+  text-align: center;
+}
+
+.pagination {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+:deep(.el-table .el-table__header th) {
+  background: #f7f8fa;
+}
 </style>

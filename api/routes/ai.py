@@ -124,7 +124,7 @@ async def _llm_stream_generator(
     full_content = ""
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(timeout)) as client:
-            async with client.stream("POST", f"{base_url}/api/chat", json=payload) as resp:
+            async with client.stream("POST", f"{base_url}/v1/chat/completions", json=payload) as resp:
                 buffer = ""
                 depth = 0
                 in_string = False
@@ -268,7 +268,7 @@ async def chat_debug(
         }
         try:
             async with httpx.AsyncClient(timeout=httpx.Timeout(120.0)) as client:
-                async with client.stream("POST", "http://host.docker.internal:11435/api/chat", json=payload) as resp:
+                async with client.stream("POST", "http://host.docker.internal:11435/v1/chat/completions", json=payload) as resp:
                     async for line in resp.aiter_lines():
                         if line:
                             try:

@@ -176,6 +176,72 @@ async def create_inspection_task(
     }
 
 
+class InspectionTaskUpdate(BaseModel):
+    """更新巡检任务请求"""
+    name: Optional[str] = Field(None, description="巡检任务名称")
+    description: Optional[str] = Field(None, description="任务描述")
+    inspection_type: Optional[str] = Field(None, description="巡检类型")
+    target_type: Optional[str] = Field(None, description="巡检对象类型")
+    target_ids: Optional[List[int]] = Field(None, description="巡检对象ID列表")
+    check_items: Optional[List[dict]] = Field(None, description="巡检项定义")
+    schedule_type: Optional[str] = Field(None, description="调度类型")
+
+
+@router.put("/tasks/{task_id}", summary="更新巡检任务")
+async def update_inspection_task(
+    task_id: int,
+    request: InspectionTaskUpdate,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """更新巡检任务"""
+    task = db.query(InspectionTask).filter(InspectionTask.id == task_id).first()
+    
+    if not task:
+        raise HTTPException(status_code=404, detail="巡检任务不存在")
+    
+    update_data = request.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(task, key, value)
+    
+    task.updated_by = current_user.username
+    
+    db.commit()
+    db.refresh(task)
+    
+    return {
+        "data": {
+            'id': task.id,
+            'task_no': task.task_no,
+            'name': task.name,
+            'status': task.status,
+        },
+        "code": 0,
+        "message": "巡检任务更新成功"
+    }
+
+
+@router.delete("/tasks/{task_id}", summary="删除巡检任务")
+async def delete_inspection_task(
+    task_id: int,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """删除巡检任务"""
+    task = db.query(InspectionTask).filter(InspectionTask.id == task_id).first()
+    
+    if not task:
+        raise HTTPException(status_code=404, detail="巡检任务不存在")
+    
+    db.delete(task)
+    db.commit()
+    
+    return {
+        "code": 0,
+        "message": "巡检任务删除成功"
+    }
+
+
 # ============== 巡检报告接口 ==============
 
 @router.get("/reports/{task_id}", summary="获取巡检报告")
