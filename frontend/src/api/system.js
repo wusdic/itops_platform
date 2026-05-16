@@ -3,48 +3,66 @@ import request from './request'
 export const auth = {
   login: (data) => request.post('/auth/login', data),
   logout: () => request.post('/auth/logout'),
-  getUserInfo: () => request.get('/auth/userinfo')
+  getUserInfo: () => request.get('/auth/userinfo'),
+  register: (data) => request.post('/auth/register', data),
+  changePassword: (data) => request.put('/auth/password', data),
+  refreshToken: () => request.post('/auth/refresh')
 }
 
 export const user = {
-  getList: (params) => request.get('/system/user/list', { params }),
-  getById: (id) => request.get(`/system/user/${id}`),
-  create: (data) => request.post('/system/user', data),
-  update: (id, data) => request.put(`/system/user/${id}`, data),
-  delete: (id) => request.delete(`/system/user/${id}`),
-  resetPassword: (id) => request.post(`/system/user/${id}/reset-password`),
-  changeStatus: (id, status) => request.put(`/system/user/${id}/status`, { status })
+  getList: (params) => request.get('/admin/users', { params }),
+  getById: (id) => request.get(`/admin/users/${id}`),
+  create: (data) => request.post('/admin/users', data),
+  update: (id, data) => request.put(`/admin/users/${id}`, data),
+  delete: (id) => request.delete(`/admin/users/${id}`),
+  resetPassword: (id) => request.post(`/admin/users/${id}/reset-password`),
+  changeStatus: (id, status) => request.put(`/admin/users/${id}/status`, { status })
 }
 
 export const role = {
-  getList: (params) => request.get('/system/role/list', { params }),
-  getById: (id) => request.get(`/system/role/${id}`),
-  create: (data) => request.post('/system/role', data),
-  update: (id, data) => request.put(`/system/role/${id}`, data),
-  delete: (id) => request.delete(`/system/role/${id}`),
-  getPermissions: (id) => request.get(`/system/role/${id}/permissions`),
-  assignPermissions: (id, data) => request.post(`/system/role/${id}/permissions`, data)
+  getList: (params) => request.get('/admin/roles', { params }),
+  getById: (id) => request.get(`/admin/roles/${id}`),
+  create: (data) => request.post('/admin/roles', data),
+  update: (id, data) => request.put(`/admin/roles/${id}`, data),
+  delete: (id) => request.delete(`/admin/roles/${id}`),
+  getPermissions: (id) => request.get(`/admin/permissions`)
 }
 
 export const menu = {
-  getList: () => request.get('/system/menu/list'),
-  getById: (id) => request.get(`/system/menu/${id}`),
-  create: (data) => request.post('/system/menu', data),
-  update: (id, data) => request.put(`/system/menu/${id}`, data),
-  delete: (id) => request.delete(`/system/menu/${id}`)
+  getList: () => request.get('/admin/menu'),
+  getById: (id) => request.get(`/admin/menu/${id}`),
+  create: (data) => request.post('/admin/menu', data),
+  update: (id, data) => request.put(`/admin/menu/${id}`, data),
+  delete: (id) => request.delete(`/admin/menu/${id}`)
 }
 
 export const dict = {
-  getList: (params) => request.get('/system/dict/list', { params }),
-  getById: (id) => request.get(`/system/dict/${id}`),
-  create: (data) => request.post('/system/dict', data),
-  update: (id, data) => request.put(`/system/dict/${id}`, data),
-  delete: (id) => request.delete(`/system/dict/${id}`),
-  getItems: (type) => request.get(`/system/dict/${type}/items`)
+  getList: (params) => request.get('/admin/dict', { params }),
+  getById: (id) => request.get(`/admin/dict/${id}`),
+  create: (data) => request.post('/admin/dict', data),
+  update: (id, data) => request.put(`/admin/dict/${id}`, data),
+  delete: (id) => request.delete(`/admin/dict/${id}`),
+  getItems: (type) => request.get(`/admin/dict/${type}/items`)
 }
 
 export const config = {
-  getList: (params) => request.get('/system/config/list', { params }),
-  getByKey: (key) => request.get(`/system/config/${key}`),
-  update: (key, data) => request.put(`/system/config/${key}`, data)
+  getList: () => request.get('/admin/config'),
+  getByKey: (key) => request.get(`/admin/config/${key}`),
+  update: (key, data) => request.put(`/admin/config/${key}`, data)
+}
+
+export const system = {
+  getInfo: () => request.get('/admin/info'),
+  getMetrics: () => request.get('/admin/metrics'),
+  getLogs: (params) => request.get('/admin/logs', { params }),
+  getHealth: () => request.get('/admin/health'),
+  clearCache: () => request.post('/admin/cache/clear'),
+  getApiKeys: (params) => request.get('/admin/api-keys', { params }),
+  createApiKey: (data) => request.post('/admin/api-keys', data),
+  getApiKeyById: (id) => request.get(`/admin/api-keys/${id}`),
+  updateApiKey: (id, data) => request.put(`/admin/api-keys/${id}`, data),
+  deleteApiKey: (id) => request.delete(`/admin/api-keys/${id}`),
+  revokeApiKey: (id) => request.post(`/admin/api-keys/${id}/revoke`),
+  activateApiKey: (id) => request.post(`/admin/api-keys/${id}/activate`),
+  rotateApiKey: (id) => request.post(`/admin/api-keys/${id}/rotate`)
 }

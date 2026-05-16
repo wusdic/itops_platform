@@ -352,7 +352,8 @@ class IPScanner:
     async def _tcp_ping_fallback(self, ip: str) -> tuple:
         """TCP ping fallback - try to connect to common ports"""
         try:
-            for port in [80, 443, 22, 445]:
+            # 扩展常见端口列表，覆盖更多服务
+            for port in [80, 443, 22, 445, 3306, 3389, 8080, 8443, 8000, 6379, 5432, 27017, 9200, 2375]:
                 if await self._tcp_check(ip, [port]):
                     return True, 64, None  # Assume TTL of 64 for responsive hosts
             return False, None, None

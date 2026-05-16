@@ -20,14 +20,6 @@
         <el-form-item prop="password">
           <el-input v-model="form.password" type="password" placeholder="请输入密码" size="large" prefix-icon="Lock" show-password />
         </el-form-item>
-        <el-form-item prop="captcha">
-          <div class="captcha-row">
-            <el-input v-model="form.captcha" placeholder="请输入验证码" size="large" prefix-icon="CircleCheck" style="flex: 1" @keyup.enter="handleLogin" />
-            <div class="captcha-img" @click="refreshCaptcha">
-              <img v-if="captchaUrl" :src="captchaUrl" alt="验证码" />
-            </div>
-          </div>
-        </el-form-item>
         <el-form-item>
           <el-checkbox v-model="form.remember">记住密码</el-checkbox>
         </el-form-item>
@@ -40,6 +32,7 @@
 
       <div class="login-footer">
         <span class="copyright">© 2024 智能运维平台 v3.0</span>
+        <span class="default-hint">默认账号: admin / Admin@123456</span>
       </div>
     </div>
   </div>
@@ -56,34 +49,25 @@ const router = useRouter()
 const appStore = useAppStore()
 const formRef = ref(null)
 const loading = ref(false)
-const captchaUrl = ref('')
 
 const form = reactive({
-  username: '',
-  password: '',
-  captcha: '',
+  username: 'admin',
+  password: 'Admin@123456',
   remember: false
 })
 
 const rules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
-  captcha: [{ required: true, message: '请输入验证码', trigger: 'blur' }]
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
 }
 
 onMounted(() => {
-  // 填充记住的用户名
   const savedUsername = localStorage.getItem('savedUsername')
   if (savedUsername) {
     form.username = savedUsername
     form.remember = true
   }
-  refreshCaptcha()
 })
-
-const refreshCaptcha = () => {
-  captchaUrl.value = `/api/v1/auth/captcha?t=${Date.now()}`
-}
 
 const handleLogin = async () => {
   const valid = await formRef.value.validate().catch(() => false)
@@ -91,17 +75,20 @@ const handleLogin = async () => {
 
   loading.value = true
   try {
+    // 后端返回: { access_token, token_type, user }
     const res = await auth.login({
       username: form.username,
-      password: form.password,
-      captcha: form.captcha
+      password: form.password
     })
 
-    // 保存token和用户信息
-    appStore.setToken(res.token)
-    appStore.setUserInfo(res.userInfo)
+    // 保存token（后端返回 access_token）
+    const token = res.access_token
+    localStorage.setItem('token', token)
 
-    // 记住用户名
+    // 后端返回 user 对象
+    const userInfo = res.user || {}
+    localStorage.setItem('userInfo', JSON.stringify(userInfo))
+
     if (form.remember) {
       localStorage.setItem('savedUsername', form.username)
     } else {
@@ -112,7 +99,7 @@ const handleLogin = async () => {
     router.push('/dashboard')
   } catch (error) {
     console.error('Login error:', error)
-    refreshCaptcha()
+    ElMessage.error(error.message || '登录失败')
   } finally {
     loading.value = false
   }
@@ -190,6 +177,13 @@ const handleLogin = async () => {
   margin-top: 24px;
 
   .copyright {
+    font-size: 12px;
+    color: #86909c;
+  }
+
+  .default-hint {
+    display: block;
+    margin-top: 8px;
     font-size: 12px;
     color: #86909c;
   }

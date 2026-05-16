@@ -222,8 +222,9 @@ services:
   frontend:
     image: node:18-alpine
     container_name: itops-frontend
+    restart: unless-stopped
     working_dir: /app
-    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    command: sh -c "npm install && npm run dev -- --port 3000"
     ports:
       - "3000:3000"
     volumes:
@@ -233,7 +234,7 @@ services:
     networks:
       - itops-network
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000 || wget -q -O /dev/null http://localhost:3000 || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000 || exit 1"]
       interval: 30s
       timeout: 15s
       retries: 5

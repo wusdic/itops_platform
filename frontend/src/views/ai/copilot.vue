@@ -1,137 +1,197 @@
 <template>
-  <div class="page-container">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">分类管理</h1>
-        <p class="page-subtitle">知识库分类管理</p>
+  <div class="ai-copilot">
+    <!-- 侧边栏 -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <h3>AI 智能问答</h3>
+        <el-button type="primary" size="small" @click="newChat">新建对话</el-button>
       </div>
-      <div class="page-actions">
-        <el-button type="primary" @click="handleAdd">
-          <el-icon><Plus /></el-icon> 新建分类
-        </el-button>
+      <div class="conversation-list">
+        <div v-for="conv in conversations" :key="conv.id" :class="['conversation-item', { active: conv.id === currentConvId }]" @click="selectConv(conv.id)">
+          <span class="conv-title">{{ conv.title || '新对话' }}</span>
+          <el-icon class="delete-btn" @click.stop="deleteConv(conv.id)"><Delete /></el-icon>
+        </div>
+        <div v-if="conversations.length === 0" class="empty-tip">暂无历史对话</div>
       </div>
     </div>
 
-    <div class="table-container">
-      <el-table :data="categoryList" v-loading="loading" style="width: 100%" row-key="id" :tree-props="{ children: 'children' }">
-        <el-table-column prop="name" label="分类名称" min-width="200" />
-        <el-table-column prop="code" label="分类编码" width="150" />
-        <el-table-column prop="sort" label="排序" width="100" />
-        <el-table-column prop="status" label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="row.status === '1' ? 'success' : 'info'" size="small">{{ row.status === '1' ? '启用' : '禁用' }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="updated_at" label="更新时间" width="180">
-          <template #default="{ row }">{{ formatTime(row.updated_at) }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
-          <template #default="{ row }">
-            <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
-            <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </div>
+    <!-- 聊天区域 -->
+    <div class="chat-area">
+      <!-- 消息列表 -->
+      <div class="messages" ref="messagesRef">
+        <div v-for="(msg, idx) in messages" :key="idx" :class="['message', msg.role]">
+          <div class="message-avatar">
+            <el-avatar :size="32" :icon="msg.role === 'user' ? 'UserFilled' : 'ChatDotRound'" />
+          </div>
+          <div class="message-content">
+            <div class="message-header">
+              <span>{{ msg.role === 'user' ? '我' : 'AI助手' }}</span>
+              <span class="time">{{ formatTime(msg.timestamp) }}</span>
+            </div>
+            <div class="message-text" v-html="renderMarkdown(msg.content)"></div>
+          </div>
+        </div>
+        <div v-if="aiLoading" class="message ai">
+          <div class="message-avatar">
+            <el-avatar :size="32" icon="ChatDotRound" />
+          </div>
+          <div class="message-content">
+            <div class="message-text typing">
+              <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            </div>
+          </div>
+        </div>
+      </div>
 
-    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="500px">
-      <el-form :model="form" label-width="100px" :rules="rules" ref="formRef">
-        <el-form-item label="上级分类" prop="parent_id">
-          <el-tree-select v-model="form.parent_id" :data="treeData" placeholder="请选择上级分类" clearable check-strictly style="width: 100%" />
-        </el-form-item>
-        <el-form-item label="分类名称" prop="name">
-          <el-input v-model="form.name" placeholder="请输入分类名称" />
-        </el-form-item>
-        <el-form-item label="分类编码" prop="code">
-          <el-input v-model="form.code" placeholder="请输入分类编码" />
-        </el-form-item>
-        <el-form-item label="排序" prop="sort">
-          <el-input-number v-model="form.sort" :min="0" :max="999" />
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-radio-group v-model="form.status">
-            <el-radio value="1">启用</el-radio>
-            <el-radio value="0">禁用</el-radio>
-          </el-radio-group>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitForm">确定</el-button>
-      </template>
-    </el-dialog>
+      <!-- 输入区域 -->
+      <div class="input-area">
+        <el-input v-model="inputText" type="textarea" :rows="2" placeholder="输入问题，AI将为你解答..." @keydown.enter.ctrl="sendMessage" />
+        <div class="input-actions">
+          <span class="char-count">{{ inputText.length }} 字</span>
+          <el-button type="primary" @click="sendMessage" :loading="aiLoading" :disabled="!inputText.trim()">发送 (Ctrl+Enter)</el-button>
+          <el-button @click="clearMessages">清空对话</el-button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
-import { knowledge } from '@/api'
-import { formatTime } from '@/utils/date'
+import { ref, onMounted, nextTick } from 'vue'
+import { ElMessage } from 'element-plus'
 
-const loading = ref(false)
-const categoryList = ref([])
-const dialogVisible = ref(false)
-const dialogTitle = ref('新建分类')
-const formRef = ref(null)
+const inputText = ref('')
+const messages = ref([])
+const aiLoading = ref(false)
+const messagesRef = ref(null)
+const conversations = ref([])
+const currentConvId = ref(null)
 
-const form = reactive({ id: null, parent_id: null, name: '', code: '', sort: 0, status: '1' })
-const rules = {
-  name: [{ required: true, message: '请输入分类名称', trigger: 'blur' }],
-  code: [{ required: true, message: '请输入分类编码', trigger: 'blur' }]
+const token = () => localStorage.getItem('token')
+
+const scrollBottom = () => {
+  nextTick(() => {
+    if (messagesRef.value) {
+      messagesRef.value.scrollTop = messagesRef.value.scrollHeight
+    }
+  })
 }
 
-const treeData = computed(() => [{ id: 0, label: '顶级分类', children: categoryList.value.map(c => ({ id: c.id, label: c.name })) }])
+const renderMarkdown = (text) => {
+  if (!text) return ''
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replace(/\n/g, '<br>')
+}
 
-onMounted(() => { loadData() })
+const sendMessage = async () => {
+  const text = inputText.value.trim()
+  if (!text || aiLoading.value) return
 
-const loadData = async () => {
-  loading.value = true
+  messages.value.push({ role: 'user', content: text, timestamp: Date.now() })
+  inputText.value = ''
+  aiLoading.value = true
+  scrollBottom()
+
   try {
-    const res = await knowledge.getCategory().catch(() => [])
-    categoryList.value = res || []
-  } catch (error) { console.error('Load category error:', error) }
-  finally { loading.value = false }
+    const res = await fetch('/api/v1/ai/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token()}`
+      },
+      body: JSON.stringify({ messages: messages.value.map(m => ({ role: m.role, content: m.content })) })
+    })
+
+    if (!res.ok) throw new Error('请求失败')
+
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let fullContent = ''
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      const chunk = decoder.decode(value, { stream: true })
+      fullContent += chunk
+    }
+
+    messages.value.push({ role: 'assistant', content: fullContent.trim(), timestamp: Date.now() })
+  } catch (e) {
+    ElMessage.error('AI响应失败: ' + e.message)
+    messages.value.push({ role: 'assistant', content: '抱歉，AI服务暂时不可用。', timestamp: Date.now() })
+  } finally {
+    aiLoading.value = false
+    scrollBottom()
+  }
 }
 
-const handleAdd = () => {
-  dialogTitle.value = '新建分类'
-  Object.assign(form, { id: null, parent_id: null, name: '', code: '', sort: 0, status: '1' })
-  dialogVisible.value = true
+const clearMessages = () => {
+  messages.value = []
 }
 
-const handleEdit = (row) => {
-  dialogTitle.value = '编辑分类'
-  Object.assign(form, { id: row.id, parent_id: row.parent_id, name: row.name, code: row.code, sort: row.sort, status: row.status })
-  dialogVisible.value = true
+const newChat = () => {
+  currentConvId.value = null
+  messages.value = []
 }
 
-const handleDelete = (row) => {
-  ElMessageBox.confirm(`确定删除分类 "${row.name}" 吗?`, '提示', { type: 'warning' })
-    .then(async () => {
-      try { await knowledge.deleteCategory(row.id); ElMessage.success('删除成功'); loadData() }
-      catch (error) { console.error('Delete error:', error) }
-    }).catch(() => {})
+const selectConv = (id) => {
+  currentConvId.value = id
 }
 
-const submitForm = async () => {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
-  try {
-    if (form.id) { await knowledge.updateCategory(form.id, form); ElMessage.success('更新成功') }
-    else { await knowledge.createCategory(form); ElMessage.success('创建成功') }
-    dialogVisible.value = false; loadData()
-  } catch (error) { console.error('Submit error:', error) }
+const deleteConv = async (id) => {
+  conversations.value = conversations.value.filter(c => c.id !== id)
 }
+
+const formatTime = (ts) => {
+  if (!ts) return ''
+  const d = new Date(ts)
+  return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
+}
+
+onMounted(() => {
+  messages.value = [
+    { role: 'assistant', content: '你好！我是AI运维助手，有什么可以帮你解答的吗？', timestamp: Date.now() }
+  ]
+})
 </script>
 
-<script>
-import { computed } from 'vue'
-export default { name: 'KnowledgeCategory' }
-</script>
-
-<style lang="scss" scoped>
-.pagination { display: flex; justify-content: flex-end; margin-top: 16px; }
-:deep(.el-table .el-table__header th) { background: #f7f8fa; }
+<style scoped>
+.ai-copilot { display: flex; height: calc(100vh - 60px); background: #f5f7fa; }
+.sidebar { width: 260px; background: #fff; border-right: 1px solid #e4e7ed; display: flex; flex-direction: column; }
+.sidebar-header { padding: 16px; border-bottom: 1px solid #e4e7ed; display: flex; justify-content: space-between; align-items: center; }
+.sidebar-header h3 { margin: 0; font-size: 16px; }
+.conversation-list { flex: 1; overflow-y: auto; padding: 8px; }
+.conversation-item { padding: 10px 12px; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.conversation-item:hover, .conversation-item.active { background: #f0f2f5; }
+.conv-title { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.delete-btn { opacity: 0; font-size: 14px; }
+.conversation-item:hover .delete-btn { opacity: 1; }
+.empty-tip { text-align: center; color: #999; padding: 20px; font-size: 13px; }
+.chat-area { flex: 1; display: flex; flex-direction: column; }
+.messages { flex: 1; overflow-y: auto; padding: 20px; }
+.message { display: flex; gap: 12px; margin-bottom: 20px; }
+.message.user { flex-direction: row-reverse; }
+.message-text { background: #fff; padding: 12px 16px; border-radius: 12px; max-width: 70%; line-height: 1.6; box-shadow: 0 1px 4px rgba(0,0,0,0.08); font-size: 14px; }
+.message.user .message-text { background: #409eff; color: #fff; }
+.message-text pre { background: #f6f8fa; padding: 8px; border-radius: 4px; overflow-x: auto; margin: 8px 0; }
+.message-text code { background: #f6f8fa; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+.message.user .message-text code { background: rgba(255,255,255,0.2); }
+.typing { display: flex; gap: 4px; padding: 12px 16px; }
+.typing .dot { width: 8px; height: 8px; background: #909399; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out; }
+.typing .dot:nth-child(1) { animation-delay: -0.32s; }
+.typing .dot:nth-child(2) { animation-delay: -0.16s; }
+@keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+.message-header { font-size: 12px; color: #909399; margin-bottom: 4px; display: flex; gap: 8px; }
+.message.user .message-header { flex-direction: row-reverse; }
+.time { font-size: 11px; }
+.input-area { padding: 16px 20px; background: #fff; border-top: 1px solid #e4e7ed; }
+.input-actions { display: flex; justify-content: flex-end; gap: 8px; align-items: center; margin-top: 8px; }
+.char-count { font-size: 12px; color: #999; margin-right: auto; }
 </style>

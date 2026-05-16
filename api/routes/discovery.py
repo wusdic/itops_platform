@@ -163,9 +163,10 @@ async def get_ip_scan_results(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/ip/scan/sync", summary="同步IP范围扫描")
+@router.post("/ip/scan/sync", summary="同步IP范围扫描（增强版）")
 async def sync_ip_scan(
     request: IPScanRequest,
+    enhanced: bool = Query(False, description="启用增强扫描（含指纹识别和认证探测）"),
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """
@@ -173,21 +174,35 @@ async def sync_ip_scan(
     
     对于 /24 及以下范围，返回完整扫描结果
     对于更大范围，建议使用异步扫描接口
+    
+    如果 enhanced=True，则启用增强扫描，包括：
+    - 设备指纹识别（厂商、型号、类型）
+    - 自动认证探测（默认凭据尝试）
+    - 采集协议推荐
     """
     try:
-        from modules.collection.discovery.scanner import get_scanner
-        
-        scanner = get_scanner()
-        
-        # 执行扫描
-        results = await scanner.scan_ip_range(request.cidr)
-        
-        return {
-            "cidr": request.cidr,
-            "total_hosts": len(results),
-            "hosts": [h.to_dict() for h in results],
-            "scan_time": datetime.now().isoformat(),
-        }
+        if enhanced:
+            from modules.collection.discovery.enhanced_scanner import get_enhanced_scanner
+            scanner = get_enhanced_scanner()
+            results = await scanner.scan_and_identify(request.cidr)
+            return {
+                "cidr": request.cidr,
+                "total_hosts": len(results),
+                "hosts": [h.to_dict() for h in results],
+                "scan_mode": "enhanced",
+                "scan_time": datetime.now().isoformat(),
+            }
+        else:
+            from modules.collection.discovery.scanner import get_scanner
+            scanner = get_scanner()
+            results = await scanner.scan_ip_range(request.cidr)
+            return {
+                "cidr": request.cidr,
+                "total_hosts": len(results),
+                "hosts": [h.to_dict() for h in results],
+                "scan_mode": "basic",
+                "scan_time": datetime.now().isoformat(),
+            }
         
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

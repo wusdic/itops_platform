@@ -339,7 +339,7 @@ async def get_captcha():
 # ============== API路由 ==============
 
 @router.post("/login", tags=["认证"])
-async def login(login_data: LoginRequest, db: Session = Depends(get_db)):
+async def login(login_data: LoginRequest):
     """
     用户登录
 
@@ -378,7 +378,7 @@ async def login(login_data: LoginRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=Token, include_in_schema=False)
-async def login_form(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+async def login_form(form_data: OAuth2PasswordRequestForm = Depends()):
     """OAuth2兼容的登录表单"""
     settings = get_settings()
     

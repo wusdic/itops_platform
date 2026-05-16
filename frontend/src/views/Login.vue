@@ -64,7 +64,7 @@
 
       <!-- 底部信息 -->
       <div class="login-footer">
-        <span>默认账号: admin / admin123</span>
+        <span>默认账号: admin / Admin@123456</span>
       </div>
     </div>
   </div>
@@ -83,7 +83,7 @@ const loading = ref(false)
 
 const loginForm = reactive({
   username: 'admin',
-  password: 'admin123',
+  password: 'Admin@123456',
   remember: false
 })
 
