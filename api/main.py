@@ -225,7 +225,7 @@ def create_app() -> FastAPI:
 
     app.include_router(
         device_router,
-        prefix="/api/v1/devices",
+        prefix="",
         tags=["设备管理"],
     )
 

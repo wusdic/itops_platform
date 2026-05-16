@@ -1,5 +1,9 @@
 <template>
-  <div class="app-wrapper" :class="{ 'sidebar-collapsed': isCollapsed }">
+  <!-- 未登录：全屏显示登录页 -->
+  <router-view v-if="!isLoggedIn" />
+
+  <!-- 已登录：完整布局 -->
+  <div v-else class="app-wrapper" :class="{ 'sidebar-collapsed': isCollapsed }">
     <!-- 侧边栏 -->
     <aside v-if="isLoggedIn" class="sidebar">
       <div class="sidebar-header">

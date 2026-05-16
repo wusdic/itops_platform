@@ -54,6 +54,10 @@ export const performance = {
   getHosts: () => request.get('/monitoring/metrics/hosts'),
   getAvailable: () => request.get('/monitoring/metrics/available'),
   query: (data) => request.post('/monitoring/metrics/query', data),
+  // 设备指标历史（从device_manager获取最新数据）
+  getDeviceMetricsHistory: (deviceName, metricType, hours = 24) => 
+    request.get(`/devices/${deviceName}/metrics/history`, { params: { metric_type: metricType, hours } }),
+  getDeviceMetrics: (deviceName) => request.get(`/devices/${deviceName}/metrics`),
   // 触发规则
   getTriggerRules: (params) => request.get('/monitoring/trigger-rules', { params }),
   createTriggerRule: (data) => request.post('/monitoring/trigger-rules', data),

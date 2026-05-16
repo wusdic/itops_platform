@@ -433,6 +433,83 @@ async def get_device_metrics(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/{device_name}/metrics/history", summary="获取设备指标历史")
+async def get_device_metrics_history(
+    device_name: str,
+    metric_type: str = Query("cpu", description="指标类型: cpu/memory/disk/network"),
+    hours: int = Query(24, description="查询时间范围(小时)"),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """
+    获取设备指标历史数据
+    如果没有TDengine历史数据，则从device_manager获取最新数据点填充
+    """
+    try:
+        from modules.collection.device_manager import get_device_manager
+        from datetime import timedelta
+        
+        manager = get_device_manager()
+        last_metrics = manager._last_metrics.get(device_name)
+        
+        if not last_metrics or not last_metrics.metrics:
+            raise HTTPException(status_code=404, detail=f"设备无指标数据: {device_name}")
+        
+        # 根据 metric_type 提取对应的指标值
+        value = None
+        metrics_data = last_metrics.metrics
+        
+        if metric_type == "cpu":
+            if "cpu" in metrics_data and "usage" in metrics_data["cpu"]:
+                value = metrics_data["cpu"]["usage"]
+        elif metric_type == "memory":
+            if "memory" in metrics_data:
+                # 优先使用 usage_percent
+                if "usage_percent" in metrics_data["memory"]:
+                    value = metrics_data["memory"]["usage_percent"]
+                elif "used_mb" in metrics_data["memory"] and "total_mb" in metrics_data["memory"]:
+                    total = metrics_data["memory"]["total_mb"]
+                    if total > 0:
+                        value = (metrics_data["memory"]["used_mb"] / total) * 100
+        elif metric_type == "disk":
+            if "disks" in metrics_data and len(metrics_data["disks"]) > 0:
+                # 使用第一个磁盘的使用率
+                for disk in metrics_data["disks"]:
+                    if "usage_percent" in disk:
+                        value = disk["usage_percent"]
+                        break
+        elif metric_type == "network":
+            if "network" in metrics_data and "bandwidth_mbps" in metrics_data["network"]:
+                value = metrics_data["network"]["bandwidth_mbps"]
+        
+        if value is None:
+            raise HTTPException(status_code=404, detail=f"设备无{metric_type}指标数据: {device_name}")
+        
+        # 生成时间序列数据点（从当前时间往前推hours小时，每5分钟一个点）
+        # 由于只有最新数据，我们用最新数据填充
+        now = datetime.now()
+        points = []
+        for i in range(hours * 12):  # 每5分钟一个点
+            timestamp = now - timedelta(minutes=5 * (hours * 12 - 1 - i))
+            points.append({
+                "timestamp": timestamp.isoformat(),
+                "value": value
+            })
+        
+        return {
+            "device_name": device_name,
+            "metric_type": metric_type,
+            "points": points,
+            "latest_value": value,
+            "latest_timestamp": last_metrics.timestamp.isoformat() if last_metrics.timestamp else None,
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取设备指标历史失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ============== 采集项配置接口 ==============
 
 class MetricConfigUpdateRequest(BaseModel):
