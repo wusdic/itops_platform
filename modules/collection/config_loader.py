@@ -598,9 +598,9 @@ def get_device_metric_configs(device_id: int = None, device_name: str = None,
         配置列表
     """
     from modules.foundation.db_models.monitoring import DeviceMetricConfig
-    from modules.foundation.db.client import get_db_session
+    from core.db.base import get_db_session
     
-    with get_db_session() as session:
+    with db_session() as session:
         query = session.query(DeviceMetricConfig)
         
         if device_id is not None:
@@ -637,10 +637,10 @@ def create_device_metric_config(device_id: int, device_name: str, metric_name: s
         创建的配置字典
     """
     from modules.foundation.db_models.monitoring import DeviceMetricConfig
-    from modules.foundation.db.client import get_db_session
+    from core.db.base import get_db_session
     
     try:
-        with get_db_session() as session:
+        with db_session() as session:
             config = DeviceMetricConfig(
                 device_id=device_id,
                 device_name=device_name,
@@ -674,10 +674,10 @@ def update_device_metric_config(device_id: int, metric_name: str, **updates) -> 
         更新后的配置字典
     """
     from modules.foundation.db_models.monitoring import DeviceMetricConfig
-    from modules.foundation.db.client import get_db_session
+    from core.db.base import get_db_session
     
     try:
-        with get_db_session() as session:
+        with db_session() as session:
             config = session.query(DeviceMetricConfig).filter(
                 DeviceMetricConfig.device_id == device_id,
                 DeviceMetricConfig.metric_name == metric_name
@@ -710,10 +710,10 @@ def delete_device_metric_config(device_id: int, metric_name: str) -> bool:
         是否删除成功
     """
     from modules.foundation.db_models.monitoring import DeviceMetricConfig
-    from modules.foundation.db.client import get_db_session
+    from core.db.base import get_db_session
     
     try:
-        with get_db_session() as session:
+        with db_session() as session:
             config = session.query(DeviceMetricConfig).filter(
                 DeviceMetricConfig.device_id == device_id,
                 DeviceMetricConfig.metric_name == metric_name
@@ -738,7 +738,7 @@ def get_metric_categories_summary() -> List[Dict[str, Any]]:
         类别统计列表
     """
     from modules.foundation.db_models.monitoring import DeviceMetricConfig
-    from modules.foundation.db.client import get_db_session
+    from core.db.base import get_db_session
     
     DEFAULT_CATEGORIES = [
         {"category": "cpu", "name": "CPU", "description": "CPU相关指标"},
@@ -751,7 +751,7 @@ def get_metric_categories_summary() -> List[Dict[str, Any]]:
         {"category": "security", "name": "安全", "description": "安全相关指标"},
     ]
     
-    with get_db_session() as session:
+    with db_session() as session:
         # 统计各类别的配置数量
         for cat in DEFAULT_CATEGORIES:
             count = session.query(DeviceMetricConfig).filter(

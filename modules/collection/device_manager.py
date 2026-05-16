@@ -8,6 +8,7 @@
 
 import asyncio
 import logging
+import subprocess
 from typing import Any, Callable, Dict, List, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -134,9 +135,9 @@ class DeviceManager:
         """
         try:
             from modules.foundation.db_models.device import Device, DeviceType as DBDeviceType
-            from modules.foundation.db.client import get_db_session
+            from modules.foundation.db_models.base import _db_manager
             
-            with get_db_session() as session:
+            with _db_manager.session_scope() as session:
                 # 按名称或主机名查询设备
                 device = session.query(Device).filter(
                     (Device.name == device_name) | (Device.hostname == device_name)
@@ -238,10 +239,10 @@ class DeviceManager:
         """
         try:
             from modules.foundation.db_models.device import Device
-            from modules.foundation.db.client import get_db_session
+            from modules.foundation.db_models.base import _db_manager
             
             devices = []
-            with get_db_session() as session:
+            with _db_manager.session_scope() as session:
                 db_devices = session.query(Device).all()
                 for d in db_devices:
                     # 跳过退役设备
@@ -272,8 +273,8 @@ class DeviceManager:
         """更新数据库中的设备状态"""
         try:
             from modules.foundation.db_models.device import Device, DeviceStatus as DBDeviceStatus
-            from modules.foundation.db.client import get_db_session
-            
+            from modules.foundation.db_models.base import _db_manager
+
             # 映射状态
             status_mapping = {
                 CollectionStatus.ONLINE: DBDeviceStatus.ONLINE,
@@ -282,8 +283,8 @@ class DeviceManager:
                 CollectionStatus.UNKNOWN: DBDeviceStatus.UNKNOWN,
             }
             db_status = status_mapping.get(status, DBDeviceStatus.OFFLINE)
-            
-            with get_db_session() as session:
+
+            with _db_manager.session_scope() as session:
                 device = session.query(Device).filter(Device.name == device_name).first()
                 if device:
                     device.status = db_status
@@ -457,14 +458,53 @@ class DeviceManager:
     
     def _collect_snmp(self, collector, device_config: Dict) -> DeviceMetrics:
         """SNMP采集"""
+        device_name = device_config.get('name')
+        device_ip = device_config.get('ip')
         try:
+            # 先 ping 检测连通性（采集前验证）
+            ping_ok = self._ping_device(device_ip)
+            if not ping_ok:
+                logger.warning(f"Ping检测失败: {device_ip}，标记为OFFLINE")
+                collector.close()
+                return DeviceMetrics(
+                    device_name=device_name,
+                    device_ip=device_ip,
+                    device_type=device_config.get('type'),
+                    vendor=device_config.get('vendor'),
+                    timestamp=datetime.now(),
+                    status=CollectionStatus.OFFLINE,
+                    metrics={},
+                )
+
             collector.connect()
-            metrics_data = collector.collect_all()
+            metrics_data = {}
+            try:
+                # SNMPDevice 有 collect_all() 方法，直接调用
+                if hasattr(collector, 'collect_all'):
+                    metrics_data = collector.collect_all()
+                else:
+                    metrics_data = {}
+            except Exception as e:
+                logger.warning(f"SNMP采集异常: {e}")
+                metrics_data = {}
             collector.close()
-            
+
+            # 采集结果判断：metrics_data 为空说明 SNMP 库不可用或连接失败 → OFFLINE
+            if not metrics_data or not metrics_data.get('system'):
+                logger.warning(f"SNMP采集无数据: {device_ip}，标记为OFFLINE")
+                return DeviceMetrics(
+                    device_name=device_name,
+                    device_ip=device_ip,
+                    device_type=device_config.get('type'),
+                    vendor=device_config.get('vendor'),
+                    timestamp=datetime.now(),
+                    status=CollectionStatus.OFFLINE,
+                    metrics=metrics_data,
+                )
+
             return DeviceMetrics(
-                device_name=device_config.get('name'),
-                device_ip=device_config.get('ip'),
+                device_name=device_name,
+                device_ip=device_ip,
                 device_type=device_config.get('type'),
                 vendor=device_config.get('vendor'),
                 timestamp=datetime.now(),
@@ -474,12 +514,41 @@ class DeviceManager:
         except Exception as e:
             logger.error(f"SNMP采集失败: {e}")
             raise
-    
+
+    def _ping_device(self, ip: str, timeout: int = 3) -> bool:
+        """Ping 检测设备是否可达（采集前连通性验证）"""
+        try:
+            result = subprocess.run(
+                ['ping', '-c', '2', '-W', str(timeout), ip],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=timeout + 2,
+            )
+            return result.returncode == 0
+        except Exception:
+            return False
+
     def _collect_ssh_based(self, collector, device_config: Dict) -> DeviceMetrics:
         """SSH/WinRM采集"""
+        device_name = device_config.get('name')
+        device_ip = device_config.get('ip')
         try:
+            # Ping 检测连通性
+            ping_ok = self._ping_device(device_ip)
+            if not ping_ok:
+                logger.warning(f"Ping检测失败: {device_ip}，标记为OFFLINE")
+                return DeviceMetrics(
+                    device_name=device_name,
+                    device_ip=device_ip,
+                    device_type=device_config.get('type'),
+                    vendor=device_config.get('vendor'),
+                    timestamp=datetime.now(),
+                    status=CollectionStatus.OFFLINE,
+                    metrics={},
+                )
+
             collector.connect()
-            
+
             # 根据类型调用不同方法
             collector_type = type(collector).__name__
             if 'WinRM' in collector_type:
@@ -493,12 +562,25 @@ class DeviceManager:
                     'disk_usage': collector.execute('df -h | grep -E "^/dev" | awk "{print $1\":\"$5}"'),
                     'load_avg': collector.execute('uptime | awk -F"load average:" "{print $2}"'),
                 }
-            
+
             collector.close()
-            
+
+            # 空数据判断
+            if not metrics_data or not metrics_data.get('hostname'):
+                logger.warning(f"SSH采集无数据: {device_ip}，标记为OFFLINE")
+                return DeviceMetrics(
+                    device_name=device_name,
+                    device_ip=device_ip,
+                    device_type=device_config.get('type'),
+                    vendor=device_config.get('vendor'),
+                    timestamp=datetime.now(),
+                    status=CollectionStatus.OFFLINE,
+                    metrics=metrics_data,
+                )
+
             return DeviceMetrics(
-                device_name=device_config.get('name'),
-                device_ip=device_config.get('ip'),
+                device_name=device_name,
+                device_ip=device_ip,
                 device_type=device_config.get('type'),
                 vendor=device_config.get('vendor'),
                 timestamp=datetime.now(),
@@ -511,14 +593,40 @@ class DeviceManager:
     
     def _collect_ipmi(self, collector, device_config: Dict) -> DeviceMetrics:
         """IPMI采集"""
+        device_name = device_config.get('name')
+        device_ip = device_config.get('ip')
         try:
+            ping_ok = self._ping_device(device_ip)
+            if not ping_ok:
+                logger.warning(f"Ping检测失败: {device_ip}，标记为OFFLINE")
+                return DeviceMetrics(
+                    device_name=device_name,
+                    device_ip=device_ip,
+                    device_type=device_config.get('type'),
+                    vendor=device_config.get('vendor'),
+                    timestamp=datetime.now(),
+                    status=CollectionStatus.OFFLINE,
+                    metrics={},
+                )
             collector.connect()
-            metrics_data = collector.collect_all()
+            metrics_data = collector.collect_all_metrics()
             collector.close()
-            
+
+            if not metrics_data:
+                logger.warning(f"IPMI采集无数据: {device_ip}，标记为OFFLINE")
+                return DeviceMetrics(
+                    device_name=device_name,
+                    device_ip=device_ip,
+                    device_type=device_config.get('type'),
+                    vendor=device_config.get('vendor'),
+                    timestamp=datetime.now(),
+                    status=CollectionStatus.OFFLINE,
+                    metrics={},
+                )
+
             return DeviceMetrics(
-                device_name=device_config.get('name'),
-                device_ip=device_config.get('ip'),
+                device_name=device_name,
+                device_ip=device_ip,
                 device_type=device_config.get('type'),
                 vendor=device_config.get('vendor'),
                 timestamp=datetime.now(),
@@ -531,23 +639,50 @@ class DeviceManager:
     
     def _collect_http_based(self, collector, device_config: Dict) -> DeviceMetrics:
         """HTTP API采集"""
+        device_name = device_config.get('name')
+        device_ip = device_config.get('ip')
         try:
+            ping_ok = self._ping_device(device_ip)
+            if not ping_ok:
+                logger.warning(f"Ping检测失败: {device_ip}，标记为OFFLINE")
+                return DeviceMetrics(
+                    device_name=device_name,
+                    device_ip=device_ip,
+                    device_type=device_config.get('type'),
+                    vendor=device_config.get('vendor'),
+                    timestamp=datetime.now(),
+                    status=CollectionStatus.OFFLINE,
+                    metrics={},
+                )
+
             collector_type = type(collector).__name__
-            
+
             if 'Zabbix' in collector_type:
-                collector.login()
-                metrics_data = collector.get_all_metrics()
+                auth_token = collector.login()
+                metrics_data = {'auth_token': auth_token} if auth_token else {}
                 collector.logout()
             elif 'Prometheus' in collector_type:
-                metrics_data = collector.get_targets()
+                metrics_data = collector.targets()
             elif 'Vendor' in collector_type:
                 metrics_data = collector.collect_metrics()
             else:
                 metrics_data = collector.get('/api/status') if hasattr(collector, 'get') else {}
-            
+
+            if not metrics_data:
+                logger.warning(f"HTTP采集无数据: {device_ip}，标记为OFFLINE")
+                return DeviceMetrics(
+                    device_name=device_name,
+                    device_ip=device_ip,
+                    device_type=device_config.get('type'),
+                    vendor=device_config.get('vendor'),
+                    timestamp=datetime.now(),
+                    status=CollectionStatus.OFFLINE,
+                    metrics={},
+                )
+
             return DeviceMetrics(
-                device_name=device_config.get('name'),
-                device_ip=device_config.get('ip'),
+                device_name=device_name,
+                device_ip=device_ip,
                 device_type=device_config.get('type'),
                 vendor=device_config.get('vendor'),
                 timestamp=datetime.now(),
@@ -560,14 +695,40 @@ class DeviceManager:
     
     def _collect_api_based(self, collector, device_config: Dict) -> DeviceMetrics:
         """K8s/Docker采集"""
+        device_name = device_config.get('name')
+        device_ip = device_config.get('ip')
         try:
+            ping_ok = self._ping_device(device_ip)
+            if not ping_ok:
+                logger.warning(f"Ping检测失败: {device_ip}，标记为OFFLINE")
+                return DeviceMetrics(
+                    device_name=device_name,
+                    device_ip=device_ip,
+                    device_type=device_config.get('type'),
+                    vendor=device_config.get('vendor'),
+                    timestamp=datetime.now(),
+                    status=CollectionStatus.OFFLINE,
+                    metrics={},
+                )
             collector.connect()
-            metrics_data = collector.collect_all()
+            metrics_data = collector.collect_all_metrics()
             collector.close()
-            
+
+            if not metrics_data:
+                logger.warning(f"API采集无数据: {device_ip}，标记为OFFLINE")
+                return DeviceMetrics(
+                    device_name=device_name,
+                    device_ip=device_ip,
+                    device_type=device_config.get('type'),
+                    vendor=device_config.get('vendor'),
+                    timestamp=datetime.now(),
+                    status=CollectionStatus.OFFLINE,
+                    metrics={},
+                )
+
             return DeviceMetrics(
-                device_name=device_config.get('name'),
-                device_ip=device_config.get('ip'),
+                device_name=device_name,
+                device_ip=device_ip,
                 device_type=device_config.get('type'),
                 vendor=device_config.get('vendor'),
                 timestamp=datetime.now(),
@@ -577,15 +738,41 @@ class DeviceManager:
         except Exception as e:
             logger.error(f"API采集失败: {e}")
             raise
-    
+
     def _collect_generic(self, collector, device_config: Dict) -> DeviceMetrics:
         """通用采集"""
+        device_name = device_config.get('name')
+        device_ip = device_config.get('ip')
         try:
+            ping_ok = self._ping_device(device_ip)
+            if not ping_ok:
+                logger.warning(f"Ping检测失败: {device_ip}，标记为OFFLINE")
+                return DeviceMetrics(
+                    device_name=device_name,
+                    device_ip=device_ip,
+                    device_type=device_config.get('type'),
+                    vendor=device_config.get('vendor'),
+                    timestamp=datetime.now(),
+                    status=CollectionStatus.OFFLINE,
+                    metrics={},
+                )
             metrics_data = collector.collect() if hasattr(collector, 'collect') else {}
-            
+
+            if not metrics_data:
+                logger.warning(f"通用采集无数据: {device_ip}，标记为OFFLINE")
+                return DeviceMetrics(
+                    device_name=device_name,
+                    device_ip=device_ip,
+                    device_type=device_config.get('type'),
+                    vendor=device_config.get('vendor'),
+                    timestamp=datetime.now(),
+                    status=CollectionStatus.OFFLINE,
+                    metrics={},
+                )
+
             return DeviceMetrics(
-                device_name=device_config.get('name'),
-                device_ip=device_config.get('ip'),
+                device_name=device_name,
+                device_ip=device_ip,
                 device_type=device_config.get('type'),
                 vendor=device_config.get('vendor'),
                 timestamp=datetime.now(),
@@ -688,9 +875,9 @@ class DeviceManager:
         """
         try:
             from modules.foundation.db_models.monitoring import DeviceMetricConfig
-            from modules.foundation.db.client import get_db_session
+            from modules.foundation.db_models.base import _db_manager
             
-            with get_db_session() as session:
+            with _db_manager.session_scope() as session:
                 config = session.query(DeviceMetricConfig).filter(
                     DeviceMetricConfig.device_id == device_id,
                     DeviceMetricConfig.metric_name == metric_name
@@ -717,9 +904,9 @@ class DeviceManager:
         """
         try:
             from modules.foundation.db_models.monitoring import DeviceMetricConfig
-            from modules.foundation.db.client import get_db_session
+            from modules.foundation.db_models.base import _db_manager
             
-            with get_db_session() as session:
+            with _db_manager.session_scope() as session:
                 config = session.query(DeviceMetricConfig).filter(
                     DeviceMetricConfig.device_id == device_id,
                     DeviceMetricConfig.metric_name == metric_name
@@ -745,9 +932,9 @@ class DeviceManager:
         """
         try:
             from modules.foundation.db_models.monitoring import DeviceMetricConfig
-            from modules.foundation.db.client import get_db_session
+            from modules.foundation.db_models.base import _db_manager
             
-            with get_db_session() as session:
+            with _db_manager.session_scope() as session:
                 config = session.query(DeviceMetricConfig).filter(
                     DeviceMetricConfig.device_id == device_id,
                     DeviceMetricConfig.metric_name == metric_name

@@ -743,7 +743,7 @@ class VendorAPIClient:
         if '{port}' in base_url:
             base_url = base_url.replace('{port}', str(port))
         
-        self.http_client = HTTPClient(base_url=base_url, **kwargs)
+        self.http_client = HTTPClient(base_url=base_url)
         
         # 设置认证
         auth_type = self.config.get('auth_type', AuthType.NONE)

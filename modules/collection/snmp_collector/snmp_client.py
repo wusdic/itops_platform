@@ -1081,6 +1081,22 @@ class SNMPDevice:
         self._config = config
         self._client = SNMPClient(config)
         self._mib_mapper = VendorMIBMapper()
+        self._connected = False
+    
+    def connect(self) -> bool:
+        """建立SNMP连接"""
+        self._client.connect()
+        self._connected = True
+        return True
+    
+    def close(self):
+        """关闭SNMP连接"""
+        self._client.close()
+        self._connected = False
+    
+    def is_connected(self) -> bool:
+        """检查是否已连接"""
+        return self._connected
     
     def collect_all(self) -> Dict[str, Any]:
         """

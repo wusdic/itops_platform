@@ -10,6 +10,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from core.protocols import ProtocolType
+from .api_collector.http_client import HTTPClient, VendorAPIClient, AuthType
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +72,7 @@ class CollectorFactory:
     
     def _create_snmp_collector(self, device_config: Dict[str, Any]):
         """创建SNMP采集器"""
-        from .snmp_collector.snmp_client import SNMPClient, SNMPConfig, SNMPVersion
+        from .snmp_collector.snmp_client import SNMPDevice, SNMPConfig, SNMPVersion
         
         credentials = device_config.get('credentials', {}).get('snmp', {})
         ip = device_config.get('ip', '')
@@ -88,7 +89,7 @@ class CollectorFactory:
             timeout=credentials.get('timeout', 10),
         )
         
-        return SNMPClient(config)
+        return SNMPDevice(config)
     
     def _create_ssh_collector(self, device_config: Dict[str, Any]):
         """创建SSH采集器"""
@@ -132,12 +133,18 @@ class CollectorFactory:
         credentials = device_config.get('credentials', {}).get('ipmi', {})
         ip = device_config.get('ipmi_ip', device_config.get('ip', ''))
         
+        cred_version = credentials.get('version', '2.0')
+        # 规范化版本字符串: '2.0' -> 'v2.0', '1.5' -> 'v1.5'
+        if not cred_version.startswith('v'):
+            cred_version = 'v' + cred_version
+        ipmi_version = IPMIVersion(cred_version) if cred_version else IPMIVersion.V2_0
+        
         config = IPMIConfig(
             host=ip,
             port=credentials.get('port', 623),
             username=credentials.get('username', 'admin'),
             password=credentials.get('password', ''),
-            version=IPMIVersion(credentials.get('version', '2.0')),
+            version=ipmi_version,
         )
         
         return IPMIClient(config)
@@ -145,15 +152,16 @@ class CollectorFactory:
     def _create_http_collector(self, device_config: Dict[str, Any]):
         """创建HTTP API采集器"""
         from .api_collector.http_client import HTTPClient, VendorAPIClient
+        from .api_collector.http_client import AuthType
         
         api_config = device_config.get('api', {})
         vendor = device_config.get('vendor', '')
         
         if vendor in ['zabbix', 'prometheus', 'topsec', 'nsfocus', 'sangfor', 'venustech', 'fortinet']:
-            adapter = VendorAPIClient(vendor=vendor)
-            adapter.configure(
-                base_url=api_config.get('base_url'),
-                auth_type=api_config.get('auth_type'),
+            adapter = VendorAPIClient(
+                vendor=vendor,
+                host=device_config.get('ip', ''),
+                port=api_config.get('port', 80),
                 username=api_config.get('username'),
                 password=api_config.get('password'),
                 api_key=api_config.get('api_key'),
@@ -164,7 +172,7 @@ class CollectorFactory:
             client = HTTPClient(base_url=base_url)
             
             if api_config.get('username'):
-                client.set_basic_auth(api_config['username'], api_config.get('password', ''))
+                client.set_auth(AuthType.BASIC, username=api_config['username'], password=api_config.get('password', ''))
             
             return client
     
@@ -185,10 +193,13 @@ class CollectorFactory:
         from .api_collector.docker_client import DockerClient, DockerConfig
         
         credentials = device_config.get('credentials', {}).get('docker', {})
+        docker_host = credentials.get('host', '')
         
-        config = DockerConfig(
-            host=credentials.get('host', f"tcp://{device_config.get('ip')}:2375"),
-        )
+        # 如果host已经是完整URL(tcp://或unix://)，直接使用；否则拼接
+        if not docker_host.startswith('tcp://') and not docker_host.startswith('unix://'):
+            docker_host = f"tcp://{device_config.get('ip')}:2375"
+        
+        config = DockerConfig(host=docker_host)
         
         return DockerClient(config)
     
@@ -200,7 +211,7 @@ class CollectorFactory:
         
         client = ZabbixClient(
             url=api_config.get('base_url'),
-            username=api_config.get('username', 'Admin'),
+            user=api_config.get('username', 'Admin'),
             password=api_config.get('password', 'zabbix'),
         )
         

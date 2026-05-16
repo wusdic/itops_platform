@@ -392,7 +392,7 @@ class DeviceImporter:
         result.total = len(data)
         
         from modules.foundation.db_models.device import Device, DeviceType, DeviceStatus
-        from modules.foundation.db.client import get_db_session
+        from modules.foundation.db_models.base import db_session
         
         success_count = 0
         fail_count = 0
@@ -417,7 +417,7 @@ class DeviceImporter:
                 except ValueError:
                     device_type_enum = DeviceType.OTHER
                 
-                with get_db_session() as session:
+                with db_session() as session:
                     # Check if device with same IP already exists
                     existing = session.query(Device).filter(
                         Device.ip_address == row.get('ip_address', '').strip()
