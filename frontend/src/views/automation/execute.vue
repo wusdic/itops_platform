@@ -102,8 +102,8 @@ const loadData = async () => {
     if (searchKeyword.value) params.keyword = searchKeyword.value
     if (filterStatus.value) params.status = filterStatus.value
 
-    const res = await automation.getExecutions(params).catch(() => ({ items: [], total: 0 }))
-    executionList.value = (res.items || res.list || []).map(item => ({
+    const res = await automation.getRollbackHistory().catch(() => [])
+    executionList.value = (Array.isArray(res) ? res : []).map(item => ({
       ...item,
       checkpointLoading: false,
       rollbackLoading: false
@@ -149,7 +149,7 @@ const getStatusText = (status) => {
 const handleCheckpoint = async (row) => {
   row.checkpointLoading = true
   try {
-    await automation.checkpoint(row.execution_id, { snapshot_type: 'script_output' })
+    await automation.checkpointExecution(row.execution_id)
     ElMessage.success('检查点保存成功')
   } catch (error) {
     console.error('Checkpoint error:', error)
@@ -167,7 +167,7 @@ const handleRollback = async (row) => {
   ).then(async () => {
     row.rollbackLoading = true
     try {
-      await automation.rollback(row.execution_id, {})
+      await automation.rollbackExecution(row.execution_id)
       ElMessage.success('回滚操作已提交')
       loadData()
     } catch (error) {

@@ -202,8 +202,27 @@ async def get_devices(
     # 分页
     devices = query.offset(pagination.offset).limit(pagination.limit).all()
     
+    # 从DeviceManager获取实时状态
+    from modules.collection.device_manager import get_device_manager
+    manager = get_device_manager()
+    
+    # 转换设备列表，合并实时状态
+    items = []
+    for d in devices:
+        device_dict = _device_to_dict(d)
+        # 获取实时状态
+        real_status = manager.get_device_status(d.name)
+        last_metrics = manager.get_last_metrics(d.name)
+        device_dict['status'] = real_status.value if real_status else d.status.value
+        device_dict['last_collect_time'] = last_metrics.timestamp.isoformat() if last_metrics and last_metrics.timestamp else None
+        # 从采集数据中获取OS类型等信息
+        if last_metrics and last_metrics.metrics:
+            device_dict['os_type'] = last_metrics.metrics.get('os_type') or d.os_type
+            device_dict['manufacturer'] = last_metrics.metrics.get('manufacturer') or d.manufacturer
+        items.append(device_dict)
+    
     return {
-        "items": [_device_to_dict(d) for d in devices],
+        "items": items,
         "total": total,
         "page": pagination.page,
         "page_size": pagination.page_size,

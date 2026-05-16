@@ -80,12 +80,48 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     except Exception as e:
         logger.warning(f"AI initialization skipped: {e}")
     
+    # 启动设备定时采集任务
+    periodic_collect_task = None
+    try:
+        from modules.collection.device_manager import get_device_manager
+        import asyncio
+        
+        manager = get_device_manager()
+        # 从配置获取采集间隔，默认60秒
+        interval = 60
+        try:
+            from modules.collection.config_loader import get_config_loader
+            loader = get_config_loader()
+            interval = loader.get_global_config('collect.default_interval') or 60
+        except Exception:
+            pass
+        
+        # 启动定时采集为后台任务
+        periodic_collect_task = asyncio.create_task(
+            manager.start_periodic_collect(interval=interval)
+        )
+        logger.info(f"设备定时采集任务已启动 (间隔: {interval}秒)")
+    except Exception as e:
+        logger.warning(f"设备定时采集任务启动失败: {e}")
+    
     logger.info("ITOps Platform API Gateway started successfully")
     
     yield
     
     # 关闭时清理资源
     logger.info("Shutting down ITOps Platform API Gateway...")
+    
+    # 停止定时采集任务
+    if periodic_collect_task:
+        try:
+            from modules.collection.device_manager import get_device_manager
+            manager = get_device_manager()
+            manager.stop()
+            periodic_collect_task.cancel()
+            logger.info("设备定时采集任务已停止")
+        except Exception as e:
+            logger.warning(f"停止设备定时采集任务失败: {e}")
+    
     try:
         from modules.foundation.db_models.base import close_db
         close_db()

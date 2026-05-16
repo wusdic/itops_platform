@@ -201,9 +201,10 @@ const loadData = () => {
 // Load devices from API
 const loadDevices = async () => {
   try {
-    const res = await fetch('/api/devices')
+    const res = await fetch('/api/v1/assets/device?page_size=100')
     if (res.ok) {
-      devices.value = await res.json()
+      const data = await res.json()
+      devices.value = (data.items || data.devices || []).map(d => ({ id: d.id, name: d.hostname || d.name, ip: d.ip_address }))
     } else {
       devices.value = []
     }

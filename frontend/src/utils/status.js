@@ -42,7 +42,7 @@ export const getPriorityType = (priority) => {
   const map = {
     urgent: 'danger',
     high: 'warning',
-    medium: '',
+    medium: 'info',
     low: 'info'
   }
   return map[priority] || ''

@@ -6,8 +6,7 @@ PORT=11435
 /home/zcxx/anaconda3/bin/python3 -m llama_cpp.server \
     --model "$MODEL_PATH" \
     --host 0.0.0.0 --port $PORT \
-    --n_ctx 2048 --n_threads 8 \
-    --use_mmap False --offload_kqv False \
+    --n_ctx 512 --n_threads 8 \
     >> /tmp/llm_server_35.log 2>&1 &
 
 echo "LLM server started on port $PORT, PID: $!"

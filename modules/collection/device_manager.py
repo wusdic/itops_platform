@@ -119,6 +119,30 @@ class DeviceManager:
         """获取设备状态"""
         return self._device_status.get(device_name, CollectionStatus.UNKNOWN)
     
+    def _update_device_status_in_db(self, device_name: str, status: CollectionStatus) -> None:
+        """更新数据库中的设备状态"""
+        try:
+            from modules.foundation.db_models.device import Device, DeviceStatus as DBDeviceStatus
+            from modules.foundation.db.client import get_db_session
+            
+            # 映射状态
+            status_mapping = {
+                CollectionStatus.ONLINE: DBDeviceStatus.ONLINE,
+                CollectionStatus.OFFLINE: DBDeviceStatus.OFFLINE,
+                CollectionStatus.WARNING: DBDeviceStatus.WARNING,
+                CollectionStatus.UNKNOWN: DBDeviceStatus.UNKNOWN,
+            }
+            db_status = status_mapping.get(status, DBDeviceStatus.OFFLINE)
+            
+            with get_db_session() as session:
+                device = session.query(Device).filter(Device.name == device_name).first()
+                if device:
+                    device.status = db_status
+                    session.commit()
+                    logger.debug(f"更新设备 {device_name} 状态为 {status.value}")
+        except Exception as e:
+            logger.warning(f"更新设备状态到数据库失败: {e}")
+    
     def get_last_metrics(self, device_name: str) -> Optional[DeviceMetrics]:
         """获取设备最近一次指标"""
         return self._last_metrics.get(device_name)
@@ -171,6 +195,9 @@ class DeviceManager:
                     self._stats['total_collects'] += 1
                     self._stats['successful_collects'] += 1
                     
+                    # 更新数据库中的设备状态
+                    self._update_device_status_in_db(device_name, CollectionStatus.ONLINE)
+                    
                     return metrics
                     
             except Exception as e:
@@ -196,6 +223,9 @@ class DeviceManager:
         
         self._stats['total_collects'] += 1
         self._stats['failed_collects'] += 1
+        
+        # 更新数据库中的设备状态
+        self._update_device_status_in_db(device_name, CollectionStatus.OFFLINE)
         
         return metrics
     

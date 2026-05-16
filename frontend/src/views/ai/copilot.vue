@@ -100,7 +100,7 @@ const sendMessage = async () => {
   scrollBottom()
 
   try {
-    // 使用流式API，发送 {message, conversation_id, stream: true}
+    // 使用非流式API，避免Vite dev proxy对SSE的buffering问题
     const res = await fetch('/api/v1/ai/chat', {
       method: 'POST',
       headers: {
@@ -110,49 +110,23 @@ const sendMessage = async () => {
       body: JSON.stringify({
         message: text,
         conversation_id: currentConvId.value || undefined,
-        stream: true
+        stream: false
       })
     })
 
     if (!res.ok) throw new Error('请求失败')
 
-    const reader = res.body.getReader()
-    const decoder = new TextDecoder()
-    let fullContent = ''
-    let assistantMsg = { role: 'assistant', content: '', timestamp: Date.now() }
+    const data = await res.json()
+    const content = data.message || data.content || data.response || data.result || ''
 
-    // 添加一个空的AI消息占位
-    messages.value.push(assistantMsg)
-    const msgIndex = messages.value.length - 1
+    messages.value.push({
+      role: 'assistant',
+      content: content || 'AI服务暂未返回内容',
+      timestamp: Date.now()
+    })
 
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      const chunk = decoder.decode(value, { stream: true })
-
-      // 解析SSE数据行: data: {"type":"content","content":"xxx"}\n\n
-      const lines = chunk.split('\n')
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          try {
-            const data = JSON.parse(line.slice(6))
-            if (data.type === 'content' && data.content) {
-              fullContent += data.content
-              messages.value[msgIndex].content = fullContent
-              scrollBottom()
-            }
-          } catch (e) {
-            // 忽略解析错误
-          }
-        }
-      }
-    }
-
-    // 更新最终消息
-    messages.value[msgIndex].content = fullContent.trim() || 'AI服务暂未返回内容'
-    // 更新会话ID
-    if (res.headers.get('X-Conversation-Id')) {
-      currentConvId.value = res.headers.get('X-Conversation-Id')
+    if (data.conversation_id) {
+      currentConvId.value = data.conversation_id
     }
   } catch (e) {
     ElMessage.error('AI响应失败: ' + e.message)

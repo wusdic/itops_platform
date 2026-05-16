@@ -1,7 +1,7 @@
 <template>
   <div class="app-wrapper" :class="{ 'sidebar-collapsed': isCollapsed }">
     <!-- 侧边栏 -->
-    <aside class="sidebar">
+    <aside v-if="isLoggedIn" class="sidebar">
       <div class="sidebar-header">
         <div class="logo" @click="$router.push('/dashboard')">
           <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
@@ -17,6 +17,7 @@
         :default-active="activeMenu"
         :collapse="isCollapsed"
         :collapse-transition="false"
+        :unique-opened="true"
         class="sidebar-menu"
         background-color="#001529"
         text-color="rgba(255,255,255,0.65)"
@@ -170,6 +171,7 @@ const route = useRoute()
 const appStore = useAppStore()
 
 const isCollapsed = ref(false)
+const isLoggedIn = computed(() => !!appStore.token)
 const username = computed(() => appStore.username || '管理员')
 
 // 菜单映射

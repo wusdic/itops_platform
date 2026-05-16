@@ -367,6 +367,7 @@ const deviceRules = {
 
 onMounted(() => {
   loadData()
+  startAutoRefresh(true) // silent auto-start
 })
 
 onUnmounted(() => {
@@ -405,12 +406,27 @@ const handleSearch = () => {
 }
 
 // 自动刷新
-const startAutoRefresh = () => {
+const startAutoRefresh = (silent = false) => {
+  if (autoRefreshTimer.value) return
   autoRefreshTimer.value = setInterval(() => {
-    loadData()
-    ElMessage({ message: '设备列表已刷新', type: 'info', duration: 1000 })
+    loadDataSilent()
   }, 30000) // 30秒刷新一次
-  ElMessage.success('已开启自动刷新（每30秒）')
+  if (!silent) ElMessage.success('已开启自动刷新（每30秒）')
+}
+
+const loadDataSilent = async () => {
+  loading.value = true
+  try {
+    const params = { page: 1, page_size: 500 }
+    const res = await devices.list(params)
+    allDevices.value = res.data.items || res.data.list || res.data || []
+    onlineCount.value = allDevices.value.filter(d => d.status === 'online' || d.status === 1).length
+    offlineCount.value = allDevices.value.filter(d => d.status === 'offline' || d.status === 0).length
+  } catch (e) {
+    console.error('Auto-refresh failed', e)
+  } finally {
+    loading.value = false
+  }
 }
 
 const stopAutoRefresh = () => {
@@ -433,8 +449,8 @@ const handleAdd = () => {
 const handleEdit = (row) => {
   dialogTitle.value = '编辑设备'
   Object.assign(deviceForm, {
-    id: row.name,  // device identity
-    name: row.name,
+    id: row.id,  // device identity
+    name: row.name || row.hostname || '',
     ip: row.ip,
     type: row.type || 'server',
     vendor: row.vendor || '',
@@ -475,7 +491,7 @@ const handleDelete = (row) => {
     type: 'warning'
   }).then(async () => {
     try {
-      await devices.delete(row.name)
+      await devices.delete(row.id)
       ElMessage.success('删除成功')
       loadData()
     } catch (error) {

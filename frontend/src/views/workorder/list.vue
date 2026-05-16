@@ -184,7 +184,7 @@ const submitAssign = async () => {
     return
   }
   try {
-    await workorder.assign(currentOrder.value.id, { assignee: assignForm.assignee, note: assignForm.note })
+    await request.post(`/workorders/${currentOrder.value.id}/assign?assignee=${encodeURIComponent(assignForm.assignee)}&comment=${encodeURIComponent(assignForm.note || '')}`)
     ElMessage.success('分配成功')
     assignDialogVisible.value = false
     loadData()

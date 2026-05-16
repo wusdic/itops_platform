@@ -21,7 +21,7 @@ services:
       - CONFIG_FILE=/app/config/prod.yaml
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=INFO
-      - AI_BASE_URL=http://172.17.0.1:11435
+      - AI_BASE_URL=http://host.docker.internal:11435
       - AI_MODEL=qwen3.5-9b-deepseek-v4-flash-q8_0
       - ITOPS_DB_HOST=itops-mysql
       - ITOPS_DB_USER=itops
