@@ -132,6 +132,14 @@ async def list_devices(
             status = manager.get_device_status(dev.name)
             last_metrics = manager.get_last_metrics(dev.name)
             
+            # 优先用数据库中的status，fallback到manager内存状态
+            db_status = dev.status.value if dev.status else "unknown"
+            # 如果数据库状态不是真实采集得到的，尝试从manager获取实时状态
+            if db_status in ("unknown", None) and status and status.value != "unknown":
+                final_status = status.value
+            else:
+                final_status = db_status
+
             items.append({
                 "name": dev.name,
                 "ip": dev.ip_address,
@@ -145,7 +153,7 @@ async def list_devices(
                 "collect_enabled": dev.monitor_enabled if dev.monitor_enabled is not None else True,
                 "collect_interval": 60,
                 "tags": dev.tags,
-                "status": status.value if status else dev.status.value if dev.status else "unknown",
+                "status": final_status,
                 "last_collect_time": last_metrics.timestamp.isoformat() if last_metrics and last_metrics.timestamp else None,
                 "location": dev.location,
                 "idc": dev.idc,
