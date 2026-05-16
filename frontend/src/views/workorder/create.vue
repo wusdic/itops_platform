@@ -1,166 +1,223 @@
 <template>
-  <div class="page-container">
+  <div>
     <div class="page-header">
-      <div>
-        <h1 class="page-title">工单列表</h1>
-        <p class="page-subtitle">查看和管理所有工单</p>
-      </div>
-      <div class="page-actions">
-        <el-button type="primary" @click="$router.push('/workorder/create')">
-          <el-icon><Plus /></el-icon> 创建工单
-        </el-button>
-      </div>
+      <h2>创建工单</h2>
+      <n-space>
+        <n-button @click="handleSaveDraft" :loading="draftLoading">
+          <template #icon><n-icon><SaveOutline /></n-icon></template>保存草稿
+        </n-button>
+        <n-button type="primary" @click="handleSubmit" :loading="submitLoading">
+          <template #icon><n-icon><SendOutline /></n-icon></template>提交工单
+        </n-button>
+      </n-space>
     </div>
 
-    <div class="filter-bar">
-      <el-input v-model="searchKeyword" placeholder="搜索工单标题" style="width: 200px" clearable @change="handleSearch" />
-      <el-select v-model="filterStatus" placeholder="工单状态" style="width: 120px" clearable @change="handleSearch">
-        <el-option label="待处理" value="pending" />
-        <el-option label="处理中" value="processing" />
-        <el-option label="已完成" value="completed" />
-        <el-option label="已关闭" value="closed" />
-      </el-select>
-      <el-select v-model="filterPriority" placeholder="优先级" style="width: 120px" clearable @change="handleSearch">
-        <el-option label="紧急" value="urgent" />
-        <el-option label="高" value="high" />
-        <el-option label="中" value="medium" />
-        <el-option label="低" value="low" />
-      </el-select>
-    </div>
+    <n-grid cols="2 s:1" responsive="screen" :x-gap="16" :y-gap="16">
+      <!-- Left: Form -->
+      <n-gi>
+        <n-card title="基本信息" :bordered="false">
+          <n-form ref="formRef" :model="form" :rules="rules" label-placement="left" label-width="100">
+            <n-form-item label="工单标题" path="title">
+              <n-input v-model:value="form.title" placeholder="请输入工单标题" maxlength="200" show-count />
+            </n-form-item>
+            <n-form-item label="工单描述" path="description">
+              <n-input v-model:value="form.description" type="textarea" placeholder="请详细描述工单内容" :rows="4" />
+            </n-form-item>
+            <n-form-item label="工单类型" path="order_type">
+              <n-select v-model:value="form.order_type" placeholder="请选择类型" :options="typeOptions" />
+            </n-form-item>
+            <n-form-item label="优先级" path="priority">
+              <n-select v-model:value="form.priority" placeholder="请选择优先级" :options="priorityOptions" />
+            </n-form-item>
+            <n-form-item label="分类" path="category_id">
+              <n-select v-model:value="form.category_id" placeholder="请选择分类" :options="categoryOptions" clearable />
+            </n-form-item>
+            <n-form-item label="处理人" path="assignee">
+              <n-input v-model:value="form.assignee" placeholder="请输入处理人" />
+            </n-form-item>
+            <n-form-item label="关联设备" path="device_id">
+              <n-select v-model:value="form.device_id" placeholder="请选择关联设备" :options="deviceOptions" clearable filterable />
+            </n-form-item>
+            <n-form-item label="SLA时限(小时)" path="sla_hours">
+              <n-input-number v-model:value="form.sla_hours" placeholder="请输入SLA时限" :min="1" :max="720" style="width:100%" />
+            </n-form-item>
+          </n-form>
+        </n-card>
+      </n-gi>
 
-    <div class="table-container">
-      <el-table :data="workorderList" v-loading="loading" style="width: 100%">
-        <el-table-column prop="id" label="工单号" width="100" />
-        <el-table-column prop="title" label="工单标题" min-width="200" />
-        <el-table-column prop="priority" label="优先级" width="100">
-          <template #default="{ row }">
-            <el-tag :type="getPriorityType(row.priority)" size="small">{{ getPriorityText(row.priority) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="status" label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="getWorkOrderStatusType(row.status)" size="small">{{ getWorkOrderStatusText(row.status) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="creator" label="创建人" width="120" />
-        <el-table-column prop="handler" label="处理人" width="120" />
-        <el-table-column prop="created_at" label="创建时间" width="160">
-          <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="180" fixed="right">
-          <template #default="{ row }">
-            <el-button type="primary" link size="small" @click="handleView(row)">查看</el-button>
-            <el-button type="primary" link size="small" @click="handleAssign(row)" v-if="row.status === 'pending'">分配</el-button>
-            <el-button type="success" link size="small" @click="handleComplete(row)" v-if="row.status === 'processing'">完成</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <!-- Right: Attachments & Notes -->
+      <n-gi>
+        <n-card title="附加信息" :bordered="false">
+          <n-form label-placement="left" label-width="100">
+            <n-form-item label="影响范围">
+              <n-select v-model:value="form.impact" placeholder="请选择影响范围" :options="impactOptions" />
+            </n-form-item>
+            <n-form-item label="紧急程度">
+              <n-select v-model:value="form.urgency" placeholder="请选择紧急程度" :options="urgencyOptions" />
+            </n-form-item>
+            <n-form-item label="备注">
+              <n-input v-model:value="form.notes" type="textarea" placeholder="补充说明" :rows="4" />
+            </n-form-item>
+          </n-form>
+        </n-card>
+      </n-gi>
+    </n-grid>
 
-      <div class="pagination">
-        <el-pagination
-          v-model:current-page="pagination.page"
-          v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
-          :page-sizes="[10, 20, 50]"
-          layout="total, sizes, prev, pager, next"
-          @size-change="loadData"
-          @current-change="loadData"
-        />
-      </div>
-    </div>
+    <!-- AI Analysis Buttons -->
+    <n-card :bordered="false" style="margin-top:16px">
+      <n-space>
+        <n-button type="info" @click="handleRootCause" :loading="aiLoading.rootCause">
+          <template #icon><n-icon><FlaskOutline /></n-icon></template>AI根因分析
+        </n-button>
+        <n-button type="warning" @click="handleRemediation" :loading="aiLoading.remediation">
+          <template #icon><n-icon><BuildOutline /></n-icon></template>AI修复建议
+        </n-button>
+      </n-space>
+    </n-card>
 
-    <el-dialog v-model="assignDialogVisible" title="分配工单" width="500px">
-      <el-form :model="assignForm" label-width="80px">
-        <el-form-item label="处理人">
-          <el-select v-model="assignForm.handler_id" placeholder="请选择处理人" style="width: 100%">
-            <el-option label="张三" value="1" />
-            <el-option label="李四" value="2" />
-            <el-option label="王五" value="3" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="备注">
-          <el-input v-model="assignForm.remark" type="textarea" :rows="3" placeholder="请输入备注" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="assignDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitAssign">确定</el-button>
-      </template>
-    </el-dialog>
+    <!-- Root Cause Modal -->
+    <n-modal v-model:show="rootCauseModal" preset="card" title="AI根因分析" style="max-width:700px">
+      <n-spin :show="rootCauseLoading">
+        <div v-if="rootCauseResult" style="white-space:pre-wrap">{{ rootCauseResult }}</div>
+        <n-empty v-else description="请先填写工单信息后点击AI根因分析" />
+      </n-spin>
+    </n-modal>
+
+    <!-- Remediation Modal -->
+    <n-modal v-model:show="remediationModal" preset="card" title="AI修复建议" style="max-width:700px">
+      <n-spin :show="remediationLoading">
+        <div v-if="remediationResult" style="white-space:pre-wrap">{{ remediationResult }}</div>
+        <n-empty v-else description="请先填写工单信息后点击AI修复建议" />
+      </n-spin>
+    </n-modal>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
-import { workorder } from '@/api'
-import { formatTime } from '@/utils/date'
-import { getPriorityType, getPriorityText, getWorkOrderStatusType, getWorkOrderStatusText } from '@/utils/status'
+import { useRouter } from 'vue-router'
+import { useMessage } from 'naive-ui'
+import { SaveOutline, SendOutline, FlaskOutline, BuildOutline } from '@vicons/ionicons5'
+import {
+  createWorkorder, saveDraft, analyzeRootCause, analyzeRemediation,
+  getWoCategories, getWoPriorities
+} from '@/api/workorder'
 
-const loading = ref(false)
-const searchKeyword = ref('')
-const filterStatus = ref('')
-const filterPriority = ref('')
-const workorderList = ref([])
-const assignDialogVisible = ref(false)
-const currentOrder = ref(null)
+const router = useRouter()
+const message = useMessage()
+const formRef = ref(null)
 
-const pagination = reactive({ page: 1, pageSize: 10, total: 0 })
+const form = reactive({
+  title: '', description: '', order_type: null, priority: null,
+  category_id: null, assignee: '', device_id: null, sla_hours: 24,
+  impact: null, urgency: null, notes: ''
+})
 
-const assignForm = reactive({ handler_id: '', remark: '' })
+const rules = {
+  title: { required: true, message: '请输入工单标题', trigger: 'blur' },
+  description: { required: true, message: '请输入工单描述', trigger: 'blur' },
+  order_type: { required: true, message: '请选择工单类型', trigger: 'change', type: 'string' },
+  priority: { required: true, message: '请选择优先级', trigger: 'change', type: 'string' }
+}
 
-onMounted(() => { loadData() })
+const typeOptions = [
+  { label: '故障', value: 'incident' },
+  { label: '服务请求', value: 'service_request' },
+  { label: '变更', value: 'change' },
+  { label: '问题', value: 'problem' }
+]
+const priorityOptions = ref([])
+const categoryOptions = ref([])
+const deviceOptions = ref([])
+const impactOptions = [
+  { label: '单个用户', value: 'single' },
+  { label: '部门', value: 'department' },
+  { label: '全公司', value: 'company' },
+  { label: '客户', value: 'customer' }
+]
+const urgencyOptions = [
+  { label: '低', value: 'low' },
+  { label: '中', value: 'medium' },
+  { label: '高', value: 'high' },
+  { label: '紧急', value: 'urgent' }
+]
 
-const loadData = async () => {
-  loading.value = true
+const draftLoading = ref(false)
+const submitLoading = ref(false)
+
+// AI
+const aiLoading = reactive({ rootCause: false, remediation: false })
+const rootCauseModal = ref(false)
+const rootCauseResult = ref('')
+const rootCauseLoading = ref(false)
+const remediationModal = ref(false)
+const remediationResult = ref('')
+const remediationLoading = ref(false)
+
+async function loadOptions() {
   try {
-    const res = await workorder.getList({
-      page: pagination.page,
-      page_size: pagination.pageSize,
-      keyword: searchKeyword.value,
-      status: filterStatus.value,
-      priority: filterPriority.value
-    }).catch(() => ({ items: [], total: 0 }))
-    workorderList.value = res.items || []
-    pagination.total = res.total || 0
-  } catch (error) {
-    console.error('Load workorder error:', error)
-  } finally {
-    loading.value = false
-  }
+    const [catRes, prioRes] = await Promise.allSettled([getWoCategories(), getWoPriorities()])
+    if (catRes.status === 'fulfilled') {
+      const items = catRes.value.data?.items || catRes.value.data || []
+      categoryOptions.value = Array.isArray(items) ? items.map(i => ({ label: i.name || i, value: i.id || i })) : []
+    }
+    if (prioRes.status === 'fulfilled') {
+      const items = prioRes.value.data?.items || prioRes.value.data || []
+      priorityOptions.value = Array.isArray(items) ? items.map(i => ({ label: i.name || i, value: i.code || i.id || i })) : []
+    }
+  } catch {}
 }
 
-const handleSearch = () => { pagination.page = 1; loadData() }
-
-const handleView = (row) => { ElMessage.info(`查看工单: ${row.title}`) }
-
-const handleAssign = (row) => {
-  currentOrder.value = row
-  Object.assign(assignForm, { handler_id: '', remark: '' })
-  assignDialogVisible.value = true
-}
-
-const submitAssign = async () => {
+async function handleSaveDraft() {
+  draftLoading.value = true
   try {
-    await workorder.assign(currentOrder.value.id, assignForm)
-    ElMessage.success('分配成功')
-    assignDialogVisible.value = false
-    loadData()
-  } catch (error) { console.error('Assign error:', error) }
+    await saveDraft(0, form)
+    message.success('草稿已保存')
+  } catch { message.error('保存草稿失败') } finally { draftLoading.value = false }
 }
 
-const handleComplete = async (row) => {
+async function handleSubmit() {
+  try { await formRef.value?.validate() } catch { return }
+  submitLoading.value = true
   try {
-    await workorder.complete(row.id, {})
-    ElMessage.success('工单已完成')
-    loadData()
-  } catch (error) { console.error('Complete error:', error) }
+    await createWorkorder(form)
+    message.success('工单创建成功')
+    router.push('/workorders')
+  } catch { message.error('创建工单失败') } finally { submitLoading.value = false }
 }
+
+async function handleRootCause() {
+  if (!form.title || !form.description) { message.warning('请先填写标题和描述'); return }
+  aiLoading.rootCause = true
+  rootCauseLoading.value = true
+  rootCauseResult.value = ''
+  rootCauseModal.value = true
+  try {
+    const res = await analyzeRootCause({ title: form.title, description: form.description })
+    rootCauseResult.value = res.data?.analysis || res.data?.result || JSON.stringify(res.data, null, 2)
+  } catch (e) {
+    rootCauseResult.value = '分析失败：' + (e.message || '未知错误')
+  } finally { aiLoading.rootCause = false; rootCauseLoading.value = false }
+}
+
+async function handleRemediation() {
+  if (!form.title || !form.description) { message.warning('请先填写标题和描述'); return }
+  aiLoading.remediation = true
+  remediationLoading.value = true
+  remediationResult.value = ''
+  remediationModal.value = true
+  try {
+    const res = await analyzeRemediation({ title: form.title, description: form.description })
+    remediationResult.value = res.data?.analysis || res.data?.result || JSON.stringify(res.data, null, 2)
+  } catch (e) {
+    remediationResult.value = '分析失败：' + (e.message || '未知错误')
+  } finally { aiLoading.remediation = false; remediationLoading.value = false }
+}
+
+onMounted(loadOptions)
 </script>
 
-<style lang="scss" scoped>
-.filter-bar { display: flex; gap: 12px; margin-bottom: 16px; padding: 16px; background: #fff; border-radius: 8px; }
-.pagination { display: flex; justify-content: flex-end; margin-top: 16px; }
-:deep(.el-table .el-table__header th) { background: #f7f8fa; }
+<style scoped>
+.page-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+.page-header h2 { margin:0; font-size:20px; }
 </style>

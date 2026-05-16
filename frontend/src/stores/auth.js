@@ -1,38 +1,38 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
+import { login as loginApi, logout as logoutApi, getUserInfo } from '@/api/auth'
 
 export const useAuthStore = defineStore('auth', () => {
-  const userInfo = ref(null)
-  const permissions = ref([])
-  const roles = ref([])
+  const token = ref(localStorage.getItem('token') || '')
+  const user = ref(JSON.parse(localStorage.getItem('user') || 'null'))
 
-  const isAdmin = computed(() => roles.value.includes('admin'))
-  const isOperator = computed(() => roles.value.includes('operator'))
-
-  const hasPermission = (permission) => {
-    return permissions.value.includes(permission) || isAdmin.value
+  async function login(username, password, captcha) {
+    const res = await loginApi({ username, password, captcha })
+    token.value = res.data.access_token
+    user.value = res.data.user
+    localStorage.setItem('token', token.value)
+    localStorage.setItem('user', JSON.stringify(user.value))
+    return res.data
   }
 
-  const setUserInfo = (info) => {
-    userInfo.value = info
-    roles.value = info?.roles || []
-    permissions.value = info?.permissions || []
+  async function logout() {
+    try { await logoutApi() } catch {}
+    token.value = ''
+    user.value = null
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
   }
 
-  const clearAuth = () => {
-    userInfo.value = null
-    roles.value = []
-    permissions.value = []
+  async function fetchUser() {
+    if (!token.value) return
+    try {
+      const res = await getUserInfo()
+      user.value = res.data
+      localStorage.setItem('user', JSON.stringify(res.data))
+    } catch {
+      logout()
+    }
   }
 
-  return {
-    userInfo,
-    permissions,
-    roles,
-    isAdmin,
-    isOperator,
-    hasPermission,
-    setUserInfo,
-    clearAuth
-  }
+  return { token, user, login, logout, fetchUser }
 })

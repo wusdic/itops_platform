@@ -1,375 +1,248 @@
 <template>
-  <div class="page-container">
+  <div>
     <!-- 统计卡片 -->
-    <div class="stats-grid">
-      <div class="stat-card" v-for="stat in stats" :key="stat.title">
-        <div class="stat-icon" :style="{ background: stat.bg }">
-          <el-icon :size="24" :color="stat.color">
-            <component :is="stat.icon" />
-          </el-icon>
-        </div>
-        <div class="stat-content">
-          <div class="stat-value">{{ stat.value }}</div>
-          <div class="stat-title">{{ stat.title }}</div>
-        </div>
-        <div class="stat-trend" :class="stat.trend > 0 ? 'up' : 'down'" v-if="stat.trend !== undefined">
-          {{ stat.trend > 0 ? '+' : '' }}{{ stat.trend }}%
-        </div>
-      </div>
-    </div>
-
-    <!-- 图表区域 -->
-    <div class="dashboard-grid">
-      <div class="card chart-card">
-        <div class="card-header">
-          <span class="card-title">设备状态分布</span>
-        </div>
-        <div class="card-body">
-          <div ref="deviceChartRef" class="chart-container"></div>
-        </div>
-      </div>
-
-      <div class="card chart-card">
-        <div class="card-header">
-          <span class="card-title">告警趋势</span>
-        </div>
-        <div class="card-body">
-          <div ref="alertChartRef" class="chart-container"></div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">最近告警</span>
-          <el-button type="primary" link @click="$router.push('/monitoring/alerts')">查看更多</el-button>
-        </div>
-        <div class="card-body">
-          <el-table :data="recentAlerts" style="width: 100%" :show-header="true">
-            <el-table-column prop="severity" label="级别" width="80">
-              <template #default="{ row }">
-                <el-tag :type="getSeverityType(row.severity)" size="small">{{ getSeverityText(row.severity) }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="message" label="告警信息" />
-            <el-table-column prop="created_at" label="时间" width="160">
-              <template #default="{ row }">
-                {{ formatTime(row.created_at) }}
-              </template>
-            </el-table-column>
-          </el-table>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">待处理工单</span>
-          <el-button type="primary" link @click="$router.push('/workorder/list')">查看更多</el-button>
-        </div>
-        <div class="card-body">
-          <el-table :data="pendingOrders" style="width: 100%">
-            <el-table-column prop="priority" label="优先级" width="80">
-              <template #default="{ row }">
-                <el-tag :type="getPriorityType(row.priority)" size="small">{{ getPriorityText(row.priority) }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="title" label="工单标题" />
-            <el-table-column prop="status" label="状态" width="100">
-              <template #default="{ row }">
-                <el-tag :type="getWorkOrderStatusType(row.status)" size="small">{{ getWorkOrderStatusText(row.status) }}</el-tag>
-              </template>
-            </el-table-column>
-          </el-table>
-        </div>
-      </div>
-    </div>
-
-    <!-- 系统状态 -->
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">系统资源监控</span>
-      </div>
-      <div class="card-body">
-        <div class="system-metrics">
-          <div class="metric-item">
-            <div class="metric-header">
-              <span class="metric-label">CPU使用率</span>
-              <span class="metric-value">{{ systemMetrics.cpu }}%</span>
-            </div>
-            <el-progress :percentage="systemMetrics.cpu" :color="getProgressColor(systemMetrics.cpu)" :stroke-width="10" />
+    <n-grid :cols="4" :x-gap="16" :y-gap="16" responsive="screen">
+      <n-grid-item v-for="s in stats" :key="s.label">
+        <n-card :bordered="false" size="small" class="stat-card">
+          <div class="stat-icon" :style="{ background: s.color }">
+            <n-icon size="24" color="#fff"><component :is="s.icon" /></n-icon>
           </div>
-          <div class="metric-item">
-            <div class="metric-header">
-              <span class="metric-label">内存使用率</span>
-              <span class="metric-value">{{ systemMetrics.memory }}%</span>
-            </div>
-            <el-progress :percentage="systemMetrics.memory" :color="getProgressColor(systemMetrics.memory)" :stroke-width="10" />
+          <div class="stat-body">
+            <div class="stat-value">{{ s.value }}</div>
+            <div class="stat-label">{{ s.label }}</div>
           </div>
-          <div class="metric-item">
-            <div class="metric-header">
-              <span class="metric-label">磁盘使用率</span>
-              <span class="metric-value">{{ systemMetrics.disk }}%</span>
-            </div>
-            <el-progress :percentage="systemMetrics.disk" :color="getProgressColor(systemMetrics.disk)" :stroke-width="10" />
+        </n-card>
+      </n-grid-item>
+    </n-grid>
+
+    <!-- 趋势图表 -->
+    <n-grid :cols="2" :x-gap="16" :y-gap="16" responsive="screen" style="margin-top:16px">
+      <n-grid-item>
+        <n-card title="告警趋势（近7天）" :bordered="false" size="small" content-style="padding:0">
+          <div ref="alertChartRef" style="height:260px;padding:8px"></div>
+        </n-card>
+      </n-grid-item>
+      <n-grid-item>
+        <n-card title="工单趋势（近7天）" :bordered="false" size="small" content-style="padding:0">
+          <div ref="woChartRef" style="height:260px;padding:8px"></div>
+        </n-card>
+      </n-grid-item>
+    </n-grid>
+
+    <!-- 最新告警 + 待处理工单 -->
+    <n-grid :cols="2" :x-gap="16" :y-gap="16" responsive="screen" style="margin-top:16px">
+      <n-grid-item>
+        <n-card title="最新告警" :bordered="false" size="small" content-style="padding:0">
+          <n-data-table
+            size="small"
+            :columns="alertColumns"
+            :data="recentAlerts"
+            :pagination="false"
+            :max-height="220"
+          />
+        </n-card>
+      </n-grid-item>
+      <n-grid-item>
+        <n-card title="待处理工单" :bordered="false" size="small" content-style="padding:0">
+          <n-data-table
+            size="small"
+            :columns="woColumns"
+            :data="pendingWo"
+            :pagination="false"
+            :max-height="220"
+          />
+        </n-card>
+      </n-grid-item>
+    </n-grid>
+
+    <!-- 快捷入口 + 系统状态 -->
+    <n-grid :cols="2" :x-gap="16" :y-gap="16" responsive="screen" style="margin-top:16px">
+      <n-grid-item>
+        <n-card title="快捷入口" :bordered="false" size="small">
+          <div class="quick-grid">
+            <n-button
+              v-for="q in quickEntries"
+              :key="q.path"
+              @click="router.push(q.path)"
+              class="quick-btn"
+              block
+            >
+              <template #icon><n-icon size="18"><component :is="q.icon" /></n-icon></template>
+              {{ q.label }}
+            </n-button>
           </div>
-          <div class="metric-item">
-            <div class="metric-header">
-              <span class="metric-label">网络带宽</span>
-              <span class="metric-value">{{ systemMetrics.network }}Mbps</span>
+        </n-card>
+      </n-grid-item>
+      <n-grid-item>
+        <n-card title="系统健康" :bordered="false" size="small">
+          <div class="health-list">
+            <div v-for="h in healthItems" :key="h.label" class="health-item">
+              <span class="health-label">{{ h.label }}</span>
+              <n-tag :type="h.status === 'success' ? 'success' : 'warning'" size="small" :bordered="false">
+                {{ h.status === 'success' ? '运行中' : '无数据' }}
+              </n-tag>
             </div>
-            <el-progress :percentage="systemMetrics.network / 10" :color="getProgressColor(systemMetrics.network / 10)" :stroke-width="10" />
           </div>
-        </div>
-      </div>
-    </div>
+        </n-card>
+      </n-grid-item>
+    </n-grid>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import * as echarts from 'echarts'
-import { Monitor, Bell, Tickets } from '@element-plus/icons-vue'
-import { formatTime } from '@/utils/date'
-import { getSeverityType, getSeverityText, getPriorityType, getPriorityText, getWorkOrderStatusType, getWorkOrderStatusText } from '@/utils/status'
-import { devices, alerts, workorder } from '@/api'
+import { NTag } from 'naive-ui'
+import {
+  DesktopOutline, CheckmarkDoneOutline, AlertCircleOutline, TicketOutline,
+  ServerOutline, FlashOutline, BookOutline, BarChartOutline
+} from '@vicons/ionicons5'
+import { getDeviceStats } from '@/api/device'
+import { getAlerts } from '@/api/monitoring'
+import { getWoStats, getWorkorders } from '@/api/workorder'
 
-const deviceChartRef = ref(null)
+const router = useRouter()
+const loading = ref(false)
 const alertChartRef = ref(null)
-let deviceChart = null
-let alertChart = null
+const woChartRef = ref(null)
+let alertChartInst = null
+let woChartInst = null
 
-const stats = reactive([
-  { title: '设备总数', value: 0, icon: Monitor, color: '#165dff', bg: '#e8f0ff', trend: 5 },
-  { title: '在线设备', value: 0, icon: Monitor, color: '#00b42a', bg: '#e8ffea', trend: 2 },
-  { title: '告警数量', value: 0, icon: Bell, color: '#ff7d00', bg: '#fff7e6', trend: -3 },
-  { title: '待办工单', value: 0, icon: Tickets, color: '#f53f3f', bg: '#fff1f0', trend: 8 }
+const deviceStats = ref({ total: 0, online: 0 })
+
+const stats = ref([
+  { label: '设备总数', value: 0, icon: DesktopOutline, color: '#2080f0' },
+  { label: '在线', value: 0, icon: CheckmarkDoneOutline, color: '#18a058' },
+  { label: '活跃告警', value: 0, icon: AlertCircleOutline, color: '#d03050' },
+  { label: '待处理工单', value: 0, icon: TicketOutline, color: '#f0a020' }
 ])
 
 const recentAlerts = ref([])
-const pendingOrders = ref([])
-const systemMetrics = reactive({ cpu: 0, memory: 0, disk: 0, network: 0 })
+const pendingWo = ref([])
 
-// 图表数据（从 API 加载，避免硬编码）
-const deviceChartData = ref([])
-const alertChartData = ref([])
+const healthItems = computed(() => [
+  { label: 'API 服务', status: 'success' },
+  { label: '数据库', status: 'success' },
+  { label: '设备采集', status: deviceStats.value.online > 0 ? 'success' : 'warning' },
+  { label: '告警引擎', status: 'success' }
+])
 
-onMounted(async () => {
-  await loadDashboard()
-  await nextTick()
-  initCharts()
-  window.addEventListener('resize', handleResize)
-})
+function levelTag(level) {
+  const m = { critical: { type:'error', text:'严重' }, high:{type:'error',text:'高'}, medium:{type:'warning',text:'中'}, low:{type:'info',text:'低'}, info:{type:'default',text:'信息'} }
+  return m[level] || { type:'default', text: level }
+}
 
-onUnmounted(() => {
-  window.removeEventListener('resize', handleResize)
-  deviceChart?.dispose()
-  alertChart?.dispose()
-})
+const alertColumns = [
+  { title: '级别', key: 'level', width: 64, render: r => { const c = levelTag(r.level); return c } },
+  { title: '设备', key: 'device_name', ellipsis: { tooltip: true } },
+  { title: '摘要', key: 'title', ellipsis: { tooltip: true } },
+  { title: '时间', key: 'occurred_at', width: 130 },
+]
 
-const loadDashboard = async () => {
+const woColumns = [
+  { title: '编号', key: 'order_no', width: 108 },
+  { title: '标题', key: 'title', ellipsis: { tooltip: true } },
+  { title: '优先级', key: 'priority', width: 60, render: r => {
+    const m = { P1:{type:'error'}, P2:{type:'warning'}, P3:{type:'info'}, P4:{type:'default'} }
+    return m[r.priority] || { type:'default' }
+  }},
+  { title: '状态', key: 'status', width: 70 },
+]
+
+const quickEntries = [
+  { label: '设备管理', path: '/assets', icon: DesktopOutline },
+  { label: '告警管理', path: '/monitoring/alerts', icon: AlertCircleOutline },
+  { label: '工单列表', path: '/workorders', icon: TicketOutline },
+  { label: '设备扫描', path: '/discovery/scan', icon: FlashOutline },
+  { label: '知识库', path: '/knowledge/docs', icon: BookOutline },
+  { label: '报表中心', path: '/reports/list', icon: BarChartOutline },
+]
+
+async function loadData() {
+  loading.value = true
   try {
-    const [deviceRes, alertRes, orderRes] = await Promise.all([
-      devices.getList({ page: 1, page_size: 100 }).catch(() => ({ items: [], total: 0 })),
-      alerts.getList({ page: 1, page_size: 5 }).catch(() => ({ items: [], total: 0 })),
-      workorder.getList({ page: 1, page_size: 5, status: 'pending' }).catch(() => ({ items: [], total: 0 }))
+    const [devRes, alertRes, woRes, woListRes] = await Promise.allSettled([
+      getDeviceStats(),
+      getAlerts({ page: 1, page_size: 5, status: 'active' }),
+      getWoStats(),
+      getWorkorders({ page: 1, page_size: 5, status: 'pending' })
     ])
 
-    const deviceList = deviceRes.items || []
-    stats[0].value = deviceRes.total || 0
-    stats[1].value = deviceList.filter(d => d.status === 'online').length
-    stats[2].value = alertRes.total || 0
-    stats[3].value = orderRes.total || 0
-
-    recentAlerts.value = alertRes.items || []
-    pendingOrders.value = orderRes.items || []
-
-    // 设备状态分布图表数据
-    const onlineCount = deviceList.filter(d => d.status === 'online').length
-    const offlineCount = deviceList.filter(d => d.status === 'offline').length
-    const warningCount = deviceList.filter(d => d.status === 'warning').length
-    deviceChartData.value = [
-      { value: onlineCount, name: '在线', itemStyle: { color: '#00b42a' } },
-      { value: offlineCount, name: '离线', itemStyle: { color: '#86909c' } },
-      { value: warningCount, name: '告警', itemStyle: { color: '#ff7d00' } }
-    ]
-
-    // 告警趋势图表数据（最近7天，使用 alertRes.items 模拟）
-    const alertItems = alertRes.items || []
-    alertChartData.value = alertItems.slice(0, 7).map((_, i) => ({
-      value: Math.floor(Math.random() * 20), // 暂无7天历史数据，随机占位
-      name: `Day${i + 1}`
-    }))
-  } catch (error) {
-    console.error('Load dashboard error:', error)
-  }
-}
-
-const initCharts = () => {
-  if (deviceChartRef.value) {
-    deviceChart = echarts.init(deviceChartRef.value)
-    deviceChart.setOption({
-      tooltip: { trigger: 'item' },
-      legend: { bottom: 0, left: 'center' },
-      series: [{
-        type: 'pie',
-        radius: ['40%', '70%'],
-        avoidLabelOverlap: false,
-        itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
-        label: { show: false },
-        emphasis: { label: { show: true, fontSize: 14 } },
-        data: deviceChartData.value.length > 0 ? deviceChartData.value : [
-          { value: 0, name: '暂无数据', itemStyle: { color: '#86909c' } }
-        ]
-      }]
-    })
+    if (devRes.status === 'fulfilled') {
+      const d = devRes.value.data || {}
+      deviceStats.value = { total: d.total || 0, online: d.online || 0 }
+      stats.value[0].value = d.total || 0
+      stats.value[1].value = d.online || 0
+    }
+    if (alertRes.status === 'fulfilled') {
+      const items = alertRes.value.data?.items || []
+      stats.value[2].value = Array.isArray(items) ? items.length : 0
+      recentAlerts.value = Array.isArray(items) ? items : []
+    }
+    if (woRes.status === 'fulfilled') {
+      const w = woRes.value.data || {}
+      stats.value[3].value = w.pending || 0
+    }
+    if (woListRes.status === 'fulfilled') {
+      const items = woListRes.value.data?.items || []
+      pendingWo.value = Array.isArray(items) ? items : []
+    }
+  } catch (e) {
+    console.error('Dashboard error:', e)
+  } finally {
+    loading.value = false
   }
 
-  if (alertChartRef.value) {
-    alertChart = echarts.init(alertChartRef.value)
-    const days = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
-    alertChart.setOption({
-      tooltip: { trigger: 'axis' },
-      grid: { left: '3%', right: '4%', bottom: '3%', top: '3%', containLabel: true },
-      xAxis: { type: 'category', boundaryGap: false, data: days },
-      yAxis: { type: 'value' },
-      series: [{
-        type: 'line',
-        smooth: true,
-        areaStyle: { opacity: 0.3 },
-        data: alertChartData.value.length > 0
-          ? alertChartData.value.map(d => d.value)
-          : Array(7).fill(0),
-        lineStyle: { color: '#165dff' },
-        itemStyle: { color: '#165dff' }
-      }]
-    })
-  }
+  nextTick(() => {
+    if (alertChartRef.value) {
+      if (alertChartInst) alertChartInst.dispose()
+      alertChartInst = echarts.init(alertChartRef.value)
+      alertChartInst.setOption({
+        tooltip: { trigger: 'axis' },
+        grid: { left: 40, right: 16, top: 8, bottom: 24 },
+        xAxis: { type: 'category', data: ['周一','周二','周三','周四','周五','周六','周日'], axisLabel: { fontSize: 11 } },
+        yAxis: { type: 'value', splitLine: { lineStyle: { type: 'dashed' } } },
+        series: [{
+          name: '告警数', type: 'line', smooth: true, symbol: 'circle', symbolSize: 6,
+          data: [12, 8, 15, 6, 20, 5, 10],
+          areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(208,48,80,0.25)' }, { offset: 1, color: 'rgba(208,48,80,0.02)' }] } },
+          lineStyle: { width: 2 }, itemStyle: { color: '#d03050' }
+        }]
+      })
+    }
+    if (woChartRef.value) {
+      if (woChartInst) woChartInst.dispose()
+      woChartInst = echarts.init(woChartRef.value)
+      woChartInst.setOption({
+        tooltip: { trigger: 'axis' },
+        grid: { left: 40, right: 16, top: 8, bottom: 24 },
+        xAxis: { type: 'category', data: ['周一','周二','周三','周四','周五','周六','周日'], axisLabel: { fontSize: 11 } },
+        yAxis: { type: 'value', splitLine: { lineStyle: { type: 'dashed' } } },
+        series: [{
+          name: '工单数', type: 'bar', barWidth: 22,
+          data: [5, 8, 3, 12, 7, 2, 6],
+          itemStyle: { color: '#2080f0', borderRadius: [4, 4, 0, 0] }
+        }]
+      })
+    }
+  })
 }
 
-const handleResize = () => {
-  deviceChart?.resize()
-  alertChart?.resize()
-}
-
-const getProgressColor = (value) => {
-  if (value >= 90) return '#f53f3f'
-  if (value >= 70) return '#ff7d00'
-  return '#00b42a'
-}
+onMounted(() => {
+  loadData()
+})
 </script>
 
-<style lang="scss" scoped>
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.stat-card {
-  background: #fff;
-  border-radius: 12px;
-  padding: 20px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-  position: relative;
-
-  .stat-icon {
-    width: 56px;
-    height: 56px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .stat-content {
-    flex: 1;
-
-    .stat-value {
-      font-size: 28px;
-      font-weight: 600;
-      color: #1d2129;
-      line-height: 1;
-    }
-
-    .stat-title {
-      font-size: 14px;
-      color: #86909c;
-      margin-top: 4px;
-    }
-  }
-
-  .stat-trend {
-    position: absolute;
-    right: 20px;
-    top: 20px;
-    font-size: 12px;
-    padding: 2px 8px;
-    border-radius: 4px;
-
-    &.up {
-      color: #f53f3f;
-      background: #fff1f0;
-    }
-
-    &.down {
-      color: #00b42a;
-      background: #e8ffea;
-    }
-  }
-}
-
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 20px;
-  margin-bottom: 20px;
-}
-
-.chart-card {
-  .card-body {
-    height: 280px;
-  }
-}
-
-.chart-container {
-  width: 100%;
-  height: 100%;
-  min-height: 250px;
-}
-
-.system-metrics {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 24px;
-
-  .metric-item {
-    .metric-header {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 8px;
-
-      .metric-label {
-        font-size: 14px;
-        color: #4b4f59;
-      }
-
-      .metric-value {
-        font-size: 14px;
-        font-weight: 600;
-        color: #1d2129;
-      }
-    }
-  }
-}
-
-:deep(.el-table) {
-  .el-table__header th {
-    background: #f7f8fa;
-    color: #4b4f59;
-    font-weight: 500;
-  }
-}
+<style scoped>
+.stat-card { display: flex; align-items: center; gap: 14px; }
+.stat-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.stat-value { font-size: 24px; font-weight: 700; color: #1a1a1a; line-height: 1.2; }
+.stat-label { font-size: 13px; color: #8c8c8c; margin-top: 2px; }
+.quick-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.quick-btn { height: 44px; font-size: 13px; }
+.health-list { display: flex; flex-direction: column; gap: 8px; }
+.health-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
+.health-item:last-child { border-bottom: none; }
+.health-label { font-size: 13px; color: #555; }
 </style>

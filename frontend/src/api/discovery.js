@@ -1,0 +1,18 @@
+import api from './request'
+
+export const startIpScan = data => api.post('/discovery/ip/scan', data)
+export const getIpScanResults = taskId => api.get(`/discovery/ip/scan/${taskId}/results`)
+export const syncIpScan = data => api.post('/discovery/ip/scan/sync', data)
+export const listDiscoveredHosts = params => api.get('/discovery/ip/hosts', { params })
+export const startSnmpScan = data => api.post('/discovery/snmp/scan', data)
+export const getSnmpScanResults = taskId => api.get(`/discovery/snmp/scan/${taskId}/results`)
+export const syncSnmpScan = data => api.post('/discovery/snmp/scan/sync', data)
+export const discoverSnmpDevices = data => api.post('/discovery/snmp/discover', data)
+export const listSnmpDevices = params => api.get('/discovery/snmp/devices', { params })
+export const importDiscoveredDevices = data => api.post('/discovery/devices/import', data)
+export const startDiscoveryScan = data => api.post('/discovery/scan', data)
+export const getScanStatus = taskId => api.get(`/discovery/scan/${taskId}/status`)
+export const getDiscoveredHosts = params => api.get('/discovery/hosts', { params })
+export const importDiscoveredHosts = data => api.post('/discovery/import', data)
+export const createDiscoveryTask = data => api.post('/discovery/tasks', data)
+export const listDiscoveryTasks = params => api.get('/discovery/tasks', { params })

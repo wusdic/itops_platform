@@ -1,72 +1,39 @@
 import axios from 'axios'
-import { ElMessage } from 'element-plus'
+import { useAuthStore } from '@/stores/auth'
 
-const request = axios.create({
+const api = axios.create({
   baseURL: '/api/v1',
-  timeout: 30000
+  timeout: 30000,
+  headers: { 'Content-Type': 'application/json' }
 })
 
-// 请求拦截器
-request.interceptors.request.use(
-  config => {
-    const token = localStorage.getItem('token')
-    if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`
-    }
-    return config
-  },
-  error => {
-    return Promise.reject(error)
+api.interceptors.request.use(config => {
+  const authStore = useAuthStore()
+  if (authStore.token) {
+    config.headers.Authorization = `Bearer ${authStore.token}`
   }
-)
+  return config
+})
 
-// 响应拦截器
-request.interceptors.response.use(
+api.interceptors.response.use(
   response => {
-    const res = response.data
-    // 兼容 access_token 和 token 两种字段名
-    if (res.access_token && !res.token) {
-      res.token = res.access_token
+    const data = response.data
+    if (data && typeof data === 'object') {
+      if (data.items !== undefined && data.total !== undefined) {
+        return { items: data.items, total: data.total, ...data }
+      }
     }
-    // 兼容无 code 字段的响应（如登录 API 直接返回 token）
-    if (res.access_token || res.token) {
-      return res
-    }
-    // 兼容直接返回 {items, total} 格式（如 /assets/device）
-    // 和 {code, data} 包装格式
-    if (res.code === 200 || res.code === 0) {
-      return res.data || res
-    }
-    // 如果既无 code 也无 access_token，但有 items 字段（列表 API 格式），直接返回
-    if (res.items !== undefined && res.total !== undefined) {
-      return res
-    }
-    // 如果是数组（某些列表接口直接返回数组）
-    if (Array.isArray(res)) {
-      return { items: res, total: res.length }
-    }
-    // 有 msg 说明是错误响应
-    if (res.msg) {
-      ElMessage.error(res.msg || '请求失败')
-      return Promise.reject(new Error(res.msg || '请求失败'))
-    }
-    // 兜底：直接返回原始数据
-    return res
+    return response
   },
   error => {
-    if (error.response) {
-      if (error.response.status === 401) {
-        ElMessage.error('登录已过期，请重新登录')
-        localStorage.removeItem('token')
-        window.location.href = '/login'
-      } else {
-        ElMessage.error(error.response.data?.msg || '请求失败')
-      }
-    } else {
-      ElMessage.error('网络错误')
+    const status = error.response?.status
+    if (status === 401) {
+      const authStore = useAuthStore()
+      authStore.logout()
+      window.location.href = '/login'
     }
     return Promise.reject(error)
   }
 )
 
-export default request
+export default api

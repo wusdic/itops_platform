@@ -1,0 +1,16 @@
+import api from './request'
+
+export const getDeviceList = params => api.get('/devices', { params })
+export const getDeviceStats = () => api.get('/devices/stats')
+export const getDeviceByName = name => api.get(`/devices/${name}`)
+export const collectDevice = data => api.post('/devices/collect', data)
+export const collectAll = data => api.post('/devices/collect/all', data)
+export const getDeviceStatus = name => api.get(`/devices/${name}/status`)
+export const getDeviceMetrics = name => api.get(`/devices/${name}/metrics`)
+export const updateDeviceMetric = (id, metric, data) => api.patch(`/devices/${id}/metrics/${metric}`, data)
+export const getDeviceMetricConfig = (id, metric) => api.get(`/devices/${id}/metrics/${metric}/config`)
+export const listDeviceMetricConfigs = id => api.get(`/devices/${id}/metrics/configs`)
+export const listAdapters = () => api.get('/devices/adapters/list')
+export const listProtocols = () => api.get('/devices/adapters/protocols')
+export const reloadConfig = () => api.post('/devices/config/reload')
+export const getConfigStats = () => api.get('/devices/config/stats')

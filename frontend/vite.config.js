@@ -1,19 +1,29 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import { resolve } from 'path'
 import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
-import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
+import { NaiveUiResolver } from 'unplugin-vue-components/resolvers'
+import { resolve } from 'path'
 
 export default defineConfig({
   plugins: [
     vue(),
     AutoImport({
-      imports: ['vue', 'vue-router', 'pinia'],
-      resolvers: [ElementPlusResolver()]
+      imports: [
+        'vue',
+        {
+          'naive-ui': [
+            'useDialog',
+            'useMessage',
+            'useNotification',
+            'useLoadingBar',
+            'useModal'
+          ]
+        }
+      ]
     }),
     Components({
-      resolvers: [ElementPlusResolver()]
+      resolvers: [NaiveUiResolver()]
     })
   ],
   resolve: {
@@ -22,17 +32,22 @@ export default defineConfig({
     }
   },
   server: {
-    port: 5173,
-    host: '0.0.0.0',
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true
       }
     }
   },
   build: {
-    outDir: 'dist',
-    sourcemap: false
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          naive: ['naive-ui'],
+          echarts: ['echarts'],
+          vendor: ['vue', 'vue-router', 'pinia', 'axios']
+        }
+      }
+    }
   }
 })
