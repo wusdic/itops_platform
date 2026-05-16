@@ -59,6 +59,8 @@ request.interceptors.response.use(
         ElMessage.error('登录已过期，请重新登录')
         localStorage.removeItem('token')
         window.location.href = '/login'
+      } else if (error.response.status === 403) {
+        ElMessage.error('没有权限访问')
       } else {
         ElMessage.error(error.response.data?.msg || '请求失败')
       }

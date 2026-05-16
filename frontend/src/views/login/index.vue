@@ -83,11 +83,11 @@ const handleLogin = async () => {
 
     // 保存token（后端返回 access_token）
     const token = res.access_token
-    localStorage.setItem('token', token)
+    appStore.setToken(token)
 
     // 后端返回 user 对象
     const userInfo = res.user || {}
-    localStorage.setItem('userInfo', JSON.stringify(userInfo))
+    appStore.setUserInfo(userInfo)
 
     if (form.remember) {
       localStorage.setItem('savedUsername', form.username)
