@@ -278,7 +278,7 @@ class DeviceManager:
             status_mapping = {
                 CollectionStatus.ONLINE: DBDeviceStatus.ONLINE,
                 CollectionStatus.OFFLINE: DBDeviceStatus.OFFLINE,
-                CollectionStatus.WARNING: DBDeviceStatus.WARNING,
+                CollectionStatus.ERROR: DBDeviceStatus.WARNING,
                 CollectionStatus.UNKNOWN: DBDeviceStatus.UNKNOWN,
             }
             db_status = status_mapping.get(status, DBDeviceStatus.OFFLINE)
@@ -286,7 +286,7 @@ class DeviceManager:
             with _db_manager.session_scope() as session:
                 device = session.query(Device).filter(Device.name == device_name).first()
                 if device:
-                    device.status = db_status
+                    device.status = db_status.value  # 使用字符串值而非枚举对象
                     session.commit()
                     logger.debug(f"更新设备 {device_name} 状态为 {status.value}")
         except Exception as e:
