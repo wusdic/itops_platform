@@ -87,7 +87,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, h } from 'vue'
-import { useAppStore } from '@/stores/app'
+
 import {
   NCard, NSelect, NButton, NSpace, NList, NListItem,
   NThing, NBadge, NTag, NPagination, NEmpty, NModal,
@@ -95,7 +95,6 @@ import {
 } from 'naive-ui'
 import { useMessage } from 'naive-ui'
 
-const appStore = useAppStore()
 const message = useMessage()
 
 const loading = ref(false)
@@ -128,7 +127,7 @@ const formatTime = (time) => {
 }
 
 const fetchApi = async (url, options = {}) => {
-  const token = appStore.token
+  const token = localStorage.getItem('token') || ''
   const res = await fetch(url, {
     ...options,
     headers: {

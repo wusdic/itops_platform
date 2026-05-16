@@ -1,155 +1,230 @@
 <template>
   <div class="page-container">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">脚本管理</h1>
-        <p class="page-subtitle">自动化运维脚本管理</p>
-      </div>
-      <div class="page-actions">
+    <n-card title="自动化任务" :bordered="false">
+      <template #header-extra>
         <n-button type="primary" @click="handleAdd">
-          <n-icon><AddOutline /></n-icon> 新建脚本
+          <template #icon><n-icon><AddOutline /></n-icon></template>
+          新建任务
         </n-button>
-      </div>
-    </div>
-    <div class="filter-bar">
-      <n-input v-model="searchKeyword" placeholder="搜索脚本名称" style="width: 200px" clearable @change="handleSearch" />
-      <n-select v-model="filterType" placeholder="脚本类型" style="width: 140px" clearable @change="handleSearch">
-        <n-option label="Shell" value="shell" />
-        <n-option label="Python" value="python" />
-        <n-option label="PowerShell" value="powershell" />
-      </n-select>
-    </div>
-    <div class="table-container">
-      <n-data-table :data="scriptList" style="width: 100%">
-        <n-data-table-column prop="name" label="脚本名称" min-width="180" />
-        <n-data-table-column prop="type" label="类型" width="120">
-          <template #default="{ row }">
-            <n-tag size="small">{{ getTypeText(row.type) }}</n-tag>
-          </template>
-        <n-data-table-column prop="description" label="描述" min-width="200" />
-        <n-data-table-column prop="creator" label="创建人" width="120" />
-        <n-data-table-column prop="updated_at" label="更新时间" width="180">
-          <template #default="{ row }">{{ formatTime(row.updated_at) }}</template>
-        <n-data-table-column label="操作" width="220" fixed="right">
-          <template #default="{ row }">
-            <n-button type="primary" link size="small" @click="handleExecute(row)">执行</n-button>
-            <n-button type="primary" link size="small" @click="handleEdit(row)">编辑</n-button>
-            <n-button type="primary" link size="small" @click="handleView(row)">查看</n-button>
-            <n-button type="danger" link size="small" @click="handleDelete(row)">删除</n-button>
-          </template>
-      <div class="pagination">
-        <n-pagination
-          v-model:current-page="pagination.page"
-          v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
-          :page-sizes="[10, 20, 50]"
-          layout="total, sizes, prev, pager, next"
-          @size-change="loadData"
-          @current-change="loadData"
-        />
-      </div>
-    </div>
-    <n-modal v-model="dialogVisible" :title="dialogTitle" width="700px">
-      <n-form :model="form" label-width="100px" :rules="rules" ref="formRef">
-        <n-form-item label="脚本名称" prop="name">
-          <n-input v-model="form.name" placeholder="请输入脚本名称" />
+      </template>
+
+      <n-space style="margin-bottom: 12px">
+        <n-input v-model:value="searchKeyword" placeholder="搜索任务名称" clearable style="width: 200px" @change="loadData">
+          <template #prefix><n-icon><SearchOutline /></n-icon></template>
+        </n-input>
+        <n-select v-model:value="filterStatus" :options="statusOptions" placeholder="任务状态" clearable style="width: 140px" @change="loadData" />
+      </n-space>
+
+      <n-data-table
+        :columns="columns"
+        :data="taskList"
+        :loading="loading"
+        :pagination="pagination"
+        :row-key="row => row.id"
+      />
+    </n-card>
+
+    <!-- 新建/编辑任务 -->
+    <n-modal v-model:show="dialogVisible" preset="card" :title="dialogTitle" style="width: 700px">
+      <n-form :model="form" label-placement="left" label-width="100">
+        <n-form-item label="任务名称" required>
+          <n-input v-model:value="form.name" placeholder="请输入任务名称" />
         </n-form-item>
-        <n-form-item label="脚本类型" prop="type">
-          <n-select v-model="form.type" placeholder="请选择脚本类型" style="width: 100%">
-            <n-option label="Shell" value="shell" />
-            <n-option label="Python" value="python" />
-            <n-option label="PowerShell" value="powershell" />
-          </n-select>
+        <n-form-item label="触发类型">
+          <n-select v-model:value="form.trigger_type" :options="triggerOptions" placeholder="请选择" style="width: 100%" />
         </n-form-item>
-        <n-form-item label="描述" prop="description">
-          <n-input v-model="form.description" type="textarea" :rows="2" placeholder="请输入描述" />
-        </n-form-item>
-        <n-form-item label="脚本内容" prop="content">
-          <n-input v-model="form.content" type="textarea" :rows="10" placeholder="请输入脚本内容" />
+        <n-form-item label="描述">
+          <n-input v-model:value="form.description" type="textarea" :rows="2" placeholder="请输入描述" />
         </n-form-item>
       </n-form>
       <template #footer>
-        <n-button @click="dialogVisible = false">取消</n-button>
-        <n-button type="primary" @click="submitForm">确定</n-button>
+        <n-space justify="end">
+          <n-button @click="dialogVisible = false">取消</n-button>
+          <n-button type="primary" @click="submitForm" :loading="submitting">确定</n-button>
+        </n-space>
       </template>
     </n-modal>
-    <n-modal v-model="executeDialogVisible" title="执行脚本" width="500px">
-      <n-form :model="executeForm" label-width="100px">
-        <n-form-item label="目标主机">
-          <n-select v-model="executeForm.host_ids" multiple placeholder="请选择目标主机" style="width: 100%">
-            <n-option label="192.168.1.10" value="1" />
-            <n-option label="192.168.1.11" value="2" />
-            <n-option label="192.168.1.12" value="3" />
-          </n-select>
-        </n-form-item>
-        <n-form-item label="执行参数">
-          <n-input v-model="executeForm.params" placeholder="请输入执行参数(可选)" />
-        </n-form-item>
-      </n-form>
-      <template #footer>
-        <n-button @click="executeDialogVisible = false">取消</n-button>
-        <n-button type="primary" @click="submitExecute">执行</n-button>
-      </template>
-    </n-modal>
+
+    <!-- 执行结果抽屉 -->
+    <n-drawer v-model:show="resultDrawer" :width="600" placement="right">
+      <n-drawer-content title="执行结果">
+        <n-spin :show="executing">
+          <n-input type="textarea" :value="executeResult" :rows="15" readonly placeholder="暂无执行结果" />
+        </n-spin>
+      </n-drawer-content>
+    </n-drawer>
   </div>
 </template>
+
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { automation } from '@/api'
-import { formatTime } from '@/utils/date'
+import { ref, reactive, onMounted, h } from 'vue'
+import { NCard, NButton, NDataTable, NModal, NForm, NFormItem, NInput, NSelect, NSpace, NTag, NIcon, NDrawer, NDrawerContent, NSpin, useMessage } from 'naive-ui'
+import { AddOutline, SearchOutline, PlayOutline } from '@vicons/ionicons5'
+
+const message = useMessage()
 const loading = ref(false)
+const submitting = ref(false)
+const executing = ref(false)
+const taskList = ref([])
 const searchKeyword = ref('')
-const filterType = ref('')
-const scriptList = ref([])
+const filterStatus = ref(null)
 const dialogVisible = ref(false)
-const executeDialogVisible = ref(false)
-const dialogTitle = ref('新建脚本')
-const formRef = ref(null)
+const resultDrawer = ref(false)
+const executeResult = ref('')
+const dialogTitle = ref('新建任务')
+
 const pagination = reactive({ page: 1, pageSize: 10, total: 0 })
-const form = reactive({ id: null, name: '', type: '', description: '', content: '' })
-const executeForm = reactive({ host_ids: [], params: '' })
-const rules = {
-  name: [{ required: true, message: '请输入脚本名称', trigger: 'blur' }],
-  type: [{ required: true, message: '请选择脚本类型', trigger: 'change' }],
-  content: [{ required: true, message: '请输入脚本内容', trigger: 'blur' }]
-}
-onMounted(() => { loadData() })
-const loadData = async () => {
+const form = reactive({ id: null, name: '', trigger_type: 'manual', description: '' })
+
+const statusOptions = [
+  { label: '全部', value: null },
+  { label: '就绪', value: 'ready' },
+  { label: '进行中', value: 'running' },
+  { label: '成功', value: 'success' },
+  { label: '失败', value: 'failed' }
+]
+
+const triggerOptions = [
+  { label: '手动执行', value: 'manual' },
+  { label: '定时触发', value: 'schedule' },
+  { label: '事件触发', value: 'event' }
+]
+
+const columns = [
+  { title: 'ID', key: 'id', width: 80 },
+  { title: '任务名称', key: 'name', ellipsis: { tooltip: true } },
+  { title: '触发类型', key: 'trigger_type', width: 120,
+    render: (r) => {
+      const map = { manual: '手动', schedule: '定时', event: '事件' }
+      return h(NTag, { size: 'small', type: 'info' }, () => map[r.trigger_type] || r.trigger_type)
+    }
+  },
+  { title: '描述', key: 'description', ellipsis: { tooltip: true } },
+  { title: '状态', key: 'status', width: 100,
+    render: (r) => {
+      const map = { ready: 'info', running: 'warning', success: 'success', failed: 'error' }
+      const text = { ready: '就绪', running: '进行中', success: '成功', failed: '失败' }
+      return h(NTag, { size: 'small', type: map[r.status] || 'default' }, () => text[r.status] || r.status)
+    }
+  },
+  { title: '最后执行', key: 'last_run_at', width: 180 },
+  {
+    title: '操作', key: 'actions', width: 150, fixed: 'right',
+    render(row) {
+      return h(NSpace, { size: 8 }, () => [
+        h(NButton, { size: 'small', quaternary: true, type: 'info', onClick: () => handleExecute(row) }, () => '执行'),
+        h(NButton, { size: 'small', quaternary: true, type: 'primary', onClick: () => handleEdit(row) }, () => '编辑'),
+        h(NButton, { size: 'small', quaternary: true, type: 'error', onClick: () => handleDelete(row) }, () => '删除')
+      ])
+    }
+  }
+]
+
+async function loadData() {
   loading.value = true
   try {
-    const res = await automation.getScripts({ page: pagination.page, page_size: pagination.pageSize, keyword: searchKeyword.value, type: filterType.value }).catch(() => ({ items: [], total: 0 }))
-    scriptList.value = res.items || []
-    pagination.total = res.total || 0
-  } catch (error) { console.error('Load scripts error:', error) }
-  finally { loading.value = false }
+    const token = localStorage.getItem('token') || ''
+    const params = new URLSearchParams({ page: pagination.page, page_size: pagination.pageSize })
+    if (filterStatus.value) params.append('status', filterStatus.value)
+    if (searchKeyword.value) params.append('search', searchKeyword.value)
+    const res = await fetch(`/api/v1/automation/trigger-rules?${params}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json()
+    if (!data || typeof data !== 'object') throw new Error('响应格式异常')
+    taskList.value = data.items || data.data?.items || []
+    pagination.total = data.total || data.data?.total || 0
+  } catch (e) {
+    message.error(`加载任务失败: ${e.message}`)
+    console.error('[automation/task] loadData error:', e)
+    taskList.value = []
+  } finally {
+    loading.value = false
+  }
 }
-const handleSearch = () => { pagination.page = 1; loadData() }
-const getTypeText = (t) => ({ shell: 'Shell', python: 'Python', powershell: 'PowerShell' }[t] || t)
-const handleAdd = () => { dialogTitle.value = '新建脚本'; Object.assign(form, { id: null, name: '', type: '', description: '', content: '' }); dialogVisible.value = true }
-const handleEdit = (row) => { dialogTitle.value = '编辑脚本'; Object.assign(form, { id: row.id, name: row.name, type: row.type, description: row.description, content: row.content }); dialogVisible.value = true }
-const handleView = (row) => { message.info(`查看脚本: ${row.name}`) }
-const handleExecute = (row) => { Object.assign(executeForm, { host_ids: [], params: '' }); executeDialogVisible.value = true }
-dialog.warning({ title: '提示', content: `确定删除脚本 "${row.name}" 吗?`, positiveText: '确定', negativeText: '取消', onPositiveClick: () => { 
-  }, onNegativeClick: () => {} }
-const submitForm = async () => {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
+
+function handleAdd() {
+  dialogTitle.value = '新建任务'
+  Object.assign(form, { id: null, name: '', trigger_type: 'manual', description: '' })
+  dialogVisible.value = true
+}
+
+function handleEdit(row) {
+  dialogTitle.value = '编辑任务'
+  Object.assign(form, { id: row.id, name: row.name, trigger_type: row.trigger_type || 'manual', description: row.description || '' })
+  dialogVisible.value = true
+}
+
+async function handleDelete(row) {
   try {
-    if (form.id) { await automation.updateScript(form.id, form); message.success('更新成功') }
-    else { await automation.createScript(form); message.success('创建成功') }
-    dialogVisible.value = false; loadData()
-  } catch (error) { console.error('Submit error:', error) }
+    const token = localStorage.getItem('token') || ''
+    const res = await fetch(`/api/v1/automation/trigger-rules/${row.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    message.success('删除成功')
+    loadData()
+  } catch (e) {
+    message.error(`删除失败: ${e.message}`)
+    console.error('[automation/task] delete error:', e)
+  }
 }
-const submitExecute = async () => {
+
+async function handleExecute(row) {
+  executing.value = true
+  resultDrawer.value = true
+  executeResult.value = ''
   try {
-    await automation.executeScript(executeForm.host_ids[0], executeForm)
-    message.success('脚本执行已提交')
-    executeDialogVisible.value = false
-  } catch (error) { console.error('Execute error:', error) }
+    const token = localStorage.getItem('token') || ''
+    const res = await fetch(`/api/v1/automation/trigger-rules/${row.id}/execute`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json()
+    executeResult.value = JSON.stringify(data, null, 2)
+    message.success('执行成功')
+  } catch (e) {
+    executeResult.value = `执行失败: ${e.message}`
+    message.error(`执行失败: ${e.message}`)
+    console.error('[automation/task] execute error:', e)
+  } finally {
+    executing.value = false
+  }
 }
+
+async function submitForm() {
+  if (!form.name) {
+    message.warning('请填写任务名称')
+    return
+  }
+  submitting.value = true
+  try {
+    const token = localStorage.getItem('token') || ''
+    const method = form.id ? 'PUT' : 'POST'
+    const url = form.id ? `/api/v1/automation/trigger-rules/${form.id}` : '/api/v1/automation/trigger-rules'
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(form)
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    message.success(form.id ? '更新成功' : '创建成功')
+    dialogVisible.value = false
+    loadData()
+  } catch (e) {
+    message.error(`操作失败: ${e.message}`)
+    console.error('[automation/task] submit error:', e)
+  } finally {
+    submitting.value = false
+  }
+}
+
+onMounted(loadData)
 </script>
-<style lang="scss" scoped>
-.filter-bar { display: flex; gap: 12px; margin-bottom: 16px; padding: 16px; background: #fff; border-radius: 8px; }
-.pagination { display: flex; justify-content: flex-end; margin-top: 16px; }
-:deep(.el-table .el-table__header th) { background: #f7f8fa; }
+
+<style scoped>
+.page-container { padding: 16px; }
 </style>

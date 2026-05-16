@@ -19,6 +19,8 @@ export const useAuthStore = defineStore('auth', () => {
     permissions.value = info?.permissions || []
   }
 
+  const token = computed(() => localStorage.getItem('token') || '')
+
   const clearAuth = () => {
     userInfo.value = null
     roles.value = []
@@ -33,6 +35,7 @@ export const useAuthStore = defineStore('auth', () => {
     isOperator,
     hasPermission,
     setUserInfo,
-    clearAuth
+    clearAuth,
+    token
   }
 })

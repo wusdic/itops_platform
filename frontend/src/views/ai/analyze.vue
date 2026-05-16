@@ -61,14 +61,12 @@
 
 <script setup>
 import { ref } from 'vue'
-import { useAppStore } from '@/stores/app'
 import {
   NCard, NAlert, NInput, NSelect, NButton, NSpace,
   NFormItem, NDivider, NSpin, NForm
 } from 'naive-ui'
 import { useMessage } from 'naive-ui'
 
-const appStore = useAppStore()
 const message = useMessage()
 
 const analyzeType = ref('log')
@@ -84,13 +82,13 @@ const typeOptions = [
 ]
 
 const fetchApi = async (url, options = {}) => {
-  const token = appStore.token
+  const token = localStorage.getItem('token') || ''
   const res = await fetch(url, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': token ? `Bearer ${token}` : '',
-      ...options.headers
+      'Authorization': `Bearer ${token}`,
+      ...(options.headers || {})
     }
   })
   if (!res.ok) throw new Error(`HTTP error ${res.status}`)
@@ -105,9 +103,9 @@ const handleAnalyze = async () => {
 
   analyzing.value = true
   try {
-    const res = await fetchApi('/api/v1/ai/analyze', {
+    const res = await fetchApi('/api/v1/ai/troubleshoot', {
       method: 'POST',
-      body: JSON.stringify({ type: analyzeType.value, content: content.value })
+      body: JSON.stringify({ query: content.value })
     })
     // Support both {data: {...}} and direct result formats
     if (res.data) {

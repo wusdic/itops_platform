@@ -1,107 +1,166 @@
 <template>
   <div class="page-container">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">备份记录</h1>
-        <p class="page-subtitle">系统数据备份管理</p>
-      </div>
-      <div class="page-actions">
-        <n-button type="primary" @click="handleCreate">
-          <n-icon><AddOutline /></n-icon> 创建备份
+    <n-card title="备份管理" :bordered="false">
+      <template #header-extra>
+        <n-button type="primary" @click="handleCreate" :loading="creating">
+          <template #icon><n-icon><CloudUploadOutline /></n-icon></template>
+          创建备份
         </n-button>
-      </div>
-    </div>
-    <div class="filter-bar">
-      <n-input v-model="searchKeyword" placeholder="搜索备份名称" style="width: 200px" clearable @change="handleSearch" />
-      <n-select v-model="filterType" placeholder="备份类型" style="width: 140px" clearable @change="handleSearch">
-        <n-option label="全量备份" value="full" />
-        <n-option label="增量备份" value="incremental" />
-      </n-select>
-    </div>
-    <div class="table-container">
-      <n-data-table :data="backupList" style="width: 100%">
-        <n-data-table-column prop="name" label="备份名称" min-width="180" />
-        <n-data-table-column prop="type" label="类型" width="120">
-          <template #default="{ row }">
-            <n-tag size="small">{{ row.type === 'full' ? '全量备份' : '增量备份' }}</n-tag>
-          </template>
-        <n-data-table-column prop="size" label="大小" width="120" />
-        <n-data-table-column prop="creator" label="创建人" width="120" />
-        <n-data-table-column prop="created_at" label="备份时间" width="180">
-          <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
-        <n-data-table-column prop="status" label="状态" width="100">
-          <template #default="{ row }">
-            <n-tag :type="row.status === 'completed' ? 'success' : row.status === 'failed' ? 'danger' : 'warning'" size="small">
-              {{ row.status === 'completed' ? '已完成' : row.status === 'failed' ? '失败' : '进行中' }}
-            </n-tag>
-          </template>
-        <n-data-table-column label="操作" width="200" fixed="right">
-          <template #default="{ row }">
-            <n-button type="primary" link size="small" @click="handleRestore(row)" :disabled="row.status !== 'completed'">恢复</n-button>
-            <n-button type="primary" link size="small" @click="handleDownload(row)">下载</n-button>
-            <n-button type="danger" link size="small" @click="handleDelete(row)">删除</n-button>
-          </template>
-      <div class="pagination">
-        <n-pagination
-          v-model:current-page="pagination.page"
-          v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
-          :page-sizes="[10, 20, 50]"
-          layout="total, sizes, prev, pager, next"
-          @size-change="loadData"
-          @current-change="loadData"
-        />
-      </div>
-    </div>
+      </template>
+
+      <template #header>
+        <n-tabs v-model:value="filterType" type="segment" @update:value="loadData">
+          <n-tab name="">全部</n-tab>
+          <n-tab name="full">全量备份</n-tab>
+          <n-tab name="incremental">增量备份</n-tab>
+        </n-tabs>
+      </template>
+
+      <n-input v-model:value="searchKeyword" placeholder="搜索备份名称" clearable style="width: 200px; margin-bottom: 12px" @change="loadData">
+        <template #prefix><n-icon><SearchOutline /></n-icon></template>
+      </n-input>
+
+      <n-data-table
+        :columns="columns"
+        :data="backupList"
+        :loading="loading"
+        :pagination="pagination"
+        :row-key="row => row.id"
+      />
+    </n-card>
+
+    <!-- 执行结果抽屉 -->
+    <n-drawer v-model:show="resultDrawer" :width="600" placement="right">
+      <n-drawer-content title="执行结果">
+        <n-spin :show="executing">
+          <n-input type="textarea" :value="executeResult" :rows="15" readonly placeholder="暂无执行结果" />
+        </n-spin>
+      </n-drawer-content>
+    </n-drawer>
   </div>
 </template>
+
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { backup } from '@/api'
-import { formatTime } from '@/utils/date'
+import { ref, reactive, onMounted, h } from 'vue'
+import { NCard, NButton, NDataTable, NTabs, NTab, NInput, NSpace, NTag, NIcon, NDrawer, NDrawerContent, NSpin, NInputGroup, useMessage } from 'naive-ui'
+import { CloudUploadOutline, SearchOutline, PlayOutline } from '@vicons/ionicons5'
+
+const message = useMessage()
 const loading = ref(false)
+const creating = ref(false)
+const executing = ref(false)
+const backupList = ref([])
 const searchKeyword = ref('')
 const filterType = ref('')
-const backupList = ref([])
+const resultDrawer = ref(false)
+const executeResult = ref('')
+
 const pagination = reactive({ page: 1, pageSize: 10, total: 0 })
-onMounted(() => { loadData() })
-const loadData = async () => {
+
+const columns = [
+  { title: 'ID', key: 'id', width: 80 },
+  { title: '备份名称', key: 'name', ellipsis: { tooltip: true } },
+  {
+    title: '类型', key: 'type', width: 100,
+    render: (r) => h(NTag, { size: 'small', type: r.type === 'full' ? 'success' : 'info' },
+      () => r.type === 'full' ? '全量' : '增量')
+  },
+  { title: '大小', key: 'size', width: 100 },
+  { title: '创建人', key: 'creator_name', width: 120 },
+  { title: '状态', key: 'status', width: 100,
+    render: (r) => {
+      const map = { completed: 'success', failed: 'error', running: 'warning' }
+      const text = { completed: '完成', failed: '失败', running: '进行中' }
+      return h(NTag, { size: 'small', type: map[r.status] || 'default' }, () => text[r.status] || r.status)
+    }
+  },
+  { title: '备份时间', key: 'created_at', width: 180 },
+  {
+    title: '操作', key: 'actions', width: 200, fixed: 'right',
+    render(row) {
+      return h(NSpace, { size: 8 }, () => [
+        h(NButton, { size: 'small', quaternary: true, type: 'info', disabled: row.status !== 'completed', onClick: () => handleDownload(row) }, () => '下载'),
+        h(NButton, { size: 'small', quaternary: true, type: 'error', disabled: row.status !== 'completed', onClick: () => handleDelete(row) }, () => '删除')
+      ])
+    }
+  }
+]
+
+async function loadData() {
   loading.value = true
   try {
-    const res = await backup.getList({ page: pagination.page, page_size: pagination.pageSize, keyword: searchKeyword.value, type: filterType.value }).catch(() => ({ items: [], total: 0 }))
-    backupList.value = res.items || []
-    pagination.total = res.total || 0
-  } catch (error) { console.error('Load backup error:', error) }
-  finally { loading.value = false }
+    const token = localStorage.getItem('token') || ''
+    const params = new URLSearchParams({ page: pagination.page, page_size: pagination.pageSize })
+    if (filterType.value) params.append('type', filterType.value)
+    if (searchKeyword.value) params.append('search', searchKeyword.value)
+    const res = await fetch(`/api/v1/admin/backups?${params}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (!res.ok) {
+      if (res.status === 500) {
+        message.warning('备份功能暂无可用数据')
+        backupList.value = []
+        return
+      }
+      throw new Error(`HTTP ${res.status}`)
+    }
+    const data = await res.json()
+    if (!data || typeof data !== 'object') throw new Error('响应格式异常')
+    backupList.value = data.items || data.data?.items || []
+    pagination.total = data.total || data.data?.total || 0
+  } catch (e) {
+    message.error(`加载备份失败: ${e.message}`)
+    console.error('[backup] loadData error:', e)
+    backupList.value = []
+  } finally {
+    loading.value = false
+  }
 }
-const handleSearch = () => { pagination.page = 1; loadData() }
-const handleCreate = async () => {
+
+async function handleCreate() {
+  creating.value = true
   try {
-    await backup.create({ type: 'full', name: `备份_${new Date().toLocaleString()}` })
-    message.success('备份任务已创建')
+    const token = localStorage.getItem('token') || ''
+    const res = await fetch('/api/v1/admin/backups', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ type: 'full', name: `backup_${Date.now()}` })
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const result = await res.json()
+    message.success('备份创建成功')
     loadData()
-  } catch (error) { console.error('Create backup error:', error) }
+  } catch (e) {
+    message.error(`创建备份失败: ${e.message}`)
+    console.error('[backup] create error:', e)
+  } finally {
+    creating.value = false
+  }
 }
-const handleRestore = async (row) => {
-  dialog.warning({ title: '警告', content: `确定要恢复备份 "${row.name}" 吗? 这将覆盖当前数据。`, positiveText: '确定', negativeText: '取消', onPositiveClick: () => { }, onNegativeClick: () => { } })
-    .then(async () => {
-      try {
-        await backup.restore(row.id)
-        message.success('恢复任务已启动')
-      } catch (error) { console.error('Restore error:', error) }
-    }).catch(() => {})
+
+function handleDownload(row) {
+  message.info(`下载功能开发中: ${row.name}`)
 }
-const handleDownload = (row) => { message.info(`下载备份: ${row.name}`) }
-const handleDelete = (row) => {
-  dialog.warning({ title: '提示', content: `确定删除备份 "${row.name}" 吗?`, positiveText: '确定', negativeText: '取消', onPositiveClick: () => { }, onNegativeClick: () => { } })
-    .then(async () => {
-      try { await backup.delete(row.id); message.success('删除成功'); loadData() }
-      catch (error) { console.error('Delete error:', error) }
-    }).catch(() => {})
+
+async function handleDelete(row) {
+  try {
+    const token = localStorage.getItem('token') || ''
+    const res = await fetch(`/api/v1/admin/backups/${row.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    message.success('删除成功')
+    loadData()
+  } catch (e) {
+    message.error(`删除失败: ${e.message}`)
+    console.error('[backup] delete error:', e)
+  }
 }
+
+onMounted(loadData)
 </script>
-<style lang="scss" scoped>
-.filter-bar { display: flex; gap: 12px; margin-bottom: 16px; padding: 16px; background: #fff; border-radius: 8px; }
-.pagination { display: flex; justify-content: flex-end; margin-top: 16px; }
-:deep(.el-table .el-table__header th) { background: #f7f8fa; }
+
+<style scoped>
+.page-container { padding: 16px; }
 </style>

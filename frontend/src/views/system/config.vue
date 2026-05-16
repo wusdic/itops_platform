@@ -1,60 +1,173 @@
 <template>
-  <div class="page-container">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">参数配置</h1>
-        <p class="page-subtitle">系统参数配置管理</p>
-      </div>
-    </div>
-    <div class="table-container">
-      <n-data-table :data="configList" style="width: 100%">
-        <n-data-table-column prop="key" label="配置键" min-width="200" />
-        <n-data-table-column prop="value" label="配置值" min-width="300">
-          <template #default="{ row }">
-            <span v-if="!row.editing">{{ row.value }}</span>
-            <n-input v-else v-model="row.editValue" size="small" style="width: 200px" />
+  <n-card title="参数配置" class="page-card">
+    <template #header-extra>
+      <n-space>
+        <n-button type="primary" @click="loadData" :loading="loading">
+          <template #icon>
+            <n-icon><RefreshOutline /></n-icon>
           </template>
-        <n-data-table-column prop="description" label="描述" min-width="200" />
-        <n-data-table-column prop="updated_at" label="更新时间" width="180">
-          <template #default="{ row }">{{ formatTime(row.updated_at) }}</template>
-        <n-data-table-column label="操作" width="150" fixed="right">
-          <template #default="{ row }">
-            <template v-if="!row.editing">
-              <n-button type="primary" link size="small" @click="handleEdit(row)">编辑</n-button>
-            </template>
-            <template v-else>
-              <n-button type="primary" link size="small" @click="handleSave(row)">保存</n-button>
-              <n-button type="info" link size="small" @click="row.editing = false">取消</n-button>
-            </template>
-          </template>
-    </div>
-  </div>
+          刷新
+        </n-button>
+      </n-space>
+    </template>
+
+    <n-data-table
+      :columns="columns"
+      :data="configList"
+      :loading="loading"
+      :pagination="pagination"
+      :row-key="row => row.key"
+    />
+  </n-card>
 </template>
+
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, h } from 'vue'
+import { useMessage, useDialog } from 'naive-ui'
+import { RefreshOutline, CreateOutline, CheckmarkOutline, CloseOutline } from '@vicons/ionicons5'
 import { config as configApi } from '@/api'
 import { formatTime } from '@/utils/date'
+
+const message = useMessage()
 const loading = ref(false)
 const configList = ref([])
-onMounted(() => { loadData() })
+
+const pagination = reactive({
+  page: 1,
+  pageSize: 10,
+  showSizePicker: true,
+  pageSizes: [10, 20, 50],
+  onChange: (page) => {
+    pagination.page = page
+    loadData()
+  },
+  onUpdatePageSize: (pageSize) => {
+    pagination.pageSize = pageSize
+    pagination.page = 1
+    loadData()
+  }
+})
+
 const loadData = async () => {
   loading.value = true
   try {
-    const res = await configApi.getList().catch(() => [])
-    configList.value = (res || []).map(c => ({ ...c, editing: false, editValue: c.value }))
-  } catch (error) { console.error('Load config error:', error) }
-  finally { loading.value = false }
+    const token = localStorage.getItem('token')
+    const res = await fetch(`/api/v1/admin/configs?page=${pagination.page}&page_size=${pagination.pageSize}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    if (!res.ok) throw new Error('请求失败')
+    const data = await res.json()
+    configList.value = (data.items || []).map(c => ({ ...c, editing: false, editValue: c.value }))
+  } catch (error) {
+    console.error('Load config error:', error)
+    message.error('加载配置失败')
+  } finally {
+    loading.value = false
+  }
 }
-const handleEdit = (row) => { row.editing = true; row.editValue = row.value }
+
+const handleEdit = (row) => {
+  row.editing = true
+  row.editValue = row.value
+}
+
+const handleCancel = (row) => {
+  row.editing = false
+  row.editValue = row.value
+}
+
 const handleSave = async (row) => {
   try {
-    await configApi.update(row.key, { value: row.editValue })
+    const token = localStorage.getItem('token')
+    const res = await fetch(`/api/v1/admin/configs/${row.key}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ value: row.editValue })
+    })
+    if (!res.ok) throw new Error('更新失败')
     row.value = row.editValue
     row.editing = false
     message.success('保存成功')
-  } catch (error) { console.error('Save error:', error) }
+  } catch (error) {
+    console.error('Save error:', error)
+    message.error('保存失败')
+  }
 }
+
+const columns = [
+  {
+    title: '配置键',
+    key: 'key',
+    width: 200,
+    ellipsis: { tooltip: true }
+  },
+  {
+    title: '配置值',
+    key: 'value',
+    width: 300,
+    ellipsis: { tooltip: true },
+    render(row) {
+      if (!row.editing) {
+        return row.value
+      }
+      return h('input', {
+        value: row.editValue,
+        onInput: (e) => { row.editValue = e.target.value },
+        style: 'width: 200px; padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px;'
+      })
+    }
+  },
+  {
+    title: '描述',
+    key: 'description',
+    width: 200,
+    ellipsis: { tooltip: true }
+  },
+  {
+    title: '更新时间',
+    key: 'updated_at',
+    width: 180,
+    render(row) {
+      return formatTime(row.updated_at)
+    }
+  },
+  {
+    title: '操作',
+    key: 'actions',
+    width: 150,
+    fixed: 'right',
+    render(row) {
+      if (!row.editing) {
+        return h(
+          nButton,
+          { type: 'primary', size: 'small', onClick: () => handleEdit(row) },
+          { icon: () => h(nIcon, null, { default: () => h(CreateOutline) }), default: () => '编辑' }
+        )
+      }
+      return h('div', { style: 'display: flex; gap: 8px;' }, [
+        h(
+          nButton,
+          { type: 'primary', size: 'small', onClick: () => handleSave(row) },
+          { icon: () => h(nIcon, null, { default: () => h(CheckmarkOutline) }), default: () => '保存' }
+        ),
+        h(
+          nButton,
+          { type: 'info', size: 'small', onClick: () => handleCancel(row) },
+          { icon: () => h(nIcon, null, { default: () => h(CloseOutline) }), default: () => '取消' }
+        )
+      ])
+    }
+  }
+]
+
+onMounted(() => { loadData() })
 </script>
+
 <style lang="scss" scoped>
-:deep(.el-table .el-table__header th) { background: #f7f8fa; }
+.page-card {
+  margin: 16px;
+}
 </style>

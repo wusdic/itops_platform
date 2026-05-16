@@ -1,239 +1,159 @@
 <template>
-  <div class="page-container">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">设备监控</h1>
-        <p class="page-subtitle">管理和监控所有设备状态</p>
-      </div>
-      <div class="page-actions">
-        <n-button type="primary" @click="handleAdd">
-          <n-icon><AddOutline /></n-icon> 添加设备
-        </n-button>
-        <n-button @click="loadData">
-          <n-icon><RefreshOutline /></n-icon> 刷新
-        </n-button>
-      </div>
-    </div>
-    <!-- 筛选栏 -->
-    <div class="filter-bar">
-      <n-input v-model="searchKeyword" placeholder="搜索设备名称/IP" style="width: 200px" clearable @change="handleSearch" />
-      <n-select v-model="filterStatus" placeholder="设备状态" style="width: 120px" clearable @change="handleSearch">
-        <n-option label="在线" value="online" />
-        <n-option label="离线" value="offline" />
-        <n-option label="告警" value="warning" />
-      </n-select>
-      <n-select v-model="filterType" placeholder="设备类型" style="width: 140px" clearable @change="handleSearch">
-        <n-option label="服务器" value="server" />
-        <n-option label="网络设备" value="network" />
-        <n-option label="存储设备" value="storage" />
-        <n-option label="安全设备" value="security" />
-      </n-select>
-    </div>
-    <!-- 设备列表 -->
-    <div class="table-container">
-      <n-data-table :data="deviceList" style="width: 100%">
-        <n-data-table-column prop="name" label="设备名称" min-width="150" />
-        <n-data-table-column prop="ip" label="IP地址" width="140" />
-        <n-data-table-column prop="type" label="设备类型" width="100">
-          <template #default="{ row }">
-            <n-tag size="small">{{ getTypeText(row.type) }}</n-tag>
-          </template>
-        <n-data-table-column prop="status" label="状态" width="100">
-          <template #default="{ row }">
-            <n-tag :type="getStatusType(row.status)" size="small">
-              {{ getStatusText(row.status) }}
-            </n-tag>
-          </template>
-        <n-data-table-column prop="cpu" label="CPU" width="100">
-          <template #default="{ row }">
-            <n-progress :percentage="row.cpu || 0" :color="getProgressColor(row.cpu)" :stroke-width="6" />
-          </template>
-        <n-data-table-column prop="memory" label="内存" width="100">
-          <template #default="{ row }">
-            <n-progress :percentage="row.memory || 0" :color="getProgressColor(row.memory)" :stroke-width="6" />
-          </template>
-        <n-data-table-column prop="disk" label="磁盘" width="100">
-          <template #default="{ row }">
-            <n-progress :percentage="row.disk || 0" :color="getProgressColor(row.disk)" :stroke-width="6" />
-          </template>
-        <n-data-table-column prop="updated_at" label="最后更新" width="160">
-          <template #default="{ row }">
-            {{ formatTime(row.updated_at) }}
-          </template>
-        <n-data-table-column label="操作" width="200" fixed="right">
-          <template #default="{ row }">
-            <n-button type="primary" link size="small" @click="handleView(row)">查看</n-button>
-            <n-button type="primary" link size="small" @click="handleEdit(row)">编辑</n-button>
-            <n-button type="danger" link size="small" @click="handleDelete(row)">删除</n-button>
-          </template>
-      <div class="pagination">
-        <n-pagination
-          v-model:current-page="pagination.page"
-          v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
-          :page-sizes="[10, 20, 50, 100]"
-          layout="total, sizes, prev, pager, next"
-          @size-change="loadData"
-          @current-change="loadData"
-        />
-      </div>
-    </div>
-    <!-- 设备详情弹窗 -->
-    <n-modal v-model="deviceDialogVisible" :title="dialogTitle" width="700px">
-      <n-form :model="deviceForm" label-width="100px" :rules="deviceRules" ref="deviceFormRef">
-        <n-form-item label="设备名称" prop="name">
-          <n-input v-model="deviceForm.name" placeholder="请输入设备名称" />
-        </n-form-item>
-        <n-form-item label="IP地址" prop="ip">
-          <n-input v-model="deviceForm.ip" placeholder="请输入IP地址" />
-        </n-form-item>
-        <n-form-item label="设备类型" prop="type">
-          <n-select v-model="deviceForm.type" placeholder="请选择设备类型" style="width: 100%">
-            <n-option label="服务器" value="server" />
-            <n-option label="网络设备" value="network" />
-            <n-option label="存储设备" value="storage" />
-            <n-option label="安全设备" value="security" />
-          </n-select>
-        </n-form-item>
-        <n-form-item label="设备描述">
-          <n-input v-model="deviceForm.description" type="textarea" :rows="3" placeholder="请输入设备描述" />
-        </n-form-item>
-      </n-form>
-      <template #footer>
-        <n-button @click="deviceDialogVisible = false">取消</n-button>
-        <n-button type="primary" @click="submitDevice">确定</n-button>
+  <div class="alerts-container">
+    <n-card title="告警管理" :bordered="false">
+      <template #header-extra>
+        <n-space>
+          <n-select v-model:value="filterLevel" :options="levelOptions" placeholder="告警级别" clearable style="width: 120px" />
+          <n-select v-model:value="filterStatus" :options="statusOptions" placeholder="处理状态" clearable style="width: 120px" />
+          <n-button type="primary" @click="loadAlerts">刷新</n-button>
+        </n-space>
       </template>
-    </n-modal>
+
+      <n-data-table
+        :columns="columns"
+        :data="alerts"
+        :loading="loading"
+        :pagination="{ pageSize: 10 }"
+        :row-key="row => row.id"
+      />
+    </n-card>
+
+    <n-drawer v-model:show="showDrawer" :width="500" placement="right">
+      <n-drawer-content title="告警详情">
+        <n-descriptions v-if="currentAlert" :column="1" label-placement="left" bordered>
+          <n-descriptions-item label="告警ID">{{ currentAlert.id }}</n-descriptions-item>
+          <n-descriptions-item label="告警名称">{{ currentAlert.title }}</n-descriptions-item>
+          <n-descriptions-item label="告警级别">
+            <n-tag :type="getLevelType(currentAlert.level)">{{ getLevelLabel(currentAlert.level) }}</n-tag>
+          </n-descriptions-item>
+          <n-descriptions-item label="处理状态">
+            <n-tag :type="getStatusType(currentAlert.status)">{{ getStatusLabel(currentAlert.status) }}</n-tag>
+          </n-descriptions-item>
+          <n-descriptions-item label="设备">{{ currentAlert.device_name }} ({{ currentAlert.device_ip }})</n-descriptions-item>
+          <n-descriptions-item label="告警信息">{{ currentAlert.message }}</n-descriptions-item>
+          <n-descriptions-item label="发生时间">{{ formatTime(currentAlert.created_at) }}</n-descriptions-item>
+          <n-descriptions-item v-if="currentAlert.resolved_at" label="解决时间">{{ formatTime(currentAlert.resolved_at) }}</n-descriptions-item>
+        </n-descriptions>
+
+        <template #footer>
+          <n-space justify="end">
+            <n-button @click="showDrawer = false">关闭</n-button>
+            <n-button v-if="currentAlert && currentAlert.status === 'active'" type="primary" @click="handleResolve">标记已处理</n-button>
+          </n-space>
+        </template>
+      </n-drawer-content>
+    </n-drawer>
   </div>
 </template>
+
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { devices } from '@/api'
-import { formatTime } from '@/utils/date'
-import { getStatusType, getStatusText } from '@/utils/status'
+import { ref, h, onMounted } from 'vue'
+import {
+  NCard, NDataTable, NButton, NSpace, NSelect, NDrawer, NDrawerContent,
+  NDescriptions, NDescriptionsItem, NTag
+} from 'naive-ui'
+
+const alerts = ref([])
 const loading = ref(false)
-const searchKeyword = ref('')
-const filterStatus = ref('')
-const filterType = ref('')
-const deviceList = ref([])
-const deviceDialogVisible = ref(false)
-const dialogTitle = ref('添加设备')
-const deviceFormRef = ref(null)
-const pagination = reactive({
-  page: 1,
-  pageSize: 10,
-  total: 0
-})
-const deviceForm = reactive({
-  id: null,
-  name: '',
-  ip: '',
-  type: '',
-  description: ''
-})
-const deviceRules = {
-  name: [{ required: true, message: '请输入设备名称', trigger: 'blur' }],
-  ip: [{ required: true, message: '请输入IP地址', trigger: 'blur' }],
-  type: [{ required: true, message: '请选择设备类型', trigger: 'change' }]
+const showDrawer = ref(false)
+const currentAlert = ref(null)
+const filterLevel = ref(null)
+const filterStatus = ref(null)
+
+const levelOptions = [
+  { label: 'Critical', value: 'critical' },
+  { label: 'Warning', value: 'warning' },
+  { label: 'Info', value: 'info' }
+]
+
+const statusOptions = [
+  { label: '活跃', value: 'active' },
+  { label: '已确认', value: 'acknowledged' },
+  { label: '已解决', value: 'resolved' }
+]
+
+const levelMap = { critical: 'Critical', warning: 'Warning', info: 'Info' }
+const statusMap = { active: '活跃', acknowledged: '已确认', resolved: '已解决' }
+
+const getLevelType = (level) => ({ critical: 'error', warning: 'warning', info: 'info' }[level] || 'default')
+const getStatusType = (status) => ({ pending: 'warning', processing: 'info', resolved: 'success' }[status] || 'default')
+const getLevelLabel = (level) => levelMap[level] || level
+const getStatusLabel = (status) => statusMap[status] || status
+const formatTime = (ts) => ts ? new Date(ts).toLocaleString() : '-'
+
+const columns = [
+  { title: 'ID', key: 'id', width: 80 },
+  { title: '告警名称', key: 'title', ellipsis: true },
+  { 
+    title: '级别', 
+    key: 'level',
+    render: (row) => h(NTag, { type: getLevelType(row.level), size: 'small' }, () => getLevelLabel(row.level))
+  },
+  { 
+    title: '状态', 
+    key: 'status',
+    render: (row) => h(NTag, { type: getStatusType(row.status), size: 'small' }, () => getStatusLabel(row.status))
+  },
+  { title: '设备', key: 'device_name', ellipsis: true },
+  { title: '发生时间', key: 'occurred_at', render: (row) => formatTime(row.occurred_at) },
+  {
+    title: '操作',
+    key: 'actions',
+    render: (row) => h(NButton, { size: 'small', type: 'primary', ghost: true, onClick: () => openDetail(row) }, () => '查看')
+  }
+]
+
+const openDetail = (alert) => {
+  currentAlert.value = alert
+  showDrawer.value = true
 }
-onMounted(() => {
-  loadData()
-})
-const loadData = async () => {
+
+const loadAlerts = async () => {
   loading.value = true
   try {
-    const params = {
-      page: pagination.page,
-      page_size: pagination.pageSize,
-      keyword: searchKeyword.value,
-      status: filterStatus.value,
-      type: filterType.value
+    const token = localStorage.getItem('token') || ''
+    const params = new URLSearchParams()
+    if (filterLevel.value) params.append('level', filterLevel.value)
+    if (filterStatus.value) params.append('status', filterStatus.value)
+    
+    const res = await fetch(`/api/v1/monitoring/alerts?${params}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    if (res.ok) {
+      const data = await res.json()
+      alerts.value = data.items || []
     }
-    const res = await devices.getList(params).catch(() => ({ items: [], total: 0 }))
-    deviceList.value = res.items || res.data?.items || []
-    pagination.total = res.total || res.data?.total || 0
-  } catch (error) {
-    console.error('Load devices error:', error)
+  } catch (e) {
+    console.error('Failed to load alerts:', e)
   } finally {
     loading.value = false
   }
 }
-const handleSearch = () => {
-  pagination.page = 1
-  loadData()
-}
-const handleAdd = () => {
-  dialogTitle.value = '添加设备'
-  Object.assign(deviceForm, { id: null, name: '', ip: '', type: '', description: '' })
-  deviceDialogVisible.value = true
-}
-const handleEdit = (row) => {
-  dialogTitle.value = '编辑设备'
-  Object.assign(deviceForm, { id: row.id, name: row.name, ip: row.ip, type: row.type, description: row.description || '' })
-  deviceDialogVisible.value = true
-}
-const handleView = (row) => {
-  message.info(`查看设备: ${row.name}`)
-}
-const handleDelete = (row) => {
-  dialog.warning({ title: '提示', content: `确定要删除设备 "${row.name}" 吗?`, positiveText: '确定', negativeText: '取消', onPositiveClick: () => { }, onNegativeClick: () => { } })
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(async () => {
-    try {
-      await devices.delete(row.id)
-      message.success('删除成功')
-      loadData()
-    } catch (error) {
-      console.error('Delete device error:', error)
-    }
-  }).catch(() => {})
-}
-const submitDevice = async () => {
-  const valid = await deviceFormRef.value.validate().catch(() => false)
-  if (!valid) return
+
+const handleResolve = async () => {
+  if (!currentAlert.value) return
   try {
-    if (deviceForm.id) {
-      await devices.update(deviceForm.id, deviceForm)
-      message.success('更新成功')
-    } else {
-      await devices.create(deviceForm)
-      message.success('添加成功')
+    const token = localStorage.getItem('token') || ''
+    const res = await fetch(`/api/v1/monitoring/alerts/${currentAlert.value.id}/resolve`, {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+    })
+    if (res.ok) {
+      showDrawer.value = false
+      loadAlerts()
     }
-    deviceDialogVisible.value = false
-    loadData()
-  } catch (error) {
-    console.error('Submit device error:', error)
+  } catch (e) {
+    console.error('Failed to resolve alert:', e)
   }
 }
-const getTypeText = (type) => {
-  const map = { server: '服务器', network: '网络设备', storage: '存储设备', security: '安全设备' }
-  return map[type] || type
-}
-const getProgressColor = (value) => {
-  if (value >= 90) return '#f53f3f'
-  if (value >= 70) return '#ff7d00'
-  return '#00b42a'
-}
+
+onMounted(() => {
+  loadAlerts()
+})
 </script>
-<style lang="scss" scoped>
-.filter-bar {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 16px;
+
+<style scoped>
+.alerts-container {
   padding: 16px;
-  background: #fff;
-  border-radius: 8px;
-}
-.pagination {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 16px;
-}
-:deep(.el-table) {
-  .el-table__header th {
-    background: #f7f8fa;
-  }
 }
 </style>

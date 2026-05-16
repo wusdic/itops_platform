@@ -26,27 +26,27 @@
         <n-list class="conversation-list" hoverable clickable>
           <n-list-item
             v-for="conv in filteredConversations"
-            :key="conv.id"
+            :key="conv.conversation_id"
             class="conversation-item"
-            :class="{ active: currentConversation?.id === conv.id }"
+            :class="{ active: currentConversation?.conversation_id === conv.conversation_id }"
             @click="selectConversation(conv)"
           >
             <template #prefix>
-              <n-icon :component="StarOutline" v-if="conv.pinned" color="#f0a020" />
+              <n-icon :component="StarOutline" v-if="conv.is_pinned" color="#f0a020" />
               <n-icon :component="ChatbubbleOutline" v-else color="#999" />
             </template>
             <div class="conv-info">
               <div class="conv-title">{{ conv.title || '新对话' }}</div>
-              <div class="conv-time">{{ formatDate(conv.updated_at) }}</div>
+              <div class="conv-time">{{ formatDate(conv.last_message_at || conv.created_at) }}</div>
             </div>
             <template #suffix>
               <n-space>
-                <n-tooltip :content="conv.pinned ? '取消置顶' : '置顶'" placement="top">
+                <n-tooltip :content="conv.is_pinned ? '取消置顶' : '置顶'" placement="top">
                   <n-button text size="tiny" @click.stop="handlePin(conv)">
                     <n-icon><StarOutline /></n-icon>
                   </n-button>
                 </n-tooltip>
-                <n-popconfirm @positive-click="handleDelete(conv.id)">
+                <n-popconfirm @positive-click="handleDelete(conv.conversation_id)">
                   <template #trigger>
                     <n-button text size="tiny" @click.stop>
                       <n-icon color="#d03050"><TrashOutline /></n-icon>
@@ -153,7 +153,7 @@ import { useAuthStore } from '@/stores/auth'
 const message = useMessage()
 const authStore = useAuthStore()
 
-const userInitial = computed(() => authStore.user?.username?.charAt(0)?.toUpperCase() || 'U')
+const userInitial = computed(() => authStore.userInfo?.username?.charAt(0)?.toUpperCase() || 'U')
 
 // 会话列表
 const conversations = ref([])
@@ -171,7 +171,7 @@ const chatContentRef = ref(null)
 
 const filteredConversations = computed(() => {
   let list = [...conversations.value]
-  list.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0))
+  list.sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0))
   if (searchText.value) {
     const kw = searchText.value.toLowerCase()
     list = list.filter(c => (c.title || '').toLowerCase().includes(kw))
@@ -197,7 +197,7 @@ function formatTime(d) {
 async function loadConversations() {
   try {
     const res = await fetch('/api/v1/ai/conversations', {
-      headers: { Authorization: `Bearer ${authStore.token}` }
+      headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
     })
     if (res.ok) {
       const data = await res.json()
@@ -212,8 +212,8 @@ async function selectConversation(conv) {
   currentConversation.value = conv
   messages.value = []
   try {
-    const res = await fetch(`/api/v1/ai/conversations/${conv.id}`, {
-      headers: { Authorization: `Bearer ${authStore.token}` }
+    const res = await fetch(`/api/v1/ai/conversations/${conv.conversation_id}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
     })
     if (res.ok) {
       const data = await res.json()
@@ -235,7 +235,7 @@ async function selectConversation(conv) {
 }
 
 function createConversation() {
-  currentConversation.value = { id: null, title: '新对话' }
+  currentConversation.value = { conversation_id: null, title: '新对话' }
   messages.value = []
 }
 
@@ -257,12 +257,12 @@ async function sendMessage() {
   scrollToBottom()
 
   try {
-    const payload = { message: text, conversation_id: currentConversation.value?.id || undefined }
+    const payload = { message: text, conversation_id: currentConversation.value?.conversation_id || undefined }
     const res = await fetch('/api/v1/ai/chat', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${authStore.token}`
+        Authorization: `Bearer ${localStorage.getItem('token') || ''}`
       },
       body: JSON.stringify(payload)
     })
@@ -276,8 +276,8 @@ async function sendMessage() {
     messages.value.push(aiMsg)
 
     if (data.conversation_id) {
-      if (!currentConversation.value.id) {
-        currentConversation.value.id = data.conversation_id
+      if (!currentConversation.value.conversation_id) {
+        currentConversation.value.conversation_id = data.conversation_id
         currentConversation.value.title = data.title || text.slice(0, 20)
       }
       await loadConversations()
@@ -299,14 +299,14 @@ function handleKeydown(e) {
   }
 }
 
-async function handleDelete(id) {
+async function handleDelete(conversation_id) {
   try {
-    await fetch(`/api/v1/ai/conversations/${id}`, {
+    await fetch(`/api/v1/ai/conversations/${conversation_id}`, {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${authStore.token}` }
+      headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
     })
     message.success('会话已删除')
-    if (currentConversation.value?.id === id) {
+    if (currentConversation.value?.conversation_id === conversation_id) {
       currentConversation.value = null
       messages.value = []
     }
@@ -319,11 +319,11 @@ async function handleDelete(id) {
 
 async function handlePin(conv) {
   try {
-    await fetch(`/api/v1/ai/conversations/${conv.id}/pin`, {
+    await fetch(`/api/v1/ai/conversations/${conv.conversation_id}/pin`, {
       method: 'PUT',
-      headers: { Authorization: `Bearer ${authStore.token}` }
+      headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
     })
-    message.success(conv.pinned ? '已取消置顶' : '已置顶')
+    message.success(conv.is_pinned ? '已取消置顶' : '已置顶')
     await loadConversations()
   } catch (e) {
     message.error('操作失败')

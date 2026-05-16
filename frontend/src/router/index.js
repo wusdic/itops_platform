@@ -70,7 +70,19 @@ const routes = [
         component: () => import('@/views/knowledge/category.vue'),
         meta: { title: '分类管理', parent: '知识库' }
       },
+      {
+        path: 'knowledge/cases',
+        name: 'KnowledgeCases',
+        component: () => import('@/views/knowledge/cases.vue'),
+        meta: { title: '故障案例', parent: '知识库' }
+      },
       // AI助手
+      {
+        path: 'ai/chat',
+        name: 'AIChat',
+        component: () => import('@/views/ai/chat.vue'),
+        meta: { title: 'AI 聊天', parent: 'AI助手' }
+      },
       {
         path: 'ai/copilot',
         name: 'AICopilot',
@@ -121,6 +133,12 @@ const routes = [
         name: 'NotificationMessage',
         component: () => import('@/views/notification/message.vue'),
         meta: { title: '我的消息', parent: '消息中心' }
+      },
+      {
+        path: 'notification/history',
+        name: 'NotificationHistory',
+        component: () => import('@/views/notification/history.vue'),
+        meta: { title: '消息历史', parent: '消息中心' }
       },
       {
         path: 'notification/config',

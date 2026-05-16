@@ -1,97 +1,155 @@
 <template>
   <div class="page-container">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">我的消息</h1>
-        <p class="page-subtitle">查看系统通知和告警消息</p>
-      </div>
-      <div class="page-actions">
-        <n-button type="primary" link @click="markAllRead">全部标为已读</n-button>
-      </div>
-    </div>
-    <div class="filter-bar">
-      <n-select v-model="filterType" placeholder="消息类型" style="width: 140px" clearable @change="handleSearch">
-        <n-option label="系统通知" value="system" />
-        <n-option label="告警通知" value="alert" />
-        <n-option label="工单通知" value="workorder" />
-      </n-select>
-      <n-select v-model="filterRead" placeholder="阅读状态" style="width: 140px" clearable @change="handleSearch">
-        <n-option label="未读" value="unread" />
-        <n-option label="已读" value="read" />
-      </n-select>
-    </div>
-    <div class="message-list">
-      <div v-for="msg in messageList" :key="msg.id" :class="['message-item', { unread: !msg.read }]" @click="handleRead(msg)">
-        <div class="message-icon">
-          <n-icon size="24" :color="getTypeColor(msg.type)"><BellOutline v-if="msg.type === 'alert'" /><ChatboxOutline v-else /></n-icon>
-        </div>
-        <div class="message-content">
-          <div class="message-title">{{ msg.title }}</div>
-          <div class="message-body">{{ msg.content }}</div>
-          <div class="message-time">{{ formatTime(msg.created_at) }}</div>
-        </div>
-        <div class="message-actions">
-          <n-badge is-dot :hidden="msg.read"><n-button type="primary" link size="small">查看</n-button></n-badge>
-        </div>
-      </div>
-      <n-empty v-if="messageList.length === 0" description="暂无消息" />
-    </div>
-    <div class="pagination">
-      <n-pagination
-        v-model:current-page="pagination.page"
-        v-model:page-size="pagination.pageSize"
-        :total="pagination.total"
-        :page-sizes="[10, 20, 50]"
-        layout="total, sizes, prev, pager, next"
-        @size-change="loadData"
-        @current-change="loadData"
-      />
-    </div>
+    <n-card title="通知渠道配置" :bordered="false">
+      <template #header-extra>
+        <n-button type="primary" @click="handleAdd">
+          <template #icon><n-icon><AddOutline /></n-icon></template>
+          添加渠道
+        </n-button>
+      </template>
+      <n-data-table :columns="columns" :data="channelList" :loading="loading" :pagination="false" :row-key="row => row.id" />
+    </n-card>
+    <n-card title="通知类型" :bordered="false" style="margin-top: 16px">
+      <n-space vertical>
+        <n-alert v-for="t in notificationTypes" :key="t.value" :type="getAlertType(t.value)" :title="t.label">{{ t.description }}</n-alert>
+      </n-space>
+    </n-card>
+    <n-drawer v-model:show="drawerVisible" :width="500" placement="right">
+      <n-drawer-content :title="editingChannel && editingChannel.id ? '编辑渠道' : '添加渠道'">
+        <n-form :model="form" label-placement="left" label-width="100">
+          <n-form-item label="渠道名称"><n-input v-model:value="form.name" placeholder="如：邮件通知" /></n-form-item>
+          <n-form-item label="渠道类型"><n-select v-model:value="form.type" :options="typeOptions" placeholder="选择类型" /></n-form-item>
+          <n-form-item label="配置JSON"><n-input v-model:value="form.config" type="textarea" :rows="6" placeholder='{"webhook": "https://..."}' /></n-form-item>
+          <n-form-item label="启用状态"><n-switch v-model:value="form.enabled" /></n-form-item>
+        </n-form>
+        <template #footer>
+          <n-space justify="end">
+            <n-button @click="drawerVisible = false">取消</n-button>
+            <n-button type="primary" @click="handleSave" :loading="saving">保存</n-button>
+          </n-space>
+        </template>
+      </n-drawer-content>
+    </n-drawer>
   </div>
 </template>
+
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { notification } from '@/api'
-import { formatTime } from '@/utils/date'
+import { ref, reactive, onMounted, h } from 'vue'
+import { useMessage } from 'naive-ui'
+import { AddOutline } from '@vicons/ionicons5'
+
+const message = useMessage()
 const loading = ref(false)
-const filterType = ref('')
-const filterRead = ref('')
-const messageList = ref([])
-const pagination = reactive({ page: 1, pageSize: 10, total: 0 })
-onMounted(() => { loadData() })
-const loadData = async () => {
+const saving = ref(false)
+const channelList = ref([])
+const notificationTypes = ref([])
+const drawerVisible = ref(false)
+const editingChannel = ref(null)
+const form = reactive({ name: '', type: '', config: '{}', enabled: true })
+
+const typeOptions = [
+  { label: '邮件 (Email)', value: 'email' },
+  { label: '钉钉 (DingTalk)', value: 'dingtalk' },
+  { label: '飞书 (Feishu)', value: 'feishu' },
+  { label: '企业微信', value: 'wechat_work' },
+  { label: 'Webhook', value: 'webhook' },
+]
+
+const columns = [
+  { title: 'ID', key: 'id', width: 80 },
+  { title: '名称', key: 'name', width: 150 },
+  { title: '类型', key: 'type', width: 120, render: (row) => {
+    const map = { email: '邮件', dingtalk: '钉钉', feishu: '飞书', wechat_work: '企业微信', webhook: 'Webhook' }
+    return map[row.type] || row.type
+  }},
+  { title: '状态', key: 'enabled', width: 80, render: (row) => h('span', { style: row.enabled ? 'color:#18a058' : 'color:#999' }, row.enabled ? '启用' : '停用')},
+  { title: '操作', key: 'actions', width: 120, render: (row) => h('div', { style: 'display:flex;gap:8px' }, [
+    h('button', { style: 'background:none;border:none;color:#18a058;cursor:pointer;font-size:13px', onClick: () => handleEdit(row) }, '编辑'),
+    h('button', { style: 'background:none;border:none;color:#d03050;cursor:pointer;font-size:13px', onClick: () => handleDelete(row.id) }, '删除')
+  ])}
+]
+
+onMounted(() => { loadChannels(); loadTypes() })
+
+async function loadChannels() {
   loading.value = true
   try {
-    const res = await notification.getList({ page: pagination.page, page_size: pagination.pageSize, type: filterType.value, status: filterRead.value }).catch(() => ({ items: [], total: 0 }))
-    messageList.value = res.items || []
-    pagination.total = res.total || 0
-  } catch (error) { console.error('Load messages error:', error) }
-  finally { loading.value = false }
-}
-const handleSearch = () => { pagination.page = 1; loadData() }
-const getTypeColor = (type) => ({ alert: '#f53f3f', system: '#165dff', workorder: '#00b42a' }[type] || '#86909c')
-const handleRead = async (msg) => {
-  if (!msg.read) {
-    try {
-      await notification.markAsRead(msg.id)
-      msg.read = true
-    } catch (error) { console.error('Mark read error:', error) }
+    const token = localStorage.getItem('token') || ''
+    const res = await fetch('/api/v1/notifications/channels', { headers: { Authorization: `Bearer ${token}` } })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json()
+    channelList.value = data.items || []
+  } catch (e) {
+    message.error('加载渠道失败: ' + e.message)
+    console.error('[notification/config] loadChannels error:', e)
+    channelList.value = []
+  } finally {
+    loading.value = false
   }
-  message.info(`查看消息: ${msg.title}`)
 }
-const markAllRead = async () => {
+
+async function loadTypes() {
   try {
-    await notification.markAllAsRead()
-    message.success('已全部标为已读')
-    loadData()
-  } catch (error) { console.error('Mark all read error:', error) }
+    const token = localStorage.getItem('token') || ''
+    const res = await fetch('/api/v1/notifications/types', { headers: { Authorization: `Bearer ${token}` } })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json()
+    notificationTypes.value = data.types || []
+  } catch (e) {
+    console.error('[notification/config] loadTypes error:', e)
+  }
+}
+
+function getAlertType(type) {
+  return { email: 'info', dingtalk: 'warning', feishu: 'success', wechat_work: 'info', webhook: 'default' }[type] || 'default'
+}
+
+function handleAdd() {
+  editingChannel.value = null
+  Object.assign(form, { name: '', type: '', config: '{}', enabled: true })
+  drawerVisible.value = true
+}
+
+function handleEdit(row) {
+  editingChannel.value = row
+  Object.assign(form, { name: row.name, type: row.type, config: JSON.stringify(row.config || {}), enabled: row.enabled })
+  drawerVisible.value = true
+}
+
+async function handleSave() {
+  if (!form.name || !form.type) { message.warning('请填写名称和类型'); return }
+  saving.value = true
+  try {
+    const token = localStorage.getItem('token') || ''
+    const method = editingChannel.value ? 'PUT' : 'POST'
+    const url = editingChannel.value ? `/api/v1/notifications/channels/${editingChannel.value.id}` : '/api/v1/notifications/channels'
+    const res = await fetch(url, { method, headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: form.name, type: form.type, config: JSON.parse(form.config || '{}'), enabled: form.enabled }) })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    message.success(editingChannel.value ? '更新成功' : '添加成功')
+    drawerVisible.value = false
+    loadChannels()
+  } catch (e) {
+    message.error('保存失败: ' + e.message)
+    console.error('[notification/config] handleSave error:', e)
+  } finally {
+    saving.value = false
+  }
+}
+
+async function handleDelete(id) {
+  try {
+    const token = localStorage.getItem('token') || ''
+    const res = await fetch(`/api/v1/notifications/channels/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    message.success('删除成功')
+    loadChannels()
+  } catch (e) {
+    message.error('删除失败: ' + e.message)
+    console.error('[notification/config] handleDelete error:', e)
+  }
 }
 </script>
-<style lang="scss" scoped>
-.filter-bar { display: flex; gap: 12px; margin-bottom: 16px; padding: 16px; background: #fff; border-radius: 8px; }
-.message-list { background: #fff; border-radius: 8px; overflow: hidden; }
-.message-item { display: flex; gap: 16px; padding: 16px; border-bottom: 1px solid #f2f3f5; cursor: pointer; transition: background 0.2s; &:hover { background: #f7f8fa; } &.unread { background: #e8f0ff; &:hover { background: #d9e8ff; } } &:last-child { border-bottom: none; } }
-.message-icon { flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; background: #f7f8fa; display: flex; align-items: center; justify-content: center; }
-.message-content { flex: 1; .message-title { font-size: 14px; font-weight: 500; color: #1d2129; } .message-body { font-size: 13px; color: #86909c; margin-top: 4px; } .message-time { font-size: 12px; color: #c9cdd4; margin-top: 4px; } }
-.pagination { display: flex; justify-content: flex-end; margin-top: 16px; }
+
+<style scoped>
+.page-container { padding: 16px; }
 </style>

@@ -1,121 +1,206 @@
-<script setup>
-import { ref, onMounted } from 'vue'
-import { NCard, NDataTable, NButton, NInput, NModal, NForm, NFormItem, NSpace, NTag, NSelect, NSpin } from 'naive-ui'
+<template>
+  <div class="page-container">
+    <n-card title="用户管理" :bordered="false">
+      <template #header-extra>
+        <n-button type="primary" @click="handleAdd">
+          <template #icon><n-icon><AddOutline /></n-icon></template>
+          添加用户
+        </n-button>
+      </template>
 
-const users = ref([])
+      <n-space style="margin-bottom: 12px">
+        <n-input v-model:value="searchKeyword" placeholder="搜索用户名/姓名" clearable style="width: 200px" @change="loadData">
+          <template #prefix><n-icon><SearchOutline /></n-icon></template>
+        </n-input>
+        <n-select v-model:value="filterStatus" :options="statusOptions" placeholder="用户状态" clearable style="width: 120px" @change="loadData" />
+      </n-space>
+
+      <n-data-table
+        :columns="columns"
+        :data="userList"
+        :loading="loading"
+        :pagination="pagination"
+        :row-key="row => row.id"
+      />
+    </n-card>
+
+    <!-- 新建/编辑用户 -->
+    <n-modal v-model:show="dialogVisible" preset="card" :title="dialogTitle" style="width: 600px">
+      <n-form :model="form" label-placement="left" label-width="100">
+        <n-form-item label="用户名" required>
+          <n-input v-model:value="form.username" placeholder="请输入用户名" :disabled="!!form.id" />
+        </n-form-item>
+        <n-form-item v-if="!form.id" label="密码">
+          <n-input v-model:value="form.password" type="password" placeholder="请输入密码" />
+        </n-form-item>
+        <n-form-item label="姓名">
+          <n-input v-model:value="form.full_name" placeholder="请输入姓名" />
+        </n-form-item>
+        <n-form-item label="邮箱">
+          <n-input v-model:value="form.email" placeholder="请输入邮箱" />
+        </n-form-item>
+        <n-form-item label="手机号">
+          <n-input v-model:value="form.phone" placeholder="请输入手机号" />
+        </n-form-item>
+        <n-form-item label="角色">
+          <n-select v-model:value="form.role" :options="roleOptions" placeholder="请选择角色" style="width: 100%" />
+        </n-form-item>
+      </n-form>
+      <template #footer>
+        <n-space justify="end">
+          <n-button @click="dialogVisible = false">取消</n-button>
+          <n-button type="primary" @click="submitForm" :loading="submitting">确定</n-button>
+        </n-space>
+      </template>
+    </n-modal>
+  </div>
+</template>
+
+<script setup>
+import { ref, reactive, onMounted, h } from 'vue'
+import { NCard, NButton, NDataTable, NModal, NForm, NFormItem, NInput, NSelect, NSpace, NTag, NIcon, useMessage } from 'naive-ui'
+import { AddOutline, SearchOutline } from '@vicons/ionicons5'
+
+const message = useMessage()
 const loading = ref(false)
-const modalVisible = ref(false)
-const editingItem = ref(null)
-const formData = ref({ username: '', email: '', role_id: null, enabled: true })
-const roles = ref([])
-const columns = [
-  { title: 'ID', key: 'id', width: 80 },
-  { title: '用户名', key: 'username' },
-  { title: '邮箱', key: 'email' },
-  { title: '角色', key: 'role_name' },
-  { title: '状态', key: 'enabled', render(row) { return h(NTag, { type: row.enabled ? 'success' : 'error' }, { default: () => row.enabled ? '启用' : '禁用' }) } },
-  { title: '操作', key: 'actions', render(row) { return h(NSpace, null, { default: () => [h(NButton, { size: 'small', onClick: () => handleEdit(row) }, { default: () => '编辑' }), h(NButton, { size: 'small', type: 'error', onClick: () => handleDelete(row.id) }, { default: () => '删除' })] }) } }
+const submitting = ref(false)
+const userList = ref([])
+const searchKeyword = ref('')
+const filterStatus = ref(null)
+const dialogVisible = ref(false)
+const dialogTitle = ref('添加用户')
+
+const pagination = reactive({ page: 1, pageSize: 10, total: 0 })
+const form = reactive({ id: null, username: '', password: '', full_name: '', email: '', phone: '', role: null })
+
+const statusOptions = [
+  { label: '全部', value: null },
+  { label: '启用', value: '1' },
+  { label: '禁用', value: '0' }
 ]
 
-import { h } from 'vue'
-const { useAuthStore } = require('@/stores/auth')
+const roleOptions = [
+  { label: '管理员', value: 'admin' },
+  { label: '运维人员', value: 'operator' },
+  { label: '访客', value: 'guest' }
+]
 
-function getToken() {
-  try {
-    const store = useAuthStore()
-    return store.token || ''
-  } catch {
-    return ''
+const columns = [
+  { title: 'ID', key: 'id', width: 80 },
+  { title: '用户名', key: 'username', width: 150 },
+  { title: '姓名', key: 'full_name', width: 120 },
+  { title: '邮箱', key: 'email', width: 180 },
+  { title: '手机号', key: 'phone', width: 130 },
+  { title: '角色', key: 'role', width: 120,
+    render: (r) => {
+      const map = { admin: '管理员', operator: '运维人员', guest: '访客' }
+      return h(NTag, { size: 'small', type: 'info' }, () => map[r.role] || r.role || '-')
+    }
+  },
+  { title: '状态', key: 'is_active', width: 100,
+    render: (r) => h(NTag, { size: 'small', type: r.is_active ? 'success' : 'default' }, () => r.is_active ? '启用' : '禁用')
+  },
+  { title: '创建时间', key: 'created_at', width: 180 },
+  {
+    title: '操作', key: 'actions', width: 180, fixed: 'right',
+    render(row) {
+      return h(NSpace, { size: 8 }, () => [
+        h(NButton, { size: 'small', quaternary: true, type: 'primary', onClick: () => handleEdit(row) }, () => '编辑'),
+        h(NButton, { size: 'small', quaternary: true, type: 'warning', onClick: () => handleResetPwd(row) }, () => '重置密码'),
+        h(NButton, { size: 'small', quaternary: true, type: 'error', onClick: () => handleDelete(row) }, () => '删除')
+      ])
+    }
   }
-}
+]
 
-async function fetchUsers() {
+async function loadData() {
   loading.value = true
   try {
-    const res = await fetch('/api/v1/users', {
-      headers: { 'Authorization': `Bearer ${getToken()}` }
+    const token = localStorage.getItem('token') || ''
+    const params = new URLSearchParams({ page: pagination.page, page_size: pagination.pageSize })
+    if (filterStatus.value) params.append('status', filterStatus.value)
+    if (searchKeyword.value) params.append('search', searchKeyword.value)
+    const res = await fetch(`/api/v1/admin/users?${params}`, {
+      headers: { Authorization: `Bearer ${token}` }
     })
-    users.value = await res.json()
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json()
+    if (!data || typeof data !== 'object') throw new Error('响应格式异常')
+    userList.value = data.items || data.data?.items || []
+    pagination.total = data.total || data.data?.total || 0
+  } catch (e) {
+    message.error(`加载用户失败: ${e.message}`)
+    console.error('[user] loadData error:', e)
+    userList.value = []
   } finally {
     loading.value = false
   }
 }
 
-async function fetchRoles() {
-  const res = await fetch('/api/v1/roles', {
-    headers: { 'Authorization': `Bearer ${getToken()}` }
-  })
-  roles.value = await res.json()
-}
-
 function handleAdd() {
-  editingItem.value = null
-  formData.value = { username: '', email: '', role_id: null, enabled: true }
-  modalVisible.value = true
+  dialogTitle.value = '添加用户'
+  Object.assign(form, { id: null, username: '', password: '', full_name: '', email: '', phone: '', role: null })
+  dialogVisible.value = true
 }
 
 function handleEdit(row) {
-  editingItem.value = row
-  formData.value = { ...row }
-  modalVisible.value = true
+  dialogTitle.value = '编辑用户'
+  Object.assign(form, { id: row.id, username: row.username, password: '', full_name: row.full_name || '', email: row.email || '', phone: row.phone || '', role: row.role || null })
+  dialogVisible.value = true
 }
 
-async function handleSave() {
-  const method = editingItem.value ? 'PUT' : 'POST'
-  const url = editingItem.value ? `/api/v1/users/${editingItem.value.id}` : '/api/v1/users'
-  await fetch(url, {
-    method,
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
-    body: JSON.stringify(formData.value)
-  })
-  modalVisible.value = false
-  fetchUsers()
+function handleResetPwd(row) {
+  message.info(`密码重置功能开发中: ${row.username}`)
 }
 
-async function handleDelete(id) {
-  await fetch(`/api/v1/users/${id}`, {
-    method: 'DELETE',
-    headers: { 'Authorization': `Bearer ${getToken()}` }
-  })
-  fetchUsers()
+async function handleDelete(row) {
+  try {
+    const token = localStorage.getItem('token') || ''
+    const res = await fetch(`/api/v1/admin/users/${row.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    message.success('删除成功')
+    loadData()
+  } catch (e) {
+    message.error(`删除失败: ${e.message}`)
+    console.error('[user] delete error:', e)
+  }
 }
 
-onMounted(() => { fetchUsers(); fetchRoles() })
+async function submitForm() {
+  if (!form.username) {
+    message.warning('请填写用户名')
+    return
+  }
+  submitting.value = true
+  try {
+    const token = localStorage.getItem('token') || ''
+    const method = form.id ? 'PUT' : 'POST'
+    const url = form.id ? `/api/v1/admin/users/${form.id}` : '/api/v1/admin/users'
+    const body = { username: form.username, full_name: form.full_name, email: form.email, phone: form.phone, role: form.role }
+    if (form.password) body.password = form.password
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body)
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    message.success(form.id ? '更新成功' : '创建成功')
+    dialogVisible.value = false
+    loadData()
+  } catch (e) {
+    message.error(`操作失败: ${e.message}`)
+    console.error('[user] submit error:', e)
+  } finally {
+    submitting.value = false
+  }
+}
+
+onMounted(loadData)
 </script>
 
-<template>
-  <n-spin :show="loading">
-    <n-card title="用户管理">
-      <template #header-extra>
-        <n-button type="primary" @click="handleAdd">新增用户</n-button>
-      </template>
-      <n-data-table :columns="columns" :data="users" :bordered="false" />
-    </n-card>
-  </n-spin>
-
-  <n-modal v-model:show="modalVisible" preset="card" :title="editingItem ? '编辑用户' : '新增用户'" style="width: 500px;">
-    <n-form :model="formData" label-placement="top">
-      <n-form-item label="用户名">
-        <n-input v-model:value="formData.username" placeholder="请输入用户名" />
-      </n-form-item>
-      <n-form-item label="邮箱">
-        <n-input v-model:value="formData.email" placeholder="请输入邮箱" />
-      </n-form-item>
-      <n-form-item label="角色">
-        <n-select v-model:value="formData.role_id" :options="roles.map(r => ({ label: r.name, value: r.id }))" placeholder="请选择角色" />
-      </n-form-item>
-      <n-form-item label="启用">
-        <n-switch v-model:value="formData.enabled" />
-      </n-form-item>
-    </n-form>
-    <template #footer>
-      <n-space justify="end">
-        <n-button @click="modalVisible = false">取消</n-button>
-        <n-button type="primary" @click="handleSave">保存</n-button>
-      </n-space>
-    </template>
-  </n-modal>
-</template>
-
 <style scoped>
+.page-container { padding: 16px; }
 </style>
