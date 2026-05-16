@@ -343,8 +343,7 @@ class DeviceManager:
             try:
                 metrics = await self._collect_with_protocol(device_config, protocol)
                 
-                if metrics:
-                    metrics.status = CollectionStatus.ONLINE
+                if metrics and metrics.status == CollectionStatus.ONLINE:
                     self._device_status[device_name] = CollectionStatus.ONLINE
                     self._last_collect_time[device_name] = datetime.now()
                     self._last_metrics[device_name] = metrics
