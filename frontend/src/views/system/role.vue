@@ -72,7 +72,7 @@
     </el-dialog>
 
     <el-dialog v-model="permissionDialogVisible" title="分配权限" width="600px">
-      <el-tree ref="permissionTree" :data="permissionTree" show-checkbox node-key="id" :props="{ label: 'name', children: 'children' }" default-expand-all />
+      <el-tree ref="permissionTreeRef" :data="permissionTree" show-checkbox node-key="id" :props="{ label: 'name', children: 'children' }" default-expand-all />
       <template #footer>
         <el-button @click="permissionDialogVisible = false">取消</el-button>
         <el-button type="primary" @click="submitPermission">确定</el-button>
@@ -82,10 +82,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import { role } from '@/api'
+import { role, menu } from '@/api'
 import { formatTime } from '@/utils/date'
 
 const loading = ref(false)
@@ -96,6 +96,7 @@ const dialogTitle = ref('添加角色')
 const formRef = ref(null)
 const permissionTree = ref([])
 const currentRoleId = ref(null)
+const permissionTreeRef = ref(null)
 
 const pagination = reactive({ page: 1, pageSize: 10, total: 0 })
 const form = reactive({ id: null, name: '', code: '', description: '', status: '1' })
@@ -126,17 +127,28 @@ const handleDelete = (row) => {
 
 const handlePermission = async (row) => {
   currentRoleId.value = row.id
-  permissionTree.value = [
-    { id: 1, name: '仪表盘', children: [{ id: 11, name: '查看' }, { id: 12, name: '导出' }] },
-    { id: 2, name: '监控中心', children: [{ id: 21, name: '设备管理' }, { id: 22, name: '告警管理' }, { id: 23, name: '性能监控' }] },
-    { id: 3, name: '工单管理', children: [{ id: 31, name: '查看' }, { id: 32, name: '创建' }, { id: 33, name: '处理' }] },
-    { id: 4, name: '系统管理', children: [{ id: 41, name: '用户管理' }, { id: 42, name: '角色管理' }, { id: 43, name: '菜单管理' }] }
-  ]
+  try {
+    const [menuRes, permRes] = await Promise.all([
+      menu.getList().catch(() => []),
+      role.getPermissions(row.id).catch(() => [])
+    ])
+    permissionTree.value = menuRes || []
+    await nextTick()
+    if (permRes && permRes.length > 0) {
+      const checkedKeys = permRes.map(p => p)
+      checkedKeys.forEach(key => {
+        permissionTreeRef.value?.setChecked(key, true, false)
+      })
+    }
+  } catch (e) { console.error(e) }
   permissionDialogVisible.value = true
 }
 
 const submitPermission = async () => {
   try {
+    const checkedNodes = permissionTreeRef.value?.getCheckedNodes(false, true) || []
+    const permissionIds = checkedNodes.map(node => node.id)
+    await role.assignPermissions(currentRoleId.value, { permission_ids: permissionIds })
     ElMessage.success('权限分配成功')
     permissionDialogVisible.value = false
   } catch (error) { console.error('Submit permission error:', error) }

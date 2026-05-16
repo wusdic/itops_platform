@@ -59,6 +59,7 @@
 <script setup>
 import { ref, onMounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
+import { ai } from '@/api'
 
 const inputText = ref('')
 const messages = ref([])
@@ -66,8 +67,6 @@ const aiLoading = ref(false)
 const messagesRef = ref(null)
 const conversations = ref([])
 const currentConvId = ref(null)
-
-const token = () => localStorage.getItem('token')
 
 const scrollBottom = () => {
   nextTick(() => {
@@ -100,23 +99,11 @@ const sendMessage = async () => {
   scrollBottom()
 
   try {
-    // 使用非流式API，避免Vite dev proxy对SSE的buffering问题
-    const res = await fetch('/api/v1/ai/chat', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token()}`
-      },
-      body: JSON.stringify({
-        message: text,
-        conversation_id: currentConvId.value || undefined,
-        stream: false
-      })
+    const data = await ai.chat({
+      message: text,
+      conversation_id: currentConvId.value || undefined,
+      stream: false
     })
-
-    if (!res.ok) throw new Error('请求失败')
-
-    const data = await res.json()
     const content = data.message || data.content || data.response || data.result || ''
 
     messages.value.push({
@@ -129,7 +116,7 @@ const sendMessage = async () => {
       currentConvId.value = data.conversation_id
     }
   } catch (e) {
-    ElMessage.error('AI响应失败: ' + e.message)
+    ElMessage.error('AI响应失败: ' + (e.message || '请检查AI服务是否可用'))
     messages.value.push({ role: 'assistant', content: '抱歉，AI服务暂时不可用。', timestamp: Date.now() })
   } finally {
     aiLoading.value = false
@@ -154,13 +141,8 @@ const formatTime = (ts) => {
 
 const loadConversations = async () => {
   try {
-    const res = await fetch('/api/v1/ai/conversations', {
-      headers: { 'Authorization': `Bearer ${token()}` }
-    })
-    if (res.ok) {
-      const data = await res.json()
-      conversations.value = data.items || []
-    }
+    const data = await ai.getConversations({ page: 1, page_size: 50 })
+    conversations.value = data.items || []
   } catch (e) {
     console.warn('Load conversations failed:', e)
   }
@@ -169,18 +151,13 @@ const loadConversations = async () => {
 const selectConv = async (id) => {
   currentConvId.value = id
   try {
-    const res = await fetch(`/api/v1/ai/conversation/${id}`, {
-      headers: { 'Authorization': `Bearer ${token()}` }
-    })
-    if (res.ok) {
-      const data = await res.json()
-      messages.value = (data.messages || []).map(m => ({
-        role: m.role === 'user' ? 'user' : 'assistant',
-        content: m.content,
-        timestamp: new Date(m.created_at).getTime()
-      }))
-      scrollBottom()
-    }
+    const data = await ai.getConversation(id)
+    messages.value = (data.messages || []).map(m => ({
+      role: m.role === 'user' ? 'user' : 'assistant',
+      content: m.content,
+      timestamp: new Date(m.created_at).getTime()
+    }))
+    scrollBottom()
   } catch (e) {
     console.warn('Load conversation failed:', e)
   }
@@ -188,10 +165,7 @@ const selectConv = async (id) => {
 
 const deleteConv = async (id) => {
   try {
-    await fetch(`/api/v1/ai/conversation/${id}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${token()}` }
-    })
+    await ai.deleteConversation(id)
     conversations.value = conversations.value.filter(c => c.id !== id)
   } catch (e) {
     console.warn('Delete conversation failed:', e)
