@@ -179,6 +179,7 @@ const menuOptions = [
   childItem('/system/menu', '菜单管理'),
   childItem('/system/dict', '字典管理'),
   childItem('/system/config', '参数配置'),
+  childItem('/system/logs', '日志查看'),
 ]
 
 const breadcrumbs = computed(() => {

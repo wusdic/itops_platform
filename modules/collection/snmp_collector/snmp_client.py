@@ -1106,6 +1106,15 @@ class SNMPDevice:
         """检查是否已连接"""
         return self._connected
     
+
+    def connect(self) -> bool:
+        """建立 SNMP 连接"""
+        return self.connect()
+
+    def close(self):
+        """关闭 SNMP 连接"""
+        self.close()
+
     def collect_all(self) -> Dict[str, Any]:
         """
         采集设备所有标准数据

@@ -177,6 +177,12 @@ const routes = [
         component: () => import('@/views/system/config.vue'),
         meta: { title: '参数配置', parent: '系统管理' }
       },
+      {
+        path: 'system/logs',
+        name: 'SystemLogs',
+        component: () => import('@/views/system/logs.vue'),
+        meta: { title: '日志查看', parent: '系统管理' }
+      },
       // 报表管理
       {
         path: 'report/list',

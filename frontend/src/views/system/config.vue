@@ -52,7 +52,7 @@ const loadData = async () => {
   loading.value = true
   try {
     const token = localStorage.getItem('token')
-    const res = await fetch(`/api/v1/admin/configs?page=${pagination.page}&page_size=${pagination.pageSize}`, {
+    const res = await fetch(`/api/v1/admin/config?page=${pagination.page}&page_size=${pagination.pageSize}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
     if (!res.ok) throw new Error('请求失败')
@@ -79,7 +79,7 @@ const handleCancel = (row) => {
 const handleSave = async (row) => {
   try {
     const token = localStorage.getItem('token')
-    const res = await fetch(`/api/v1/admin/configs/${row.key}`, {
+    const res = await fetch(`/api/v1/admin/config/${row.key}`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,

@@ -683,3 +683,204 @@ devices:
         - prometheus_alerts
     tags:
       env: production
+
+  # ============================================================
+  # 2026-05-17 网络扫描发现的设备
+  # 192.168.1.0/24 活跃主机 (iTOPS Scanner 发现)
+  # ============================================================
+
+  - name: "核心交换机-CORE-01"
+    ip: "192.168.1.1"
+    type: "network_switch"
+    os: "linux"
+    vendor: "H3C"
+    model: "S5500"
+    location: "机房-A-核心区"
+    protocols:
+      primary: "http"
+      fallback: "snmp"
+    credentials:
+      http:
+        username: "admin"
+        password: "admin"
+    api:
+      endpoint: "/"
+    collect:
+      enabled: true
+      interval: 60
+
+  - name: "MySQL服务器-DB-01"
+    ip: "192.168.1.131"
+    type: "server_linux"
+    os: "linux"
+    vendor: "Linux"
+    location: "机房-A-服务器区"
+    protocols:
+      primary: "mysql"
+      fallback1: "ssh"
+      fallback2: "http"
+    credentials:
+      mysql:
+        username: "root"
+        password: "root"
+      ssh:
+        username: "root"
+        password: "root"
+        port: 22
+    database:
+      name: "mysql"
+    collect:
+      enabled: true
+      interval: 60
+
+  - name: "MySQL服务器-DB-02"
+    ip: "192.168.1.132"
+    type: "server_linux"
+    os: "linux"
+    vendor: "Linux"
+    location: "机房-A-服务器区"
+    protocols:
+      primary: "mysql"
+      fallback1: "ssh"
+    credentials:
+      mysql:
+        username: "root"
+        password: "root"
+      ssh:
+        username: "root"
+        password: "root"
+    database:
+      name: "mysql"
+    collect:
+      enabled: true
+      interval: 60
+
+  - name: "Web服务器-WEB-01"
+    ip: "192.168.1.154"
+    type: "server_linux"
+    os: "linux"
+    vendor: "Linux"
+    location: "机房-A-服务器区"
+    protocols:
+      primary: "http"
+      fallback1: "ssh"
+    credentials:
+      http: {}
+      ssh:
+        username: "root"
+        password: "root"
+    api:
+      endpoint: "/api/status"
+    collect:
+      enabled: true
+      interval: 60
+
+  - name: "Web服务器-WEB-02"
+    ip: "192.168.1.155"
+    type: "server_linux"
+    os: "linux"
+    vendor: "Linux"
+    location: "机房-A-服务器区"
+    protocols:
+      primary: "http"
+      fallback1: "ssh"
+      fallback2: "mysql"
+    credentials:
+      http: {}
+      ssh:
+        username: "root"
+        password: "root"
+      mysql:
+        username: "root"
+        password: "root"
+    api:
+      endpoint: "/api/status"
+    collect:
+      enabled: true
+      interval: 60
+
+  - name: "应用服务器-APP-01"
+    ip: "192.168.1.156"
+    type: "server_linux"
+    os: "linux"
+    vendor: "Linux"
+    location: "机房-A-服务器区"
+    protocols:
+      primary: "http"
+      fallback1: "ssh"
+    credentials:
+      http: {}
+      ssh:
+        username: "root"
+        password: "root"
+    api:
+      endpoint: "/api/health"
+    collect:
+      enabled: true
+      interval: 60
+
+  - name: "混合服务器-SRV-01"
+    ip: "192.168.1.163"
+    type: "server_linux"
+    os: "linux"
+    vendor: "Linux"
+    location: "机房-A-服务器区"
+    protocols:
+      primary: "ssh"
+      fallback1: "http"
+      fallback2: "mysql"
+      fallback3: "postgres"
+    credentials:
+      ssh:
+        username: "root"
+        password: "root"
+      http: {}
+      mysql:
+        username: "root"
+        password: "root"
+      postgres:
+        username: "postgres"
+        password: "postgres"
+    collect:
+      enabled: true
+      interval: 60
+
+  - name: "Redis缓存-REDIS-01"
+    ip: "192.168.1.164"
+    type: "server_linux"
+    os: "linux"
+    vendor: "Linux"
+    location: "机房-A-服务器区"
+    protocols:
+      primary: "redis"
+      fallback1: "ssh"
+      fallback2: "http"
+    credentials:
+      redis:
+        password: ""
+        db: 0
+      ssh:
+        username: "root"
+        password: "root"
+    collect:
+      enabled: true
+      interval: 60
+
+  - name: "网关设备-GW-01"
+    ip: "192.168.1.221"
+    type: "network_router"
+    os: "linux"
+    vendor: "Generic"
+    location: "机房-A-核心区"
+    protocols:
+      primary: "http"
+      fallback: "snmp"
+    credentials:
+      http:
+        username: "admin"
+        password: "admin"
+    api:
+      endpoint: "/"
+    collect:
+      enabled: true
+      interval: 60

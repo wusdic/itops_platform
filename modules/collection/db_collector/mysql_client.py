@@ -181,6 +181,16 @@ class MySQLCollector:
             self._conn.close()
         self._conn = None
 
+    def connect(self) -> bool:
+        """建立数据库连接（用于 device_manager 标准接口）"""
+        try:
+            self._get_connection()
+            return True
+        except Exception:
+            return False
+
+
+
     def __enter__(self):
         return self
 

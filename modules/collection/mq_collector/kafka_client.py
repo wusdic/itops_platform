@@ -131,3 +131,9 @@ class KafkaCollector:
             metrics["consumer_groups_error"] = str(e)
 
         return metrics
+
+    def close(self):
+        """关闭 Kafka 连接"""
+        if self._client:
+            self._client.close()
+            self._client = None
