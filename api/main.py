@@ -32,6 +32,7 @@ from api.routes import (
     discovery_router,
     automation_router,
     backup_router,
+    adapters_router,
 )
 from api.dependencies import get_settings
 from api.middleware.logging import LoggingMiddleware
@@ -234,6 +235,12 @@ def create_app() -> FastAPI:
         admin_router,
         prefix="/api/v1/admin",
         tags=["系统管理"],
+    )
+
+    app.include_router(
+        adapters_router,
+        prefix="/api/v1/admin",
+        tags=["适配器管理"],
     )
     
     app.include_router(

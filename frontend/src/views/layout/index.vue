@@ -180,6 +180,7 @@ const menuOptions = [
   childItem('/system/dict', '字典管理'),
   childItem('/system/config', '参数配置'),
   childItem('/system/logs', '日志查看'),
+  childItem('/system/adapters', '适配器管理'),
 ]
 
 const breadcrumbs = computed(() => {

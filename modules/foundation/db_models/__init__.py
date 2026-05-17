@@ -25,6 +25,7 @@ from .notification.notification_model import (
     NotificationChannelModel, NotificationLog, NotificationTargetRule
 )
 from .notification.notification_model import NotificationChannel, NotificationTarget
+from .adapter import AdapterTemplate, DeviceProtocolConfig
 
 __all__ = [
     'Base',
@@ -57,6 +58,8 @@ __all__ = [
     'NotificationTargetRule',
     'NotificationChannel',
     'NotificationTarget',
+    'AdapterTemplate',
+    'DeviceProtocolConfig',
 ]
 
 __version__ = '1.0.0'
