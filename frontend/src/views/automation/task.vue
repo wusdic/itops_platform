@@ -1,228 +1,262 @@
 <template>
   <div class="page-container">
-    <n-card title="自动化任务" :bordered="false">
-      <template #header-extra>
-        <n-button type="primary" @click="handleAdd">
-          <template #icon><n-icon><AddOutline /></n-icon></template>
-          新建任务
-        </n-button>
-      </template>
+    <n-card title="指标评估" :bordered="false">
+      <n-tabs type="line" animated>
+        <n-tab-pane name="evaluate" tab="指标评估">
+          <n-form :model="form" label-placement="left" label-width="100" style="max-width: 600px; margin-top: 16px;">
+            <n-form-item label="设备" required>
+              <n-select v-model:value="form.device_id" :options="deviceOptions" placeholder="请选择设备" style="width: 100%" @update:value="loadMetrics" />
+            </n-form-item>
+            <n-form-item label="指标" required>
+              <n-select v-model:value="form.metric_name" :options="metricOptions" placeholder="请先选择设备" style="width: 100%" :disabled="!form.device_id" />
+            </n-form-item>
+            <n-form-item label="阈值(可选)">
+              <n-input v-model:value="form.threshold" placeholder="请输入阈值(可选)" />
+            </n-form-item>
+            <n-form-item>
+              <n-space>
+                <n-button type="primary" @click="handleEvaluate" :loading="evaluating">评估</n-button>
+                <n-button @click="resetForm">重置</n-button>
+              </n-space>
+            </n-form-item>
+          </n-form>
 
-      <n-space style="margin-bottom: 12px">
-        <n-input v-model:value="searchKeyword" placeholder="搜索任务名称" clearable style="width: 200px" @change="loadData">
-          <template #prefix><n-icon><SearchOutline /></n-icon></template>
-        </n-input>
-        <n-select v-model:value="filterStatus" :options="statusOptions" placeholder="任务状态" clearable style="width: 140px" @change="loadData" />
-      </n-space>
+          <!-- 评估结果 -->
+          <n-card v-if="evalResult" title="评估结果" style="margin-top: 16px;" :bordered="true">
+            <n-descriptions label-placement="top" :column="2" v-if="evalResult">
+              <n-descriptions-item label="设备ID">{{ evalResult.device_id || '-' }}</n-descriptions-item>
+              <n-descriptions-item label="指标名称">{{ evalResult.metric_name || '-' }}</n-descriptions-item>
+              <n-descriptions-item label="当前值">{{ evalResult.current_value ?? '-' }}</n-descriptions-item>
+              <n-descriptions-item label="阈值">{{ evalResult.threshold ?? '-' }}</n-descriptions-item>
+              <n-descriptions-item label="状态">
+                <n-tag :type="getStatusType(evalResult.status)">{{ getStatusText(evalResult.status) }}</n-tag>
+              </n-descriptions-item>
+              <n-descriptions-item label="执行ID">{{ evalResult.execution_id || '-' }}</n-descriptions-item>
+            </n-descriptions>
+            <n-divider />
+            <n-input type="textarea" :value="evalResultDetail" :rows="8" readonly placeholder="暂无详细结果" />
+          </n-card>
+        </n-tab-pane>
 
-      <n-data-table
-        :columns="columns"
-        :data="taskList"
-        :loading="loading"
-        :pagination="pagination"
-        :row-key="row => row.id"
-      />
+        <n-tab-pane name="history" tab="评估历史">
+          <n-space style="margin-bottom: 12px">
+            <n-button quaternary @click="loadHistory" :loading="historyLoading">
+              <template #icon><n-icon><RefreshOutline /></n-icon></template>
+              刷新
+            </n-button>
+          </n-space>
+          <n-data-table
+            :columns="historyColumns"
+            :data="historyList"
+            :loading="historyLoading"
+            :pagination="historyPagination"
+            :row-key="row => row.execution_id"
+          />
+        </n-tab-pane>
+      </n-tabs>
     </n-card>
 
-    <!-- 新建/编辑任务 -->
-    <n-modal v-model:show="dialogVisible" preset="card" :title="dialogTitle" style="width: 700px">
-      <n-form :model="form" label-placement="left" label-width="100">
-        <n-form-item label="任务名称" required>
-          <n-input v-model:value="form.name" placeholder="请输入任务名称" />
-        </n-form-item>
-        <n-form-item label="触发类型">
-          <n-select v-model:value="form.trigger_type" :options="triggerOptions" placeholder="请选择" style="width: 100%" />
-        </n-form-item>
-        <n-form-item label="描述">
-          <n-input v-model:value="form.description" type="textarea" :rows="2" placeholder="请输入描述" />
-        </n-form-item>
-      </n-form>
+    <!-- 快照详情 -->
+    <n-modal v-model:show="snapshotDialogVisible" preset="card" title="执行快照" style="width: 700px">
+      <n-spin :show="snapshotLoading">
+        <n-input type="textarea" :value="snapshotDetail" :rows="20" readonly placeholder="暂无快照数据" />
+      </n-spin>
       <template #footer>
         <n-space justify="end">
-          <n-button @click="dialogVisible = false">取消</n-button>
-          <n-button type="primary" @click="submitForm" :loading="submitting">确定</n-button>
+          <n-button @click="snapshotDialogVisible = false">关闭</n-button>
         </n-space>
       </template>
     </n-modal>
-
-    <!-- 执行结果抽屉 -->
-    <n-drawer v-model:show="resultDrawer" :width="600" placement="right">
-      <n-drawer-content title="执行结果">
-        <n-spin :show="executing">
-          <n-input type="textarea" :value="executeResult" :rows="15" readonly placeholder="暂无执行结果" />
-        </n-spin>
-      </n-drawer-content>
-    </n-drawer>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted, h } from 'vue'
-import { NCard, NButton, NDataTable, NModal, NForm, NFormItem, NInput, NSelect, NSpace, NTag, NIcon, NDrawer, NDrawerContent, NSpin, useMessage } from 'naive-ui'
-import { AddOutline, SearchOutline, PlayOutline } from '@vicons/ionicons5'
+import { NCard, NButton, NDataTable, NModal, NForm, NFormItem, NInput, NSelect, NSpace, NTag, NIcon, NSpin, NTabs, NTabPane, NDescriptions, NDescriptionsItem, NDivider, useMessage } from 'naive-ui'
+import { RefreshOutline, SearchOutline } from '@vicons/ionicons5'
 
 const message = useMessage()
 const loading = ref(false)
-const submitting = ref(false)
-const executing = ref(false)
-const taskList = ref([])
-const searchKeyword = ref('')
-const filterStatus = ref(null)
-const dialogVisible = ref(false)
-const resultDrawer = ref(false)
-const executeResult = ref('')
-const dialogTitle = ref('新建任务')
+const evaluating = ref(false)
+const historyLoading = ref(false)
+const snapshotLoading = ref(false)
+const deviceOptions = ref([])
+const metricOptions = ref([])
+const evalResult = ref(null)
+const evalResultDetail = ref('')
+const historyList = ref([])
+const snapshotDialogVisible = ref(false)
+const snapshotDetail = ref('')
+const currentExecutionId = ref(null)
 
-const pagination = reactive({ page: 1, pageSize: 10, total: 0 })
-const form = reactive({ id: null, name: '', trigger_type: 'manual', description: '' })
+const form = reactive({ device_id: null, metric_name: null, threshold: '' })
+const historyPagination = reactive({ page: 1, pageSize: 10, total: 0 })
 
-const statusOptions = [
-  { label: '全部', value: null },
-  { label: '就绪', value: 'ready' },
-  { label: '进行中', value: 'running' },
-  { label: '成功', value: 'success' },
-  { label: '失败', value: 'failed' }
-]
-
-const triggerOptions = [
-  { label: '手动执行', value: 'manual' },
-  { label: '定时触发', value: 'schedule' },
-  { label: '事件触发', value: 'event' }
-]
-
-const columns = [
-  { title: 'ID', key: 'id', width: 80 },
-  { title: '任务名称', key: 'name', ellipsis: { tooltip: true } },
-  { title: '触发类型', key: 'trigger_type', width: 120,
-    render: (r) => {
-      const map = { manual: '手动', schedule: '定时', event: '事件' }
-      return h(NTag, { size: 'small', type: 'info' }, () => map[r.trigger_type] || r.trigger_type)
-    }
-  },
-  { title: '描述', key: 'description', ellipsis: { tooltip: true } },
+const historyColumns = [
+  { title: '执行ID', key: 'execution_id', width: 120 },
+  { title: '设备ID', key: 'device_id', width: 100 },
+  { title: '指标名称', key: 'metric_name', ellipsis: { tooltip: true } },
+  { title: '当前值', key: 'current_value', width: 100 },
   { title: '状态', key: 'status', width: 100,
     render: (r) => {
-      const map = { ready: 'info', running: 'warning', success: 'success', failed: 'error' }
-      const text = { ready: '就绪', running: '进行中', success: '成功', failed: '失败' }
-      return h(NTag, { size: 'small', type: map[r.status] || 'default' }, () => text[r.status] || r.status)
+      const typeMap = { normal: 'success', warning: 'warning', critical: 'error', triggered: 'error' }
+      const textMap = { normal: '正常', warning: '警告', critical: '严重', triggered: '触发' }
+      return h(NTag, { size: 'small', type: typeMap[r.status] || 'default' }, () => textMap[r.status] || r.status || '-')
     }
   },
-  { title: '最后执行', key: 'last_run_at', width: 180 },
+  { title: '触发时间', key: 'triggered_at', width: 180 },
   {
-    title: '操作', key: 'actions', width: 150, fixed: 'right',
+    title: '操作', key: 'actions', width: 100,
     render(row) {
-      return h(NSpace, { size: 8 }, () => [
-        h(NButton, { size: 'small', quaternary: true, type: 'info', onClick: () => handleExecute(row) }, () => '执行'),
-        h(NButton, { size: 'small', quaternary: true, type: 'primary', onClick: () => handleEdit(row) }, () => '编辑'),
-        h(NButton, { size: 'small', quaternary: true, type: 'error', onClick: () => handleDelete(row) }, () => '删除')
-      ])
+      return h(NButton, { size: 'small', quaternary: true, type: 'info', onClick: () => handleViewSnapshot(row) }, () => '快照')
     }
   }
 ]
 
-async function loadData() {
-  loading.value = true
+function getStatusType(status) {
+  const map = { normal: 'success', warning: 'warning', critical: 'error', triggered: 'error' }
+  return map[status] || 'default'
+}
+
+function getStatusText(status) {
+  const map = { normal: '正常', warning: '警告', critical: '严重', triggered: '触发' }
+  return map[status] || status || '-'
+}
+
+async function loadDevices() {
   try {
     const token = localStorage.getItem('token') || ''
-    const params = new URLSearchParams({ page: pagination.page, page_size: pagination.pageSize })
-    if (filterStatus.value) params.append('status', filterStatus.value)
-    if (searchKeyword.value) params.append('search', searchKeyword.value)
-    const res = await fetch(`/api/v1/automation/trigger-rules?${params}`, {
+    const res = await fetch('/api/v1/assets/device?page=1&page_size=100', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json()
+    deviceOptions.value = (data.items || data.data?.items || []).map(d => ({ label: `${d.name} (${d.ip_address})`, value: d.id }))
+  } catch (e) {
+    message.error(`加载设备失败: ${e.message}`)
+    console.error('[automation/task] loadDevices error:', e)
+    deviceOptions.value = []
+  }
+}
+
+async function loadMetrics(deviceId) {
+  if (!deviceId) {
+    metricOptions.value = []
+    return
+  }
+  try {
+    const token = localStorage.getItem('token') || ''
+    const res = await fetch(`/api/v1/assets/device/${deviceId}/metrics`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json()
+    const metrics = data.metrics || data.items || data.data?.items || []
+    metricOptions.value = metrics.map(m => ({ label: m.name || m.metric_name, value: m.name || m.metric_name }))
+  } catch (e) {
+    console.error('[automation/task] loadMetrics error:', e)
+    // Fallback: use common metric names
+    metricOptions.value = [
+      { label: 'CPU使用率', value: 'cpu_usage' },
+      { label: '内存使用率', value: 'memory_usage' },
+      { label: '磁盘使用率', value: 'disk_usage' },
+      { label: '网络流量', value: 'network_traffic' }
+    ]
+  }
+}
+
+async function handleEvaluate() {
+  if (!form.device_id) { message.warning('请选择设备'); return }
+  if (!form.metric_name) { message.warning('请选择指标'); return }
+  evaluating.value = true
+  evalResult.value = null
+  evalResultDetail.value = ''
+  try {
+    const token = localStorage.getItem('token') || ''
+    const payload = {
+      device_id: form.device_id,
+      metric_name: form.metric_name
+    }
+    if (form.threshold) {
+      payload.threshold = parseFloat(form.threshold)
+    }
+    const res = await fetch('/api/v1/automation/evaluate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload)
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json()
+    evalResult.value = data
+    evalResultDetail.value = JSON.stringify(data, null, 2)
+    message.success('评估完成')
+  } catch (e) {
+    evalResultDetail.value = `评估失败: ${e.message}`
+    message.error(`评估失败: ${e.message}`)
+    console.error('[automation/task] evaluate error:', e)
+  } finally {
+    evaluating.value = false
+  }
+}
+
+async function handleViewSnapshot(row) {
+  currentExecutionId.value = row.execution_id
+  snapshotDialogVisible.value = true
+  snapshotDetail.value = ''
+  snapshotLoading.value = true
+  try {
+    const token = localStorage.getItem('token') || ''
+    const res = await fetch(`/api/v1/automation/executions/${row.execution_id}/snapshot`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json()
+    snapshotDetail.value = JSON.stringify(data, null, 2)
+  } catch (e) {
+    snapshotDetail.value = `加载快照失败: ${e.message}`
+    message.error(`加载快照失败: ${e.message}`)
+    console.error('[automation/task] snapshot error:', e)
+  } finally {
+    snapshotLoading.value = false
+  }
+}
+
+async function loadHistory() {
+  historyLoading.value = true
+  try {
+    const token = localStorage.getItem('token') || ''
+    const params = new URLSearchParams({ page: historyPagination.page, page_size: historyPagination.pageSize })
+    const res = await fetch(`/api/v1/automation/rollback-history?${params}`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
     if (!data || typeof data !== 'object') throw new Error('响应格式异常')
-    taskList.value = data.items || data.data?.items || []
-    pagination.total = data.total || data.data?.total || 0
+    // 评估历史使用 rollback-history 接口数据
+    historyList.value = data.items || data.data?.items || []
+    historyPagination.total = data.total || data.data?.total || 0
   } catch (e) {
-    message.error(`加载任务失败: ${e.message}`)
-    console.error('[automation/task] loadData error:', e)
-    taskList.value = []
+    message.error(`加载历史记录失败: ${e.message}`)
+    console.error('[automation/task] loadHistory error:', e)
+    historyList.value = []
   } finally {
-    loading.value = false
+    historyLoading.value = false
   }
 }
 
-function handleAdd() {
-  dialogTitle.value = '新建任务'
-  Object.assign(form, { id: null, name: '', trigger_type: 'manual', description: '' })
-  dialogVisible.value = true
+function resetForm() {
+  form.device_id = null
+  form.metric_name = null
+  form.threshold = ''
+  evalResult.value = null
+  evalResultDetail.value = ''
+  metricOptions.value = []
 }
 
-function handleEdit(row) {
-  dialogTitle.value = '编辑任务'
-  Object.assign(form, { id: row.id, name: row.name, trigger_type: row.trigger_type || 'manual', description: row.description || '' })
-  dialogVisible.value = true
-}
-
-async function handleDelete(row) {
-  try {
-    const token = localStorage.getItem('token') || ''
-    const res = await fetch(`/api/v1/automation/trigger-rules/${row.id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    message.success('删除成功')
-    loadData()
-  } catch (e) {
-    message.error(`删除失败: ${e.message}`)
-    console.error('[automation/task] delete error:', e)
-  }
-}
-
-async function handleExecute(row) {
-  executing.value = true
-  resultDrawer.value = true
-  executeResult.value = ''
-  try {
-    const token = localStorage.getItem('token') || ''
-    const res = await fetch(`/api/v1/automation/trigger-rules/${row.id}/execute`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
-    })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const data = await res.json()
-    executeResult.value = JSON.stringify(data, null, 2)
-    message.success('执行成功')
-  } catch (e) {
-    executeResult.value = `执行失败: ${e.message}`
-    message.error(`执行失败: ${e.message}`)
-    console.error('[automation/task] execute error:', e)
-  } finally {
-    executing.value = false
-  }
-}
-
-async function submitForm() {
-  if (!form.name) {
-    message.warning('请填写任务名称')
-    return
-  }
-  submitting.value = true
-  try {
-    const token = localStorage.getItem('token') || ''
-    const method = form.id ? 'PUT' : 'POST'
-    const url = form.id ? `/api/v1/automation/trigger-rules/${form.id}` : '/api/v1/automation/trigger-rules'
-    const res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify(form)
-    })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    message.success(form.id ? '更新成功' : '创建成功')
-    dialogVisible.value = false
-    loadData()
-  } catch (e) {
-    message.error(`操作失败: ${e.message}`)
-    console.error('[automation/task] submit error:', e)
-  } finally {
-    submitting.value = false
-  }
-}
-
-onMounted(loadData)
+onMounted(() => {
+  loadDevices()
+  loadHistory()
+})
 </script>
 
 <style scoped>

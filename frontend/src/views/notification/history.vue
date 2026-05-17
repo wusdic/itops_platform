@@ -14,7 +14,7 @@
         </n-button>
         <n-button @click="markAllRead">
           <template #icon>
-            <n-icon><DoneAll /></n-icon>
+            <n-icon><CheckmarkDoneOutline /></n-icon>
           </template>
           全部已读
         </n-button>
@@ -99,7 +99,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { NIcon } from 'naive-ui'
-import { Refresh, DoneAll } from '@vicons/ionicons5'
+import { Refresh, CheckmarkDoneOutline } from '@vicons/ionicons5'
 
 const loading = ref(false)
 const list = ref([])

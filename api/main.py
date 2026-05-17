@@ -31,6 +31,7 @@ from api.routes import (
     auth_router,
     discovery_router,
     automation_router,
+    backup_router,
 )
 from api.dependencies import get_settings
 from api.middleware.logging import LoggingMiddleware
@@ -257,6 +258,12 @@ def create_app() -> FastAPI:
         automation_router,
         prefix="/api/v1/automation",
         tags=["自动化触发"],
+    )
+
+    app.include_router(
+        backup_router,
+        prefix="/api/v1",
+        tags=["备份管理"],
     )
 
     # 前端静态文件服务 - 使用中间件方式避免路由冲突

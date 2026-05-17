@@ -63,11 +63,17 @@
     <!-- 编辑工单弹窗 -->
     <n-modal v-model:show="editModalVisible" preset="card" title="编辑工单" style="width:500px">
       <n-form label-placement="left" label-width="80">
+        <n-form-item label="工单号">
+          <span>{{ editForm.order_no }}</span>
+        </n-form-item>
         <n-form-item label="当前状态">
           <n-tag :type="statusType(editForm.status)" size="small">{{ statusText(editForm.status) }}</n-tag>
         </n-form-item>
         <n-form-item label="新状态">
           <n-select v-model="editForm.status" :options="statusTransitionOptions" placeholder="请选择新状态" />
+        </n-form-item>
+        <n-form-item label="处理人">
+          <n-input v-model="editForm.assignee" placeholder="请输入处理人" />
         </n-form-item>
         <n-form-item label="处理备注">
           <n-input v-model="editForm.handling_notes" type="textarea" :rows="4" placeholder="请输入处理备注" />
@@ -76,7 +82,7 @@
       <template #footer>
         <n-space justify="end">
           <n-button @click="editModalVisible = false">取消</n-button>
-          <n-button type="primary" @click="submitEdit">保存</n-button>
+          <n-button type="primary" @click="submitEdit" :loading="editSubmitting">保存</n-button>
         </n-space>
       </template>
     </n-modal>
@@ -91,6 +97,7 @@ import { AddOutline } from '@vicons/ionicons5'
 const message = useMessage()
 
 const loading = ref(false)
+const editSubmitting = ref(false)
 const searchKeyword = ref('')
 const filterStatus = ref(null)
 const filterPriority = ref(null)
@@ -104,7 +111,7 @@ const viewData = ref({})
 
 // 编辑弹窗
 const editModalVisible = ref(false)
-const editForm = reactive({ id: null, status: '', handling_notes: '' })
+const editForm = reactive({ id: null, order_no: '', status: '', assignee: '', handling_notes: '' })
 const statusTransitionOptions = ref([])
 
 const statusOptions = [
@@ -177,7 +184,7 @@ async function loadData() {
     pagination.itemCount = data.total || data.data?.total || 0
   } catch (e) {
     console.error('加载工单列表失败:', e)
-    message.error('加载工单列表失败')
+    message.error(`加载工单列表失败: ${e.message}`)
   } finally {
     loading.value = false
   }
@@ -206,57 +213,113 @@ async function handleView(row) {
     viewModalVisible.value = true
   } catch (e) {
     console.error('获取工单详情失败:', e)
-    message.error('获取工单详情失败')
+    message.error(`获取工单详情失败: ${e.message}`)
   }
 }
 
 // 编辑工单
 function handleEdit(row) {
   editForm.id = row.id
+  editForm.order_no = row.order_no || ''
   editForm.status = row.status
+  editForm.assignee = row.assignee || ''
   editForm.handling_notes = row.handling_notes || ''
   statusTransitionOptions.value = getStatusTransitionOptions(row.status)
   editModalVisible.value = true
 }
 
-// 编辑时获取状态流转选项
+// 提交编辑
 async function submitEdit() {
   if (!editForm.id) return
+  if (!editForm.status) {
+    message.warning('请选择新状态')
+    return
+  }
+  editSubmitting.value = true
   try {
-    const res = await fetch(`/api/v1/workorders/${editForm.id}`, {
-      method: 'PATCH',
+    const token = localStorage.getItem('token') || ''
+    // 先尝试 PUT /api/v1/workorders/{id}/status
+    let res = await fetch(`/api/v1/workorders/${editForm.id}/status`, {
+      method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+        Authorization: `Bearer ${token}`
       },
       body: JSON.stringify({
         status: editForm.status,
-        handling_notes: editForm.handling_notes
+        handling_notes: editForm.handling_notes,
+        assignee: editForm.assignee
       })
     })
+    
+    // 如果 status 端点不存在（404），则使用 PATCH /api/v1/workorders/{id}
+    if (res.status === 404) {
+      res = await fetch(`/api/v1/workorders/${editForm.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          status: editForm.status,
+          handling_notes: editForm.handling_notes,
+          assignee: editForm.assignee
+        })
+      })
+    }
+    
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     message.success('工单更新成功')
     editModalVisible.value = false
     loadData()
   } catch (e) {
     console.error('更新工单失败:', e)
-    message.error('更新工单失败')
+    message.error(`更新工单失败: ${e.message}`)
+  } finally {
+    editSubmitting.value = false
   }
 }
 
 // 关闭工单
 async function handleClose(row) {
   try {
-    const res = await fetch(`/api/v1/workorders/${row.id}/close`, {
-      method: 'PATCH',
-      headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
+    const token = localStorage.getItem('token') || ''
+    // 先尝试 PUT /api/v1/workorders/{id}/status 关闭
+    let res = await fetch(`/api/v1/workorders/${row.id}/status`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ status: 'closed', handling_notes: '关闭工单' })
     })
+    
+    // 如果 404，尝试 PATCH /api/v1/workorders/{id}/close
+    if (res.status === 404) {
+      res = await fetch(`/api/v1/workorders/${row.id}/close`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+    }
+    
+    // 如果还是 404，尝试 PATCH 主资源
+    if (res.status === 404) {
+      res = await fetch(`/api/v1/workorders/${row.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: 'closed' })
+      })
+    }
+    
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     message.success('工单已关闭')
     loadData()
   } catch (e) {
     console.error('关闭工单失败:', e)
-    message.error('关闭工单失败')
+    message.error(`关闭工单失败: ${e.message}`)
   }
 }
 

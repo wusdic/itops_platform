@@ -170,6 +170,7 @@ class ReportExporter:
         row += 2
         
         # 写入数据表
+        headers = []
         if "data" in data and isinstance(data["data"], list) and len(data["data"]) > 0:
             headers = list(data["data"][0].keys())
             for col, header in enumerate(headers, 1):

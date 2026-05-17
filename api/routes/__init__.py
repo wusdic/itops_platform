@@ -19,6 +19,7 @@ from .device_import import router as device_import_router
 from .auth import router as auth_router
 from .discovery import router as discovery_router
 from .automation import router as automation_router
+from .backup import router as backup_router
 
 __all__ = [
     "monitoring_router",
@@ -36,4 +37,5 @@ __all__ = [
     "auth_router",
     "discovery_router",
     "automation_router",
+    "backup_router",
 ]

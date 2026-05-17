@@ -176,6 +176,25 @@ const routes = [
         name: 'SystemConfig',
         component: () => import('@/views/system/config.vue'),
         meta: { title: '参数配置', parent: '系统管理' }
+      },
+      // 报表管理
+      {
+        path: 'report/list',
+        name: 'ReportList',
+        component: () => import('@/views/report/list.vue'),
+        meta: { title: '报表管理', parent: '报表管理' }
+      },
+      {
+        path: 'report/create',
+        name: 'ReportCreate',
+        component: () => import('@/views/report/create.vue'),
+        meta: { title: '生成报表', parent: '报表管理' }
+      },
+      {
+        path: 'report/template',
+        name: 'ReportTemplate',
+        component: () => import('@/views/report/template.vue'),
+        meta: { title: '模板管理', parent: '报表管理' }
       }
     ]
   },
