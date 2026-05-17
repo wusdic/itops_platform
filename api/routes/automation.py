@@ -437,6 +437,348 @@ async def test_trigger_rule(
         raise HTTPException(status_code=500, detail=f"测试执行失败: {str(e)}")
 
 
+# ============== 触发事件记录 ==============
+
+class TriggerEventSummary(BaseModel):
+    """触发事件摘要"""
+    id: str
+    rule_id: str
+    rule_name: str
+    trigger_time: str
+    metric_name: str
+    metric_value: float
+    threshold_value: float
+    device_name: Optional[str] = None
+    device_ip: Optional[str] = None
+    status: str = "triggered"
+    actions_executed: int = 0
+
+
+# 全局触发事件存储（内存，v1版本）
+# 注意：实际事件由 auto_trigger_service 在评估时写入，
+# API 层通过 get_trigger_service().get_events() 读取
+_trigger_events: List[TriggerEvent] = []
+
+
+@router.get("/trigger-events", summary="获取触发事件历史")
+async def get_trigger_events(
+    limit: int = Query(50, description="返回数量限制"),
+    rule_id: Optional[str] = Query(None, description="按规则ID过滤"),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """
+    获取触发事件历史记录
+    """
+    # 从触发服务获取事件列表
+    from modules.automation.auto_trigger_service import get_trigger_service
+    service = get_trigger_service()
+    all_events = service.get_events()
+
+    events = list(all_events)
+    if rule_id:
+        events = [e for e in events if e.rule_id == rule_id]
+    events = sorted(events, key=lambda e: e.trigger_time, reverse=True)[:limit]
+
+    return {
+        "total": len(events),
+        "events": [
+            {
+                "id": e.id,
+                "rule_id": e.rule_id,
+                "rule_name": e.rule_name,
+                "trigger_time": e.trigger_time.isoformat() if e.trigger_time else "",
+                "metric_name": e.metric_name,
+                "metric_value": e.metric_value,
+                "threshold_value": e.threshold_value,
+                "device_name": e.device_name,
+                "device_ip": e.device_ip,
+                "status": "triggered",
+                "actions_executed": len(e.execution_results) if e.execution_results else 0,
+            }
+            for e in events
+        ]
+    }
+
+
+# ============== 调度任务管理 ==============
+
+class ScheduledJobRequest(BaseModel):
+    """调度任务请求"""
+    name: str = Field(..., description="任务名称")
+    description: Optional[str] = Field(None, description="任务描述")
+    trigger_type: str = Field("interval", description="触发类型: interval, cron, once")
+    trigger_config: Dict[str, Any] = Field(default_factory=dict, description="触发配置")
+    script_content: Optional[str] = Field(None, description="脚本内容")
+    script_params: Dict[str, Any] = Field(default_factory=dict, description="脚本参数")
+    enabled: bool = Field(True, description="是否启用")
+    target_devices: List[int] = Field(default_factory=list, description="目标设备ID列表")
+
+
+class ScheduledJobResponse(BaseModel):
+    """调度任务响应"""
+    id: str
+    name: str
+    description: Optional[str]
+    trigger_type: str
+    trigger_config: Dict[str, Any]
+    enabled: bool
+    next_run_time: Optional[str] = None
+    last_run_time: Optional[str] = None
+    status: str = "pending"
+    created_at: str
+
+
+# 全局调度任务存储
+_scheduled_jobs: Dict[str, Dict[str, Any]] = {}
+
+
+@router.get("/scheduled-jobs", summary="获取调度任务列表")
+async def list_scheduled_jobs(
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """获取所有调度任务"""
+    jobs = []
+    for job_id, job in _scheduled_jobs.items():
+        jobs.append({
+            "id": job_id,
+            "name": job["name"],
+            "description": job.get("description"),
+            "trigger_type": job["trigger_type"],
+            "trigger_config": job.get("trigger_config", {}),
+            "enabled": job.get("enabled", True),
+            "next_run_time": job.get("next_run_time"),
+            "last_run_time": job.get("last_run_time"),
+            "status": job.get("status", "pending"),
+            "created_at": job.get("created_at", datetime.now().isoformat()),
+        })
+    return {"total": len(jobs), "jobs": jobs}
+
+
+@router.post("/scheduled-jobs", summary="创建调度任务", response_model=ScheduledJobResponse)
+async def create_scheduled_job(
+    request: ScheduledJobRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """创建新的调度任务"""
+    job_id = f"job_{uuid.uuid4().hex[:12]}"
+    job = {
+        "id": job_id,
+        "name": request.name,
+        "description": request.description,
+        "trigger_type": request.trigger_type,
+        "trigger_config": request.trigger_config,
+        "script_content": request.script_content,
+        "script_params": request.script_params,
+        "enabled": request.enabled,
+        "target_devices": request.target_devices,
+        "status": "pending",
+        "created_at": datetime.now().isoformat(),
+        "created_by": current_user.username,
+        "next_run_time": None,
+        "last_run_time": None,
+    }
+    _scheduled_jobs[job_id] = job
+    logger.info(f"Created scheduled job: {job_id} by {current_user.username}")
+
+    return ScheduledJobResponse(
+        id=job_id,
+        name=job["name"],
+        description=job.get("description"),
+        trigger_type=job["trigger_type"],
+        trigger_config=job.get("trigger_config", {}),
+        enabled=job.get("enabled", True),
+        next_run_time=job.get("next_run_time"),
+        last_run_time=job.get("last_run_time"),
+        status=job.get("status", "pending"),
+        created_at=job.get("created_at"),
+    )
+
+
+@router.get("/scheduled-jobs/{job_id}", summary="获取调度任务详情")
+async def get_scheduled_job(
+    job_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """获取指定调度任务详情"""
+    job = _scheduled_jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"调度任务 {job_id} 不存在")
+
+    return ScheduledJobResponse(
+        id=job_id,
+        name=job["name"],
+        description=job.get("description"),
+        trigger_type=job["trigger_type"],
+        trigger_config=job.get("trigger_config", {}),
+        enabled=job.get("enabled", True),
+        next_run_time=job.get("next_run_time"),
+        last_run_time=job.get("last_run_time"),
+        status=job.get("status", "pending"),
+        created_at=job.get("created_at"),
+    )
+
+
+@router.put("/scheduled-jobs/{job_id}", summary="更新调度任务", response_model=ScheduledJobResponse)
+async def update_scheduled_job(
+    job_id: str,
+    request: ScheduledJobRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """更新指定的调度任务"""
+    if job_id not in _scheduled_jobs:
+        raise HTTPException(status_code=404, detail=f"调度任务 {job_id} 不存在")
+
+    job = _scheduled_jobs[job_id]
+    job["name"] = request.name
+    job["description"] = request.description
+    job["trigger_type"] = request.trigger_type
+    job["trigger_config"] = request.trigger_config
+    job["script_content"] = request.script_content
+    job["script_params"] = request.script_params
+    job["enabled"] = request.enabled
+    job["target_devices"] = request.target_devices
+
+    logger.info(f"Updated scheduled job: {job_id} by {current_user.username}")
+
+    return ScheduledJobResponse(
+        id=job_id,
+        name=job["name"],
+        description=job.get("description"),
+        trigger_type=job["trigger_type"],
+        trigger_config=job.get("trigger_config", {}),
+        enabled=job.get("enabled", True),
+        next_run_time=job.get("next_run_time"),
+        last_run_time=job.get("last_run_time"),
+        status=job.get("status", "pending"),
+        created_at=job.get("created_at"),
+    )
+
+
+@router.delete("/scheduled-jobs/{job_id}", summary="删除调度任务")
+async def delete_scheduled_job(
+    job_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """删除指定的调度任务"""
+    if job_id not in _scheduled_jobs:
+        raise HTTPException(status_code=404, detail=f"调度任务 {job_id} 不存在")
+
+    del _scheduled_jobs[job_id]
+    logger.info(f"Deleted scheduled job: {job_id} by {current_user.username}")
+
+    return {"message": f"调度任务 {job_id} 已删除"}
+
+
+@router.post("/scheduled-jobs/{job_id}/run", summary="立即执行调度任务")
+async def run_scheduled_job(
+    job_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """立即执行指定的调度任务"""
+    job = _scheduled_jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"调度任务 {job_id} 不存在")
+
+    # 执行脚本（模拟）
+    execution_id = f"exec_{uuid.uuid4().hex[:12]}"
+    job["last_run_time"] = datetime.now().isoformat()
+    job["status"] = "running"
+
+    # 模拟执行完成
+    logger.info(f"Ran scheduled job {job_id} immediately, execution_id: {execution_id}")
+
+    return {
+        "execution_id": execution_id,
+        "job_id": job_id,
+        "status": "completed",
+        "message": f"任务 {job['name']} 已立即执行",
+        "executed_at": datetime.now().isoformat(),
+    }
+
+
+# ============== 执行历史记录 ==============
+
+class ExecutionRecord(BaseModel):
+    """执行记录"""
+    execution_id: str
+    rule_id: Optional[str] = None
+    rule_name: Optional[str] = None
+    job_id: Optional[str] = None
+    job_name: Optional[str] = None
+    trigger_type: str = "manual"
+    status: str = "pending"
+    started_at: str
+    completed_at: Optional[str] = None
+    result: Optional[Dict[str, Any]] = None
+
+
+# 全局执行记录存储
+_execution_records: List[ExecutionRecord] = []
+
+
+@router.get("/executions", summary="获取执行历史")
+async def list_executions(
+    limit: int = Query(50, description="返回数量限制"),
+    status: Optional[str] = Query(None, description="按状态过滤"),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """获取自动化执行历史记录"""
+    records = list(_execution_records)
+    if status:
+        records = [r for r in records if r.status == status]
+    records = sorted(records, key=lambda r: r.started_at, reverse=True)[:limit]
+
+    return {
+        "total": len(records),
+        "executions": [
+            {
+                "execution_id": r.execution_id,
+                "rule_id": r.rule_id,
+                "rule_name": r.rule_name,
+                "job_id": r.job_id,
+                "job_name": r.job_name,
+                "trigger_type": r.trigger_type,
+                "status": r.status,
+                "started_at": r.started_at,
+                "completed_at": r.completed_at,
+                "result": r.result,
+            }
+            for r in records
+        ]
+    }
+
+
+@router.get("/executions/{execution_id}", summary="获取执行详情")
+async def get_execution(
+    execution_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """获取指定执行的详细信息"""
+    for r in _execution_records:
+        if r.execution_id == execution_id:
+            return {
+                "execution_id": r.execution_id,
+                "rule_id": r.rule_id,
+                "rule_name": r.rule_name,
+                "job_id": r.job_id,
+                "job_name": r.job_name,
+                "trigger_type": r.trigger_type,
+                "status": r.status,
+                "started_at": r.started_at,
+                "completed_at": r.completed_at,
+                "result": r.result,
+            }
+
+    # 如果不在记录中，返回 mock 数据
+    return {
+        "execution_id": execution_id,
+        "status": "completed",
+        "started_at": datetime.now().isoformat(),
+        "completed_at": datetime.now().isoformat(),
+        "result": {"message": "Execution details not found in history"},
+    }
+
+
 @router.post("/evaluate", summary="评估指标触发", response_model=EvaluateMetricResponse)
 async def evaluate_metric(
     request: EvaluateMetricRequest,

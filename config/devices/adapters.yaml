@@ -756,3 +756,239 @@ adapters:
       - status
       - session
       - throughput
+
+  # ============================================================
+  # Redfish - Dell iDRAC / HPE iLO / Supermicro BMC
+  # ============================================================
+  redfish_generic:
+    name: "Redfish BMC管理"
+    vendor_patterns: ["idrac", "ilo", "bmc", "supermicro", "redfish", "drac"]
+    priority: 40
+    protocols:
+      redfish:
+        enabled: true
+        default_port: 443
+        ssl_verify: false
+        timeout: 30
+      snmp:
+        enabled: false
+      ipmi:
+        enabled: false
+    metrics:
+      - cpu
+      - memory
+      - power
+      - fans
+      - temperature
+      - storage
+      - firmware
+      - network_ports
+
+  # ============================================================
+  # Syslog 日志采集
+  # ============================================================
+  syslog_device:
+    name: "Syslog日志设备"
+    vendor_patterns: ["syslog", "network", "firewall", "switch", "router"]
+    priority: 5
+    protocols:
+      syslog:
+        enabled: true
+        default_port: 514
+        protocol: "UDP"
+        facilities:
+          - kern
+          - user
+          - mail
+          - daemon
+          - auth
+          - syslog
+          - lpr
+          - news
+          - uucp
+          - cron
+        levels:
+          - error
+          - warn
+          - critical
+        timeout: 10
+    metrics:
+      - log_errors
+      - log_warnings
+      - log_critical
+
+  # ============================================================
+  # Telnet - Legacy网络设备
+  # ============================================================
+  telnet_device:
+    name: "Telnet传统设备"
+    vendor_patterns: ["telnet", "legacy", "console"]
+    priority: 3
+    protocols:
+      telnet:
+        enabled: true
+        default_port: 23
+        terminal_type: "vt100"
+        commands:
+          show_version: "show version"
+          show_interfaces: "show interfaces"
+          show_cpu: "show cpu"
+          show_memory: "show memory"
+        timeout: 30
+      ssh:
+        enabled: false
+    metrics:
+      - system_info
+      - interface_status
+      - cpu_usage
+      - memory_usage
+
+  # ============================================================
+  # MySQL 数据库
+  # ============================================================
+  mysql_db:
+    name: "MySQL数据库"
+    vendor_patterns: ["mysql", "mariadb", "percona"]
+    priority: 20
+    protocols:
+      mysql:
+        enabled: true
+        default_port: 3306
+        database: "mysql"
+        timeout: 30
+      ssh:
+        enabled: true
+        default_port: 22
+    metrics:
+      - qps
+      - tps
+      - connections
+      - innodb_buffer
+      - slow_queries
+      - replication_delay
+
+  # ============================================================
+  # PostgreSQL 数据库
+  # ============================================================
+  postgres_db:
+    name: "PostgreSQL数据库"
+    vendor_patterns: ["postgresql", "postgres", "pgsql"]
+    priority: 20
+    protocols:
+      postgres:
+        enabled: true
+        default_port: 5432
+        database: "postgres"
+        timeout: 30
+      ssh:
+        enabled: true
+        default_port: 22
+    metrics:
+      - connections
+      - cache_hit_ratio
+      - transactions
+      - slow_queries
+      - replication_status
+
+  # ============================================================
+  # Redis 缓存
+  # ============================================================
+  redis_cache:
+    name: "Redis缓存"
+    vendor_patterns: ["redis"]
+    priority: 20
+    protocols:
+      redis:
+        enabled: true
+        default_port: 6379
+        db: 0
+        timeout: 10
+    metrics:
+      - memory_usage
+      - connections
+      - command_stats
+      - slowlog
+      - replication
+
+  # ============================================================
+  # RabbitMQ 消息队列
+  # ============================================================
+  rabbitmq_mq:
+    name: "RabbitMQ消息队列"
+    vendor_patterns: ["rabbitmq", "rabbit"]
+    priority: 20
+    protocols:
+      rabbitmq:
+        enabled: true
+        default_port: 15672
+        vhost: "/"
+        timeout: 30
+    metrics:
+      - queue_messages
+      - queue_consumers
+      - node_memory
+      - connections
+      - channels
+
+  # ============================================================
+  # Kafka 消息队列
+  # ============================================================
+  kafka_mq:
+    name: "Kafka消息队列"
+    vendor_patterns: ["kafka"]
+    priority: 20
+    protocols:
+      kafka:
+        enabled: true
+        default_port: 9092
+        brokers: []
+        timeout: 30
+    metrics:
+      - broker_list
+      - topic_partitions
+      - consumer_lag
+      - message_rate
+
+  # ============================================================
+  # Elasticsearch 日志平台
+  # ============================================================
+  elasticsearch:
+    name: "Elasticsearch集群"
+    vendor_patterns: ["elasticsearch", "es", "elastic"]
+    priority: 20
+    protocols:
+      elasticsearch:
+        enabled: true
+        default_port: 9200
+        index_pattern: "logstash-*"
+        timeout: 30
+    metrics:
+      - cluster_health
+      - node_count
+      - shard_count
+      - index_count
+      - memory_usage
+      - search_latency
+      - query_qps
+
+  # ============================================================
+  # VMware vSphere 虚拟化
+  # ============================================================
+  vmware:
+    name: "VMware vSphere"
+    vendor_patterns: ["vmware", "vsphere", "esxi", "vcenter"]
+    priority: 20
+    protocols:
+      vmware:
+        enabled: true
+        default_port: 443
+        ssl_verify: false
+        timeout: 60
+      http:
+        enabled: true
+        default_port: 443
+    metrics:
+      - host_status
+      - vm_list
+      - datastore_usage
+      - cluster_resources

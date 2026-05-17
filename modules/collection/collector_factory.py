@@ -67,6 +67,28 @@ class CollectorFactory:
             return self._create_zabbix_collector(device_config)
         elif protocol_lower == 'prometheus':
             return self._create_prometheus_collector(device_config)
+        elif protocol_lower == 'browser':
+            return self._create_browser_collector(device_config)
+        elif protocol_lower == 'redfish':
+            return self._create_redfish_collector(device_config)
+        elif protocol_lower == 'syslog':
+            return self._create_syslog_collector(device_config)
+        elif protocol_lower == 'telnet':
+            return self._create_telnet_collector(device_config)
+        elif protocol_lower == 'mysql':
+            return self._create_mysql_collector(device_config)
+        elif protocol_lower == 'postgres' or protocol_lower == 'postgresql':
+            return self._create_postgres_collector(device_config)
+        elif protocol_lower == 'redis':
+            return self._create_redis_collector(device_config)
+        elif protocol_lower == 'rabbitmq':
+            return self._create_rabbitmq_collector(device_config)
+        elif protocol_lower == 'kafka':
+            return self._create_kafka_collector(device_config)
+        elif protocol_lower == 'elasticsearch' or protocol_lower == 'es':
+            return self._create_elasticsearch_collector(device_config)
+        elif protocol_lower == 'vmware' or protocol_lower == 'vsphere':
+            return self._create_vmware_collector(device_config)
         else:
             raise ValueError(f"不支持的协议: {protocol}")
     
@@ -227,6 +249,212 @@ class CollectorFactory:
             url=api_config.get('base_url', f"http://{device_config.get('ip')}:9090"),
         )
     
+    def _create_browser_collector(self, device_config: Dict[str, Any]):
+        """创建浏览器登录采集器"""
+        from .browser_collector.browser_client import BrowserCollector, BrowserCollectorConfig
+        
+        credentials = device_config.get('credentials', {}).get('browser', {})
+        ip = device_config.get('ip', '')
+        port = device_config.get('port', 80)
+        protocols_cfg = device_config.get('protocols', {})
+        browser_cfg = protocols_cfg.get('browser', {})
+        
+        # 构造登录 URL
+        scheme = 'https' if port == 443 else 'http'
+        login_url = browser_cfg.get('login_url', f"{scheme}://{ip}:{port}/login")
+        dashboard_url = browser_cfg.get('dashboard_url', f"{scheme}://{ip}:{port}/monitor")
+        
+        config = BrowserCollectorConfig(
+            host=ip,
+            port=port,
+            protocol='https' if port == 443 else 'http',
+            login_url=login_url,
+            username=credentials.get('username', 'admin'),
+            password=credentials.get('password', ''),
+            username_field=browser_cfg.get('username_field', 'input[name="username"]'),
+            password_field=browser_cfg.get('password_field', 'input[type="password"]'),
+            submit_button=browser_cfg.get('submit_button', 'button[type="submit"]'),
+            dashboard_url=dashboard_url,
+            data_selectors=browser_cfg.get('data_selectors', {}),
+            wait_after_login=browser_cfg.get('wait_after_login', 3000),
+            verify_ssl=browser_cfg.get('verify_ssl', False),
+            headless=browser_cfg.get('headless', True),
+        )
+        
+        return BrowserCollector(config)
+
+    def _create_redfish_collector(self, device_config: Dict[str, Any]):
+        """创建Redfish采集器"""
+        from .redfish_collector.redfish_client import RedfishCollector, RedfishConfig
+
+        credentials = device_config.get('credentials', {}).get('redfish', {})
+        ip = device_config.get('ip', '')
+        port = device_config.get('redfish_port', 443)
+
+        config = RedfishConfig(
+            host=ip,
+            port=port,
+            username=credentials.get('username', 'admin'),
+            password=credentials.get('password', ''),
+            timeout=credentials.get('timeout', 30),
+            ssl_verify=credentials.get('ssl_verify', False),
+        )
+        return RedfishCollector(config)
+
+    def _create_syslog_collector(self, device_config: Dict[str, Any]):
+        """创建Syslog采集器"""
+        from .syslog_collector.syslog_client import SyslogCollector, SyslogConfig
+
+        credentials = device_config.get('credentials', {}).get('syslog', {})
+        ip = device_config.get('ip', '')
+        syslog_cfg = device_config.get('syslog', {})
+
+        config = SyslogConfig(
+            host=ip,
+            port=credentials.get('port', 514),
+            protocol=syslog_cfg.get('protocol', 'UDP').upper(),
+            timeout=credentials.get('timeout', 10),
+        )
+        return SyslogCollector(config)
+
+    def _create_telnet_collector(self, device_config: Dict[str, Any]):
+        """创建Telnet采集器"""
+        from .telnet_collector.telnet_client import TelnetCollector, TelnetConfig
+
+        credentials = device_config.get('credentials', {}).get('telnet', {})
+        ip = device_config.get('ip', '')
+
+        config = TelnetConfig(
+            host=ip,
+            port=credentials.get('port', 23),
+            username=credentials.get('username', 'admin'),
+            password=credentials.get('password', ''),
+            timeout=credentials.get('timeout', 30),
+            terminal_type=credentials.get('terminal_type', 'vt100'),
+        )
+        return TelnetCollector(config)
+
+    def _create_mysql_collector(self, device_config: Dict[str, Any]):
+        """创建MySQL采集器"""
+        from .db_collector.mysql_client import MySQLCollector, MySQLConfig
+
+        credentials = device_config.get('credentials', {}).get('mysql', {})
+        ip = device_config.get('ip', '')
+        db_cfg = device_config.get('database', {})
+
+        config = MySQLConfig(
+            host=ip,
+            port=credentials.get('port', 3306),
+            user=credentials.get('username', 'root'),
+            password=credentials.get('password', ''),
+            database=db_cfg.get('name', 'mysql'),
+            connect_timeout=credentials.get('timeout', 30),
+        )
+        return MySQLCollector(config)
+
+    def _create_postgres_collector(self, device_config: Dict[str, Any]):
+        """创建PostgreSQL采集器"""
+        from .db_collector.postgres_client import PostgreSQLCollector, PostgreSQLConfig
+
+        credentials = device_config.get('credentials', {}).get('postgres', {})
+        ip = device_config.get('ip', '')
+        db_cfg = device_config.get('database', {})
+
+        config = PostgreSQLConfig(
+            host=ip,
+            port=credentials.get('port', 5432),
+            user=credentials.get('username', 'postgres'),
+            password=credentials.get('password', ''),
+            database=db_cfg.get('name', 'postgres'),
+            connect_timeout=credentials.get('timeout', 30),
+        )
+        return PostgreSQLCollector(config)
+
+    def _create_redis_collector(self, device_config: Dict[str, Any]):
+        """创建Redis采集器"""
+        from .mq_collector.redis_client import RedisCollector, RedisConfig
+
+        credentials = device_config.get('credentials', {}).get('redis', {})
+        ip = device_config.get('ip', '')
+
+        config = RedisConfig(
+            host=ip,
+            port=credentials.get('port', 6379),
+            password=credentials.get('password', ''),
+            db=credentials.get('db', 0),
+            socket_timeout=credentials.get('timeout', 10),
+        )
+        return RedisCollector(config)
+
+    def _create_rabbitmq_collector(self, device_config: Dict[str, Any]):
+        """创建RabbitMQ采集器"""
+        from .mq_collector.rabbitmq_client import RabbitMQCollector, RabbitMQConfig
+
+        credentials = device_config.get('credentials', {}).get('rabbitmq', {})
+        ip = device_config.get('ip', '')
+
+        config = RabbitMQConfig(
+            host=ip,
+            port=credentials.get('port', 15672),
+            username=credentials.get('username', 'guest'),
+            password=credentials.get('password', 'guest'),
+            virtual_host=credentials.get('vhost', '/'),
+            timeout=credentials.get('timeout', 30),
+        )
+        return RabbitMQCollector(config)
+
+    def _create_kafka_collector(self, device_config: Dict[str, Any]):
+        """创建Kafka采集器"""
+        from .mq_collector.kafka_client import KafkaCollector, KafkaConfig
+
+        credentials = device_config.get('credentials', {}).get('kafka', {})
+        kafka_cfg = device_config.get('kafka', {})
+        brokers = kafka_cfg.get('brokers', [])
+        bootstrap = brokers[0] if brokers else f"{device_config.get('ip', '')}:9092"
+
+        config = KafkaConfig(
+            bootstrap_servers=bootstrap,
+            consumer_group=kafka_cfg.get('consumer_group', ''),
+            security_protocol=credentials.get('security_protocol', 'PLAINTEXT'),
+            sasl_mechanism=credentials.get('sasl_mechanism'),
+            sasl_plain_username=credentials.get('username'),
+            sasl_plain_password=credentials.get('password'),
+            request_timeout_ms=30 * 1000,
+        )
+        return KafkaCollector(config)
+
+    def _create_elasticsearch_collector(self, device_config: Dict[str, Any]):
+        """创建Elasticsearch采集器"""
+        from .elasticsearch_collector.elasticsearch_client import ElasticsearchCollector, ElasticsearchConfig
+
+        credentials = device_config.get('credentials', {}).get('elasticsearch', {})
+        ip = device_config.get('ip', '')
+        es_cfg = device_config.get('elasticsearch', {})
+
+        config = ElasticsearchConfig(
+            hosts=[f"http://{ip}:{credentials.get('port', 9200)}"],
+            username=credentials.get('username', 'elastic'),
+            password=credentials.get('password', ''),
+            index_pattern=es_cfg.get('index_pattern', 'logstash-*'),
+            timeout=credentials.get('timeout', 30),
+        )
+        return ElasticsearchCollector(config)
+
+    def _create_vmware_collector(self, device_config: Dict[str, Any]):
+        """创建VMware vSphere采集器"""
+        from .vmware_collector.vmware_client import VMwareCollector, VMwareConfig
+
+        credentials = device_config.get('credentials', {}).get('vmware', {})
+        ip = device_config.get('ip', '')
+
+        config = VMwareConfig(
+            host=ip,
+            port=credentials.get('port', 443),
+            user=credentials.get('username', 'administrator@vsphere.local'),
+            password=credentials.get('password', ''),
+        )
+        return VMwareCollector(config)
+
     def register_collector(self, name: str, collector: Any) -> None:
         """注册采集器实例"""
         self._collectors[name] = collector

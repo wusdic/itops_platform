@@ -90,7 +90,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, h, onMounted } from 'vue'
+import { ref, reactive, h, onMounted, onUnmounted } from 'vue'
 import { useMessage, NTag, NButton, NSpace } from 'naive-ui'
 import { AddOutline } from '@vicons/ionicons5'
 
@@ -323,7 +323,19 @@ async function handleClose(row) {
   }
 }
 
-onMounted(() => { loadData() })
+let pollTimer = null
+
+function startPoll() {
+  stopPoll()
+  pollTimer = setInterval(() => { loadData() }, 30000)
+}
+
+function stopPoll() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
+}
+
+onMounted(() => { loadData(); startPoll() })
+onUnmounted(() => { stopPoll() })
 </script>
 
 <style scoped>

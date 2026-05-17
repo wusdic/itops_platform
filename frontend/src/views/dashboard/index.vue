@@ -297,26 +297,17 @@ const loadDashboard = async () => {
       fetchWithErrorHandling(() => devices.getStats(), null, false) // Silent fail for health
     ])
 
-    // Process device stats - Level 2 error handling with data validation
+    // Process device stats - devices.getStats() returns {total, online, offline, unknown}
+    // stats[2] = 告警数量 should show active alerts count, not device warning
     if (statsRes.status === 'fulfilled' && statsRes.value) {
       const data = statsRes.value
-      // Handle both {total, online, offline} and {items, total} formats
       if (typeof data.total === 'number') {
         stats[0].value = data.total
         stats[1].value = data.online || 0
-        stats[2].value = data.warning || 0
+        // stats[2] (告警) 从 alerts 数据填充，见下方
         deviceStats.online = data.online || 0
         deviceStats.offline = data.offline || 0
-        deviceStats.warning = data.warning || 0
-      } else if (Array.isArray(data.items)) {
-        // Count from items array if API returns list
-        const items = data.items
-        stats[0].value = data.total || items.length
-        stats[1].value = items.filter(d => d.status === 'online').length
-        stats[2].value = items.filter(d => d.status === 'warning' || d.alert_count > 0).length
-        deviceStats.online = items.filter(d => d.status === 'online').length
-        deviceStats.offline = items.filter(d => d.status === 'offline').length
-        deviceStats.warning = items.filter(d => d.status === 'warning').length
+        // deviceStats.warning 从告警列表计算
       }
     } else if (statsRes.reason) {
       console.warn('Failed to load device stats:', statsRes.reason)
@@ -333,6 +324,7 @@ const loadDashboard = async () => {
       alertStats.warning = items.filter(a => ['medium', 'warning'].includes(a.severity)).length
       alertStats.info = items.filter(a => ['low', 'info'].includes(a.severity)).length
       stats[2].value = items.length
+      deviceStats.warning = items.length
     } else {
       recentAlerts.value = []
     }
@@ -458,12 +450,31 @@ const handleResize = () => {
   deviceChart?.resize()
 }
 
+// Dashboard polling timer
+let pollTimer = null
+
+function startPoll() {
+  stopPoll()
+  pollTimer = setInterval(() => {
+    loadDashboard()
+  }, 30000) // 每30秒刷新一次
+}
+
+function stopPoll() {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+}
+
 onMounted(async () => {
   await loadDashboard()
+  startPoll()
   window.addEventListener('resize', handleResize)
 })
 
 onUnmounted(() => {
+  stopPoll()
   window.removeEventListener('resize', handleResize)
   alertChart?.dispose()
   deviceChart?.dispose()

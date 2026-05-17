@@ -101,7 +101,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, h } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, h } from 'vue'
 import { NGrid, NGi, NCard, NButton, NDataTable, NTag, NIcon, NSpace, NTooltip, useMessage, NDrawer, NDrawerContent, NSpin, NEmpty, NResult } from 'naive-ui'
 import { RefreshOutline } from '@vicons/ionicons5'
 
@@ -124,6 +124,9 @@ const stats = reactive([
   { key: 'unknown', label: '未知', value: 0, color: '#ff7d00' }
 ])
 
+// 轮询定时器
+let pollTimer = null
+
 const statusType = (s) => ({ online: 'success', offline: 'warning', unknown: 'default' })[s] || 'default'
 const statusText = (s) => ({ online: '在线', offline: '离线', unknown: '未知' })[s] || s
 
@@ -141,7 +144,19 @@ const columns = [
 async function loadDevices() {
   loading.value = true
   try {
+    // 从 /devices/stats API 获取真实统计
     const token = localStorage.getItem('token')
+    const statsRes = await fetch('/api/v1/devices/stats', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (!statsRes.ok) throw new Error(`HTTP ${statsRes.status}`)
+    const statsData = await statsRes.json()
+    stats[0].value = statsData.total || 0
+    stats[1].value = statsData.online || 0
+    stats[2].value = statsData.offline || 0
+    stats[3].value = statsData.unknown || 0
+
+    // 设备列表从分页接口获取
     const res = await fetch(`/api/v1/assets/device?page=${pagination.page}&page_size=${pagination.pageSize}`, {
       headers: { Authorization: `Bearer ${token}` }
     })
@@ -151,14 +166,6 @@ async function loadDevices() {
 
     deviceList.value = data.items || data.data?.items || []
     pagination.total = data.total || data.data?.total || 0
-
-    // 统计：从当前页推算（实际应从 stats API 获取）
-    stats[0].value = data.total || 0
-    const onlineCount = (data.items || []).filter(d => d.status === 'online').length
-    const offlineCount = (data.items || []).filter(d => d.status === 'offline').length
-    // 保持总数准确，在线/离线按比例估算
-    stats[1].value = Math.round(stats[0].value * (onlineCount / Math.max(data.items?.length || 1, 1)))
-    stats[2].value = stats[0].value - stats[1].value
   } catch (e) {
     message.error(`加载设备列表失败: ${e.message}`)
     deviceList.value = []
@@ -251,7 +258,30 @@ function handlePageSizeChange(pageSize) {
   loadDevices()
 }
 
-onMounted(loadDevices)
+// 开始轮询
+function startPoll() {
+  stopPoll()
+  pollTimer = setInterval(() => {
+    loadDevices()
+  }, 30000) // 每30秒刷新一次
+}
+
+// 停止轮询
+function stopPoll() {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+}
+
+onMounted(() => {
+  loadDevices()
+  startPoll()
+})
+
+onUnmounted(() => {
+  stopPoll()
+})
 </script>
 
 <style scoped>

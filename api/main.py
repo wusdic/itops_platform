@@ -102,16 +102,34 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
             manager.start_periodic_collect(interval=interval)
         )
         logger.info(f"设备定时采集任务已启动 (间隔: {interval}秒)")
+
+        # 注册自动化触发回调 - 每个设备采集完都会触发
+        from modules.automation.auto_trigger_service import get_trigger_service
+        trigger_service = get_trigger_service()
+        manager.register_callback(trigger_service.on_device_metrics)
+        logger.info("自动化触发服务已注册到设备采集回调")
+
+        # 启动自动化触发评估循环
+        trigger_service_task = asyncio.create_task(trigger_service.start())
+        logger.info("自动化触发服务已启动")
     except Exception as e:
         logger.warning(f"设备定时采集任务启动失败: {e}")
-    
+
     logger.info("ITOps Platform API Gateway started successfully")
-    
+
     yield
-    
+
     # 关闭时清理资源
     logger.info("Shutting down ITOps Platform API Gateway...")
-    
+
+    # 停止自动化触发服务
+    try:
+        trigger_service = get_trigger_service()
+        await trigger_service.stop()
+        logger.info("自动化触发服务已停止")
+    except Exception as e:
+        logger.warning(f"停止自动化触发服务失败: {e}")
+
     # 停止定时采集任务
     if periodic_collect_task:
         try:

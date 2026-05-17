@@ -11,7 +11,6 @@ export const devices = {
   collect: (data) => request.post('/devices/collect', data),
   collectAll: () => request.post('/devices/collect/all'),
   getStats: () => request.get('/devices/stats'),
-  getStatus: () => request.get('/assets/stats'),
   batchOperate: (ids, action) => request.post('/assets/device/batch', { ids, action }),
   // 批量导入相关 - 使用 /devices/import 路由
   getImportTemplate: (format = 'xlsx') => request.get('/devices/import/template', { params: { format }, responseType: 'blob' }),

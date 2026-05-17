@@ -336,13 +336,15 @@ class DeviceManager:
         else:
             protocols = self._get_device_protocols(device_config)
         
-        # 尝试各协议
+        # 尝试各协议 - 支持多级 fallback
         last_error = None
+        last_metrics = None
         for protocol in protocols:
             try:
                 metrics = await self._collect_with_protocol(device_config, protocol)
                 
                 if metrics and metrics.status == CollectionStatus.ONLINE:
+                    # 采集成功
                     self._device_status[device_name] = CollectionStatus.ONLINE
                     self._last_collect_time[device_name] = datetime.now()
                     self._last_metrics[device_name] = metrics
@@ -355,6 +357,15 @@ class DeviceManager:
                     self._update_device_status_in_db(device_name, CollectionStatus.ONLINE)
                     
                     return metrics
+                else:
+                    # 协议返回 OFFLINE（采集器创建成功但设备不通）
+                    # 记录第一个 OFFLINE 结果作为最终结果，同时继续尝试 fallback
+                    if last_metrics is None:
+                        last_metrics = metrics
+                    last_error = f"{protocol}协议返回OFFLINE"
+                    logger.warning(f"设备{device_name}使用{protocol}协议返回OFFLINE，尝试fallback...")
+                    self._stats['protocol_fallbacks'] += 1
+                    continue
                     
             except Exception as e:
                 last_error = str(e)
@@ -362,16 +373,20 @@ class DeviceManager:
                 self._stats['protocol_fallbacks'] += 1
                 continue
         
-        # 所有协议都失败
-        metrics = DeviceMetrics(
-            device_name=device_name,
-            device_ip=device_config.get('ip', ''),
-            device_type=device_config.get('type', ''),
-            vendor=device_config.get('vendor', ''),
-            timestamp=datetime.now(),
-            status=CollectionStatus.OFFLINE,
-            error=last_error,
-        )
+        # 所有协议都失败 - 使用最后一次采集结果
+        if last_metrics is not None:
+            metrics = last_metrics
+            metrics.error = last_error
+        else:
+            metrics = DeviceMetrics(
+                device_name=device_name,
+                device_ip=device_config.get('ip', ''),
+                device_type=device_config.get('type', ''),
+                vendor=device_config.get('vendor', ''),
+                timestamp=datetime.now(),
+                status=CollectionStatus.OFFLINE,
+                error=last_error,
+            )
         
         self._device_status[device_name] = CollectionStatus.OFFLINE
         self._last_metrics[device_name] = metrics
@@ -436,6 +451,41 @@ class DeviceManager:
                     device_config
                 )
             elif 'K8s' in collector_type or 'Docker' in collector_type:
+                return await loop.run_in_executor(
+                    self._executor,
+                    self._collect_api_based,
+                    collector,
+                    device_config
+                )
+            elif 'Browser' in collector_type:
+                return await loop.run_in_executor(
+                    self._executor,
+                    self._collect_browser_based,
+                    collector,
+                    device_config
+                )
+            elif 'Redfish' in collector_type:
+                return await loop.run_in_executor(
+                    self._executor,
+                    self._collect_redfish,
+                    collector,
+                    device_config
+                )
+            elif 'Syslog' in collector_type:
+                return await loop.run_in_executor(
+                    self._executor,
+                    self._collect_syslog,
+                    collector,
+                    device_config
+                )
+            elif 'Telnet' in collector_type:
+                return await loop.run_in_executor(
+                    self._executor,
+                    self._collect_telnet,
+                    collector,
+                    device_config
+                )
+            elif any(x in collector_type for x in ['MySQL', 'PostgreSQL', 'Redis', 'RabbitMQ', 'Kafka', 'Elasticsearch', 'VMware']):
                 return await loop.run_in_executor(
                     self._executor,
                     self._collect_api_based,
@@ -635,6 +685,222 @@ class DeviceManager:
             logger.error(f"IPMI采集失败: {e}")
             raise
     
+    def _collect_browser_based(self, collector, device_config: Dict) -> DeviceMetrics:
+        """浏览器登录采集 (Playwright)"""
+        device_name = device_config.get('name')
+        device_ip = device_config.get('ip')
+        try:
+            # 连通性检测（HTTP 端口）
+            ping_ok = self._ping_device(device_ip)
+            if not ping_ok:
+                logger.warning(f"Ping检测失败: {device_ip}，标记为OFFLINE")
+                return DeviceMetrics(
+                    device_name=device_name,
+                    device_ip=device_ip,
+                    device_type=device_config.get('type'),
+                    vendor=device_config.get('vendor'),
+                    timestamp=datetime.now(),
+                    status=CollectionStatus.OFFLINE,
+                    metrics={},
+                )
+
+            # 执行浏览器采集
+            collector.connect()
+            login_ok = collector.login()
+            
+            if not login_ok:
+                logger.warning(f"浏览器登录失败: {device_ip}，标记为OFFLINE")
+                collector.close()
+                return DeviceMetrics(
+                    device_name=device_name,
+                    device_ip=device_ip,
+                    device_type=device_config.get('type'),
+                    vendor=device_config.get('vendor'),
+                    timestamp=datetime.now(),
+                    status=CollectionStatus.OFFLINE,
+                    metrics={},
+                )
+            
+            metrics_data = collector.collect()
+            collector.close()
+
+            # 空数据判断
+            if not metrics_data or not metrics_data.get('_login_success'):
+                logger.warning(f"浏览器采集无数据: {device_ip}，标记为OFFLINE")
+                return DeviceMetrics(
+                    device_name=device_name,
+                    device_ip=device_ip,
+                    device_type=device_config.get('type'),
+                    vendor=device_config.get('vendor'),
+                    timestamp=datetime.now(),
+                    status=CollectionStatus.OFFLINE,
+                    metrics=metrics_data,
+                )
+
+            return DeviceMetrics(
+                device_name=device_name,
+                device_ip=device_ip,
+                device_type=device_config.get('type'),
+                vendor=device_config.get('vendor'),
+                timestamp=datetime.now(),
+                status=CollectionStatus.ONLINE,
+                metrics=metrics_data,
+            )
+        except Exception as e:
+            logger.error(f"浏览器采集失败: {e}")
+            try:
+                collector.close()
+            except:
+                pass
+            raise
+
+    def _collect_redfish(self, collector, device_config: Dict) -> DeviceMetrics:
+        """Redfish采集"""
+        device_name = device_config.get('name')
+        device_ip = device_config.get('ip')
+        try:
+            ping_ok = self._ping_device(device_ip)
+            if not ping_ok:
+                logger.warning(f"Ping检测失败: {device_ip}，标记为OFFLINE")
+                return DeviceMetrics(
+                    device_name=device_name,
+                    device_ip=device_ip,
+                    device_type=device_config.get('type'),
+                    vendor=device_config.get('vendor'),
+                    timestamp=datetime.now(),
+                    status=CollectionStatus.OFFLINE,
+                    metrics={},
+                )
+            collector.connect()
+            metrics_data = collector.collect_all_metrics()
+            collector.close()
+
+            if not metrics_data:
+                logger.warning(f"Redfish采集无数据: {device_ip}，标记为OFFLINE")
+                return DeviceMetrics(
+                    device_name=device_name,
+                    device_ip=device_ip,
+                    device_type=device_config.get('type'),
+                    vendor=device_config.get('vendor'),
+                    timestamp=datetime.now(),
+                    status=CollectionStatus.OFFLINE,
+                    metrics={},
+                )
+            return DeviceMetrics(
+                device_name=device_name,
+                device_ip=device_ip,
+                device_type=device_config.get('type'),
+                vendor=device_config.get('vendor'),
+                timestamp=datetime.now(),
+                status=CollectionStatus.ONLINE,
+                metrics=metrics_data,
+            )
+        except Exception as e:
+            logger.error(f"Redfish采集失败: {e}")
+            try:
+                collector.close()
+            except:
+                pass
+            raise
+
+    def _collect_syslog(self, collector, device_config: Dict) -> DeviceMetrics:
+        """Syslog采集"""
+        device_name = device_config.get('name')
+        device_ip = device_config.get('ip')
+        try:
+            ping_ok = self._ping_device(device_ip)
+            if not ping_ok:
+                logger.warning(f"Ping检测失败: {device_ip}，标记为OFFLINE")
+                return DeviceMetrics(
+                    device_name=device_name,
+                    device_ip=device_ip,
+                    device_type=device_config.get('type'),
+                    vendor=device_config.get('vendor'),
+                    timestamp=datetime.now(),
+                    status=CollectionStatus.OFFLINE,
+                    metrics={},
+                )
+            collector.connect()
+            metrics_data = collector.collect_error_logs(limit=100)
+            collector.close()
+
+            if not metrics_data:
+                logger.warning(f"Syslog采集无数据: {device_ip}，标记为OFFLINE")
+                return DeviceMetrics(
+                    device_name=device_name,
+                    device_ip=device_ip,
+                    device_type=device_config.get('type'),
+                    vendor=device_config.get('vendor'),
+                    timestamp=datetime.now(),
+                    status=CollectionStatus.OFFLINE,
+                    metrics={},
+                )
+            return DeviceMetrics(
+                device_name=device_name,
+                device_ip=device_ip,
+                device_type=device_config.get('type'),
+                vendor=device_config.get('vendor'),
+                timestamp=datetime.now(),
+                status=CollectionStatus.ONLINE,
+                metrics=metrics_data,
+            )
+        except Exception as e:
+            logger.error(f"Syslog采集失败: {e}")
+            try:
+                collector.close()
+            except:
+                pass
+            raise
+
+    def _collect_telnet(self, collector, device_config: Dict) -> DeviceMetrics:
+        """Telnet采集"""
+        device_name = device_config.get('name')
+        device_ip = device_config.get('ip')
+        try:
+            ping_ok = self._ping_device(device_ip)
+            if not ping_ok:
+                logger.warning(f"Ping检测失败: {device_ip}，标记为OFFLINE")
+                return DeviceMetrics(
+                    device_name=device_name,
+                    device_ip=device_ip,
+                    device_type=device_config.get('type'),
+                    vendor=device_config.get('vendor'),
+                    timestamp=datetime.now(),
+                    status=CollectionStatus.OFFLINE,
+                    metrics={},
+                )
+            collector.connect()
+            metrics_data = collector.collect()
+            collector.close()
+
+            if not metrics_data:
+                logger.warning(f"Telnet采集无数据: {device_ip}，标记为OFFLINE")
+                return DeviceMetrics(
+                    device_name=device_name,
+                    device_ip=device_ip,
+                    device_type=device_config.get('type'),
+                    vendor=device_config.get('vendor'),
+                    timestamp=datetime.now(),
+                    status=CollectionStatus.OFFLINE,
+                    metrics={},
+                )
+            return DeviceMetrics(
+                device_name=device_name,
+                device_ip=device_ip,
+                device_type=device_config.get('type'),
+                vendor=device_config.get('vendor'),
+                timestamp=datetime.now(),
+                status=CollectionStatus.ONLINE,
+                metrics=metrics_data,
+            )
+        except Exception as e:
+            logger.error(f"Telnet采集失败: {e}")
+            try:
+                collector.close()
+            except:
+                pass
+            raise
+
     def _collect_http_based(self, collector, device_config: Dict) -> DeviceMetrics:
         """HTTP API采集"""
         device_name = device_config.get('name')

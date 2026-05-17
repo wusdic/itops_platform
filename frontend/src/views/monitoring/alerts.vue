@@ -47,7 +47,7 @@
 </template>
 
 <script setup>
-import { ref, h, onMounted } from 'vue'
+import { ref, h, onMounted, onUnmounted } from 'vue'
 import {
   NCard, NDataTable, NButton, NSpace, NSelect, NDrawer, NDrawerContent,
   NDescriptions, NDescriptionsItem, NTag, useMessage, useDialog
@@ -263,9 +263,19 @@ const loadAlerts = async () => {
   }
 }
 
-onMounted(() => {
-  loadAlerts()
-})
+let pollTimer = null
+
+function startPoll() {
+  stopPoll()
+  pollTimer = setInterval(() => { loadAlerts() }, 30000)
+}
+
+function stopPoll() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
+}
+
+onMounted(() => { loadAlerts(); startPoll() })
+onUnmounted(() => { stopPoll() })
 </script>
 
 <style scoped>
