@@ -38,7 +38,7 @@
         <template #footer>
           <n-space justify="end">
             <n-button @click="showDrawer = false">关闭</n-button>
-            <n-button v-if="currentAlert && currentAlert.status === 'active'" type="primary" @click="handleResolve">标记已处理</n-button>
+            <n-button v-if="currentAlert && currentAlert.status !== 'resolved'" type="primary" :loading="actionLoading" @click="handleDrawerResolve">标记已处理</n-button>
           </n-space>
         </template>
       </n-drawer-content>
@@ -50,7 +50,7 @@
 import { ref, h, onMounted } from 'vue'
 import {
   NCard, NDataTable, NButton, NSpace, NSelect, NDrawer, NDrawerContent,
-  NDescriptions, NDescriptionsItem, NTag
+  NDescriptions, NDescriptionsItem, NTag, useMessage, useDialog
 } from 'naive-ui'
 
 const alerts = ref([])
@@ -59,6 +59,7 @@ const showDrawer = ref(false)
 const currentAlert = ref(null)
 const filterLevel = ref(null)
 const filterStatus = ref(null)
+const actionLoading = ref(false)
 
 const levelOptions = [
   { label: 'Critical', value: 'critical' },
@@ -99,13 +100,145 @@ const columns = [
   {
     title: '操作',
     key: 'actions',
-    render: (row) => h(NButton, { size: 'small', type: 'primary', ghost: true, onClick: () => openDetail(row) }, () => '查看')
+    render: (row) => h(NSpace, { size: 'small' }, () => [
+      h(NButton, { 
+        size: 'small', 
+        type: 'primary', 
+        ghost: true, 
+        disabled: row.status === 'resolved' || actionLoading.value,
+        loading: actionLoading.value,
+        onClick: () => openDetail(row) 
+      }, () => '查看'),
+      h(NButton, { 
+        size: 'small', 
+        type: 'warning',
+        disabled: row.status !== 'active' || actionLoading.value,
+        loading: actionLoading.value,
+        onClick: () => handleAcknowledge(row) 
+      }, () => '处理'),
+      h(NButton, { 
+        size: 'small', 
+        type: 'success',
+        disabled: row.status === 'resolved' || actionLoading.value,
+        loading: actionLoading.value,
+        onClick: () => handleResolve(row) 
+      }, () => '解决')
+    ])
   }
 ]
 
 const openDetail = (alert) => {
   currentAlert.value = alert
   showDrawer.value = true
+}
+
+let messageInstance = null
+let dialogInstance = null
+
+const getMessage = () => {
+  if (!messageInstance) {
+    messageInstance = useMessage()
+  }
+  return messageInstance
+}
+
+const getDialog = () => {
+  if (!dialogInstance) {
+    dialogInstance = useDialog()
+  }
+  return dialogInstance
+}
+
+const handleAcknowledge = async (alert) => {
+  const dialog = getDialog()
+  dialog.warning({
+    title: '确认操作',
+    content: `确定要确认告警 "${alert.title}" 吗？`,
+    positiveText: '确定',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      actionLoading.value = true
+      try {
+        const token = localStorage.getItem('token') || ''
+        const res = await fetch(`/api/v1/monitoring/alerts/${alert.id}/acknowledge`, {
+          method: 'PATCH',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+        })
+        if (res.ok) {
+          getMessage().success('告警已确认')
+          loadAlerts()
+        } else {
+          const err = await res.json().catch(() => ({}))
+          getMessage().error(err.message || '确认告警失败')
+          console.error('Acknowledge failed:', err)
+        }
+      } catch (e) {
+        getMessage().error('确认告警失败')
+        console.error('Failed to acknowledge alert:', e)
+      } finally {
+        actionLoading.value = false
+      }
+    }
+  })
+}
+
+const handleResolve = async (alert) => {
+  const dialog = getDialog()
+  dialog.warning({
+    title: '确认操作',
+    content: `确定要解决告警 "${alert.title}" 吗？`,
+    positiveText: '确定',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      actionLoading.value = true
+      try {
+        const token = localStorage.getItem('token') || ''
+        const res = await fetch(`/api/v1/monitoring/alerts/${alert.id}/resolve`, {
+          method: 'PATCH',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+        })
+        if (res.ok) {
+          getMessage().success('告警已解决')
+          loadAlerts()
+        } else {
+          const err = await res.json().catch(() => ({}))
+          getMessage().error(err.message || '解决告警失败')
+          console.error('Resolve failed:', err)
+        }
+      } catch (e) {
+        getMessage().error('解决告警失败')
+        console.error('Failed to resolve alert:', e)
+      } finally {
+        actionLoading.value = false
+      }
+    }
+  })
+}
+
+const handleDrawerResolve = async () => {
+  if (!currentAlert.value) return
+  actionLoading.value = true
+  try {
+    const token = localStorage.getItem('token') || ''
+    const res = await fetch(`/api/v1/monitoring/alerts/${currentAlert.value.id}/resolve`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+    })
+    if (res.ok) {
+      getMessage().success('告警已解决')
+      showDrawer.value = false
+      loadAlerts()
+    } else {
+      const err = await res.json().catch(() => ({}))
+      getMessage().error(err.message || '解决告警失败')
+      console.error('Resolve failed:', err)
+    }
+  } catch (e) {
+    getMessage().error('解决告警失败')
+    console.error('Failed to resolve alert:', e)
+  } finally {
+    actionLoading.value = false
+  }
 }
 
 const loadAlerts = async () => {
@@ -127,23 +260,6 @@ const loadAlerts = async () => {
     console.error('Failed to load alerts:', e)
   } finally {
     loading.value = false
-  }
-}
-
-const handleResolve = async () => {
-  if (!currentAlert.value) return
-  try {
-    const token = localStorage.getItem('token') || ''
-    const res = await fetch(`/api/v1/monitoring/alerts/${currentAlert.value.id}/resolve`, {
-      method: 'PUT',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
-    })
-    if (res.ok) {
-      showDrawer.value = false
-      loadAlerts()
-    }
-  } catch (e) {
-    console.error('Failed to resolve alert:', e)
   }
 }
 

@@ -33,20 +33,50 @@
       />
     </n-card>
 
-    <!-- 分配弹窗 -->
-    <n-modal v-model:show="assignDialogVisible" preset="card" title="分配工单" style="width:500px">
+    <!-- 查看工单详情弹窗 -->
+    <n-modal v-model:show="viewModalVisible" preset="card" title="工单详情" style="width:600px">
+      <n-descriptions label-placement="left" :column="1" bordered size="large">
+        <n-descriptions-item label="工单号">{{ viewData.order_no || '-' }}</n-descriptions-item>
+        <n-descriptions-item label="工单标题">{{ viewData.title || '-' }}</n-descriptions-item>
+        <n-descriptions-item label="类型">{{ viewData.type || '-' }}</n-descriptions-item>
+        <n-descriptions-item label="优先级">
+          <n-tag :type="priorityType(viewData.priority)" size="small">{{ priorityText(viewData.priority) }}</n-tag>
+        </n-descriptions-item>
+        <n-descriptions-item label="状态">
+          <n-tag :type="statusType(viewData.status)" size="small">{{ statusText(viewData.status) }}</n-tag>
+        </n-descriptions-item>
+        <n-descriptions-item label="描述">{{ viewData.description || '-' }}</n-descriptions-item>
+        <n-descriptions-item label="设备">{{ viewData.device || '-' }}</n-descriptions-item>
+        <n-descriptions-item label="创建人">{{ viewData.created_by || '-' }}</n-descriptions-item>
+        <n-descriptions-item label="处理人">{{ viewData.assignee || '-' }}</n-descriptions-item>
+        <n-descriptions-item label="创建时间">{{ viewData.created_at ? viewData.created_at.slice(0, 16) : '-' }}</n-descriptions-item>
+        <n-descriptions-item label="更新时间">{{ viewData.updated_at ? viewData.updated_at.slice(0, 16) : '-' }}</n-descriptions-item>
+        <n-descriptions-item label="处理备注">{{ viewData.handling_notes || '-' }}</n-descriptions-item>
+      </n-descriptions>
+      <template #footer>
+        <n-space justify="end">
+          <n-button @click="viewModalVisible = false">关闭</n-button>
+        </n-space>
+      </template>
+    </n-modal>
+
+    <!-- 编辑工单弹窗 -->
+    <n-modal v-model:show="editModalVisible" preset="card" title="编辑工单" style="width:500px">
       <n-form label-placement="left" label-width="80">
-        <n-form-item label="处理人">
-          <n-select v-model="assignForm.handler_id" :options="handlerOptions" placeholder="请选择处理人" />
+        <n-form-item label="当前状态">
+          <n-tag :type="statusType(editForm.status)" size="small">{{ statusText(editForm.status) }}</n-tag>
         </n-form-item>
-        <n-form-item label="备注">
-          <n-input v-model="assignForm.remark" type="textarea" :rows="3" placeholder="请输入备注" />
+        <n-form-item label="新状态">
+          <n-select v-model="editForm.status" :options="statusTransitionOptions" placeholder="请选择新状态" />
+        </n-form-item>
+        <n-form-item label="处理备注">
+          <n-input v-model="editForm.handling_notes" type="textarea" :rows="4" placeholder="请输入处理备注" />
         </n-form-item>
       </n-form>
       <template #footer>
         <n-space justify="end">
-          <n-button @click="assignDialogVisible = false">取消</n-button>
-          <n-button type="primary" @click="submitAssign">确定</n-button>
+          <n-button @click="editModalVisible = false">取消</n-button>
+          <n-button type="primary" @click="submitEdit">保存</n-button>
         </n-space>
       </template>
     </n-modal>
@@ -57,42 +87,52 @@
 import { ref, reactive, h, onMounted } from 'vue'
 import { useMessage, NTag, NButton, NSpace } from 'naive-ui'
 import { AddOutline } from '@vicons/ionicons5'
-import { useAuthStore } from '@/stores/auth'
 
 const message = useMessage()
-const authStore = useAuthStore()
 
 const loading = ref(false)
 const searchKeyword = ref('')
 const filterStatus = ref(null)
 const filterPriority = ref(null)
 const workorderList = ref([])
-const assignDialogVisible = ref(false)
-const currentOrder = ref(null)
 
 const pagination = reactive({ page: 1, pageSize: 10, itemCount: 0, showSizePicker: true, pageSizes: [10, 20, 50] })
-const assignForm = reactive({ handler_id: null, remark: '' })
+
+// 查看弹窗
+const viewModalVisible = ref(false)
+const viewData = ref({})
+
+// 编辑弹窗
+const editModalVisible = ref(false)
+const editForm = reactive({ id: null, status: '', handling_notes: '' })
+const statusTransitionOptions = ref([])
 
 const statusOptions = [
   { label: '待处理', value: 'pending' },
-  { label: '处理中', value: 'processing' },
-  { label: '已完成', value: 'completed' },
+  { label: '处理中', value: 'open' },
+  { label: '已解决', value: 'resolved' },
   { label: '已关闭', value: 'closed' }
 ]
 
 const priorityOptions = [
-  { label: '紧急', value: 'urgent' },
-  { label: '高', value: 'high' },
-  { label: '中', value: 'medium' },
-  { label: '低', value: 'low' }
+  { label: 'P1', value: 'P1' },
+  { label: 'P2', value: 'P2' },
+  { label: 'P3', value: 'P3' },
+  { label: 'P4', value: 'P4' }
 ]
 
-const handlerOptions = ref([])
+const priorityType = (p) => ({ P1: 'error', P2: 'warning', P3: 'info', P4: 'default' })[p] || 'default'
+const priorityText = (p) => ({ P1: 'P1', P2: 'P2', P3: 'P3', P4: 'P4' })[p] || p
+const statusType = (s) => ({ pending: 'warning', open: 'info', resolved: 'success', closed: 'default' })[s] || 'default'
+const statusText = (s) => ({ pending: '待处理', open: '处理中', resolved: '已解决', closed: '已关闭' })[s] || s
 
-const priorityType = (p) => ({ urgent: 'error', high: 'warning', medium: 'info', low: 'default' })[p] || 'default'
-const priorityText = (p) => ({ urgent: '紧急', high: '高', medium: '中', low: '低' })[p] || p
-const statusType = (s) => ({ pending: 'warning', processing: 'info', completed: 'success', closed: 'default' })[s] || 'default'
-const statusText = (s) => ({ pending: '待处理', processing: '处理中', completed: '已完成', closed: '已关闭' })[s] || s
+// 状态流转选项：pending→open→resolved→closed
+const getStatusTransitionOptions = (currentStatus) => {
+  const flow = ['pending', 'open', 'resolved', 'closed']
+  const currentIndex = flow.indexOf(currentStatus)
+  if (currentIndex === -1 || currentIndex === flow.length - 1) return []
+  return flow.slice(currentIndex + 1).map(s => ({ label: statusText(s), value: s }))
+}
 
 const columns = [
   { title: '工单号', key: 'order_no', width: 180 },
@@ -109,12 +149,12 @@ const columns = [
   { title: '处理人', key: 'assignee', width: 120, render: (row) => row.assignee || '-' },
   { title: '创建时间', key: 'created_at', width: 170, render: (row) => row.created_at ? row.created_at.slice(0, 16) : '-' },
   {
-    title: '操作', key: 'actions', width: 200, fixed: 'right',
+    title: '操作', key: 'actions', width: 220, fixed: 'right',
     render: (row) => h(NSpace, { size: 'small' }, {
       default: () => [
         h(NButton, { size: 'small', type: 'info', quaternary: true, onClick: () => handleView(row) }, { default: () => '查看' }),
-        row.status === 'pending' ? h(NButton, { size: 'small', type: 'primary', quaternary: true, onClick: () => handleAssign(row) }, { default: () => '分配' }) : null,
-        row.status === 'processing' ? h(NButton, { size: 'small', type: 'success', quaternary: true, onClick: () => handleComplete(row) }, { default: () => '完成' }) : null
+        h(NButton, { size: 'small', type: 'primary', quaternary: true, onClick: () => handleEdit(row) }, { default: () => '编辑' }),
+        row.status !== 'closed' ? h(NButton, { size: 'small', type: 'warning', quaternary: true, onClick: () => handleClose(row) }, { default: () => '关闭' }) : null
       ].filter(Boolean)
     })
   }
@@ -131,22 +171,16 @@ async function loadData() {
     const res = await fetch(`/api/v1/workorders/?${new URLSearchParams(params)}`, {
       headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
     })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
     workorderList.value = data.items || data.data?.items || []
     pagination.itemCount = data.total || data.data?.total || 0
   } catch (e) {
+    console.error('加载工单列表失败:', e)
     message.error('加载工单列表失败')
   } finally {
     loading.value = false
   }
-}
-
-async function loadHandlers() {
-  try {
-    const res = await fetch('/api/v1/admin/users', { headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` } })
-    const data = await res.json()
-    handlerOptions.value = (data.items || data.data?.items || []).map(u => ({ label: u.full_name || u.username, value: u.id }))
-  } catch (e) {}
 }
 
 function handlePageChange(p) { pagination.page = p; loadData() }
@@ -160,40 +194,73 @@ function resetFilters() {
   loadData()
 }
 
-function handleView(row) { message.info('查看工单: ' + row.title) }
-
-function handleAssign(row) {
-  currentOrder.value = row
-  assignForm.handler_id = null
-  assignForm.remark = ''
-  assignDialogVisible.value = true
-}
-
-async function submitAssign() {
-  if (!assignForm.handler_id) { message.warning('请选择处理人'); return }
+// 查看工单
+async function handleView(row) {
   try {
-    await fetch(`/api/v1/workorders//${currentOrder.value.id}/assign?assignee=${assignForm.handler_id}&comment=${encodeURIComponent(assignForm.remark)}`, {
-      method: 'PUT',
+    const res = await fetch(`/api/v1/workorders/${row.id}`, {
       headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
     })
-    message.success('分配成功')
-    assignDialogVisible.value = false
-    loadData()
-  } catch (e) { message.error('分配失败') }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json()
+    viewData.value = data
+    viewModalVisible.value = true
+  } catch (e) {
+    console.error('获取工单详情失败:', e)
+    message.error('获取工单详情失败')
+  }
 }
 
-async function handleComplete(row) {
+// 编辑工单
+function handleEdit(row) {
+  editForm.id = row.id
+  editForm.status = row.status
+  editForm.handling_notes = row.handling_notes || ''
+  statusTransitionOptions.value = getStatusTransitionOptions(row.status)
+  editModalVisible.value = true
+}
+
+// 编辑时获取状态流转选项
+async function submitEdit() {
+  if (!editForm.id) return
   try {
-    await fetch(`/api/v1/workorders//${row.id}/complete`, {
-      method: 'PUT',
+    const res = await fetch(`/api/v1/workorders/${editForm.id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+      },
+      body: JSON.stringify({
+        status: editForm.status,
+        handling_notes: editForm.handling_notes
+      })
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    message.success('工单更新成功')
+    editModalVisible.value = false
+    loadData()
+  } catch (e) {
+    console.error('更新工单失败:', e)
+    message.error('更新工单失败')
+  }
+}
+
+// 关闭工单
+async function handleClose(row) {
+  try {
+    const res = await fetch(`/api/v1/workorders/${row.id}/close`, {
+      method: 'PATCH',
       headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
     })
-    message.success('工单已完成')
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    message.success('工单已关闭')
     loadData()
-  } catch (e) { message.error('操作失败') }
+  } catch (e) {
+    console.error('关闭工单失败:', e)
+    message.error('关闭工单失败')
+  }
 }
 
-onMounted(() => { loadData(); loadHandlers() })
+onMounted(() => { loadData() })
 </script>
 
 <style scoped>

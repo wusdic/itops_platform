@@ -24,6 +24,8 @@
           </n-input>
         </div>
         <n-list class="conversation-list" hoverable clickable>
+          <n-spin size="small" v-if="conversationsLoading" style="padding: 20px; display: block; text-align: center" />
+          <template v-else>
           <n-list-item
             v-for="conv in filteredConversations"
             :key="conv.conversation_id"
@@ -57,6 +59,7 @@
               </n-space>
             </template>
           </n-list-item>
+          </template>
         </n-list>
       </n-layout-sider>
 
@@ -159,6 +162,7 @@ const userInitial = computed(() => authStore.userInfo?.username?.charAt(0)?.toUp
 const conversations = ref([])
 const searchText = ref('')
 const currentConversation = ref(null)
+const conversationsLoading = ref(false)
 
 // 消息
 const messages = ref([])
@@ -195,24 +199,31 @@ function formatTime(d) {
 }
 
 async function loadConversations() {
+  conversationsLoading.value = true
   try {
-    const res = await fetch('/api/v1/ai/conversations', {
+    const res = await fetch('/api/v1/ai/conversations?user_id=' + encodeURIComponent(authStore.userInfo.username), {
       headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
     })
     if (res.ok) {
       const data = await res.json()
       conversations.value = data.items || data || []
+    } else {
+      message.error('加载会话列表失败')
     }
   } catch (e) {
     console.error('Load conversations error:', e)
+    message.error('加载会话列表失败')
+  } finally {
+    conversationsLoading.value = false
   }
 }
 
 async function selectConversation(conv) {
   currentConversation.value = conv
   messages.value = []
+  loading.value = true
   try {
-    const res = await fetch(`/api/v1/ai/conversations/${conv.conversation_id}`, {
+    const res = await fetch(`/api/v1/ai/conversations/${conv.conversation_id}?user_id=${encodeURIComponent(authStore.userInfo.username)}`, {
       headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
     })
     if (res.ok) {
@@ -225,12 +236,16 @@ async function selectConversation(conv) {
           created_at: m.created_at || new Date().toISOString()
         }))
       }
+    } else {
+      message.error('加载会话失败')
     }
     await nextTick()
     scrollToBottom()
   } catch (e) {
     console.error('Load conversation error:', e)
     message.error('加载会话失败')
+  } finally {
+    loading.value = false
   }
 }
 
@@ -257,7 +272,11 @@ async function sendMessage() {
   scrollToBottom()
 
   try {
-    const payload = { message: text, conversation_id: currentConversation.value?.conversation_id || undefined }
+    const payload = { 
+      message: text, 
+      user_id: authStore.userInfo.username,
+      conversation_id: currentConversation.value?.conversation_id || undefined 
+    }
     const res = await fetch('/api/v1/ai/chat', {
       method: 'POST',
       headers: {
@@ -266,6 +285,9 @@ async function sendMessage() {
       },
       body: JSON.stringify(payload)
     })
+    if (!res.ok) {
+      throw new Error('Send message failed')
+    }
     const data = await res.json()
     const aiMsg = {
       id: Date.now() + 1,
@@ -319,13 +341,19 @@ async function handleDelete(conversation_id) {
 
 async function handlePin(conv) {
   try {
-    await fetch(`/api/v1/ai/conversations/${conv.conversation_id}/pin`, {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
+    const res = await fetch(`/api/v1/ai/conversations/${conv.conversation_id}/pin`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${localStorage.getItem('token') || ''}` 
+      },
+      body: JSON.stringify({ user_id: authStore.userInfo.username })
     })
+    if (!res.ok) throw new Error('Pin failed')
     message.success(conv.is_pinned ? '已取消置顶' : '已置顶')
     await loadConversations()
   } catch (e) {
+    console.error('Pin error:', e)
     message.error('操作失败')
   }
 }
