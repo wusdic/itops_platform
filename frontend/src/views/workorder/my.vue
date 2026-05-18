@@ -42,13 +42,35 @@
         </n-space>
       </template>
     </n-modal>
+
+    <!-- 工单详情 -->
+    <n-modal v-model:show="viewModalVisible" preset="card" title="工单详情" style="width:600px">
+      <n-descriptions v-if="viewData" :column="2" bordered size="small">
+        <n-descriptions-item label="工单ID">{{ viewData.id }}</n-descriptions-item>
+        <n-descriptions-item label="工单号">{{ viewData.order_no || '-' }}</n-descriptions-item>
+        <n-descriptions-item label="标题">{{ viewData.title }}</n-descriptions-item>
+        <n-descriptions-item label="类型">{{ viewData.type || '-' }}</n-descriptions-item>
+        <n-descriptions-item label="状态">
+          <n-tag size="small" :type="getStatusType(viewData.status)">{{ getStatusText(viewData.status) }}</n-tag>
+        </n-descriptions-item>
+        <n-descriptions-item label="优先级">
+          <n-tag size="small" :type="getPriorityType(viewData.priority)">{{ getPriorityText(viewData.priority) }}</n-tag>
+        </n-descriptions-item>
+        <n-descriptions-item label="创建人">{{ viewData.creator_name || viewData.creator || '-' }}</n-descriptions-item>
+        <n-descriptions-item label="处理人">{{ viewData.assignee_name || viewData.assignee || '-' }}</n-descriptions-item>
+        <n-descriptions-item label="描述" :span="2">{{ viewData.description || '-' }}</n-descriptions-item>
+        <n-descriptions-item label="处理备注" :span="2">{{ viewData.handling_notes || '-' }}</n-descriptions-item>
+        <n-descriptions-item label="创建时间">{{ viewData.created_at || '-' }}</n-descriptions-item>
+        <n-descriptions-item label="更新时间">{{ viewData.updated_at || '-' }}</n-descriptions-item>
+      </n-descriptions>
+    </n-modal>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted, h } from 'vue'
 import { useRouter } from 'vue-router'
-import { NCard, NButton, NDataTable, NModal, NForm, NFormItem, NInput, NSelect, NSpace, NTag, NIcon, useMessage } from 'naive-ui'
+import { NCard, NButton, NDataTable, NModal, NForm, NFormItem, NInput, NSelect, NSpace, NTag, NIcon, NDescriptions, NDescriptionsItem, useMessage } from 'naive-ui'
 import { AddOutline, SearchOutline } from '@vicons/ionicons5'
 
 const router = useRouter()
@@ -59,6 +81,8 @@ const searchKeyword = ref('')
 const filterStatus = ref(null)
 const filterPriority = ref(null)
 const assignDialogVisible = ref(false)
+const viewModalVisible = ref(false)
+const viewData = ref(null)
 const currentOrder = ref(null)
 const handlerOptions = ref([])
 
@@ -68,23 +92,23 @@ const assignForm = reactive({ handler_id: null, remark: '' })
 const statusOptions = [
   { label: '全部', value: null },
   { label: '待处理', value: 'pending' },
-  { label: '处理中', value: 'processing' },
-  { label: '已完成', value: 'completed' },
+  { label: '处理中', value: 'open' },
+  { label: '已解决', value: 'resolved' },
   { label: '已关闭', value: 'closed' }
 ]
 
 const priorityOptions = [
   { label: '全部', value: null },
-  { label: '紧急', value: 'urgent' },
-  { label: '高', value: 'high' },
-  { label: '中', value: 'medium' },
-  { label: '低', value: 'low' }
+  { label: 'P1', value: 'P1' },
+  { label: 'P2', value: 'P2' },
+  { label: 'P3', value: 'P3' },
+  { label: 'P4', value: 'P4' }
 ]
 
-const getPriorityType = (p) => ({ urgent: 'error', high: 'warning', medium: 'info', low: 'default' }[p] || 'default')
-const getPriorityText = (p) => ({ urgent: '紧急', high: '高', medium: '中', low: '低' }[p] || p)
-const getStatusType = (s) => ({ pending: 'warning', processing: 'info', completed: 'success', closed: 'default' }[s] || 'default')
-const getStatusText = (s) => ({ pending: '待处理', processing: '处理中', completed: '已完成', closed: '已关闭' }[s] || s)
+const getPriorityType = (p) => ({ P1: 'error', P2: 'warning', P3: 'info', P4: 'default' }[p] || 'default')
+const getPriorityText = (p) => ({ P1: 'P1', P2: 'P2', P3: 'P3', P4: 'P4' }[p] || p)
+const getStatusType = (s) => ({ pending: 'warning', open: 'info', resolved: 'success', closed: 'default' }[s] || 'default')
+const getStatusText = (s) => ({ pending: '待处理', open: '处理中', resolved: '已解决', closed: '已关闭' }[s] || s)
 
 const columns = [
   { title: 'ID', key: 'id', width: 80 },
@@ -147,7 +171,21 @@ async function loadHandlers() {
 }
 
 function handleView(row) {
-  message.info(`查看工单: ${row.title}`)
+  viewData.value = row
+  viewModalVisible.value = true
+}
+
+async function handleViewAsync(row) {
+  try {
+    const res = await fetch(`/api/v1/workorders/${row.id}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    viewData.value = await res.json()
+    viewModalVisible.value = true
+  } catch (e) {
+    message.error(`获取工单详情失败: ${e.message}`)
+  }
 }
 
 async function submitAssign() {

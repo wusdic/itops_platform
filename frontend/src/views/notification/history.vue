@@ -177,7 +177,7 @@ const loadData = async () => {
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
     if (!data || typeof data !== 'object') throw new Error('响应格式异常')
-    messageList.value = data.items || data.data?.items || []
+    list.value = data.items || data.data?.items || []
     pagination.total = data.total || data.data?.total || 0
   } catch (e) {
     message.error(`加载失败: ${e.message}`)

@@ -79,11 +79,26 @@ const statusOptions = [
   { label: '禁用', value: '0' }
 ]
 
-const roleOptions = [
+const roleOptions = ref([
   { label: '管理员', value: 'admin' },
   { label: '运维人员', value: 'operator' },
   { label: '访客', value: 'guest' }
-]
+])
+
+async function loadRoles() {
+  try {
+    const token = localStorage.getItem('token') || ''
+    const res = await fetch('/api/v1/admin/roles', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (!res.ok) return
+    const data = await res.json()
+    const items = data.items || data.data?.items || []
+    roleOptions.value = items.map(r => ({ label: r.name, value: r.code }))
+  } catch (e) {
+    console.warn('loadRoles failed, using defaults:', e)
+  }
+}
 
 const columns = [
   { title: 'ID', key: 'id', width: 80 },
@@ -149,8 +164,19 @@ function handleEdit(row) {
   dialogVisible.value = true
 }
 
-function handleResetPwd(row) {
-  message.info(`密码重置功能开发中: ${row.username}`)
+async function handleResetPwd(row) {
+  try {
+    const token = localStorage.getItem('token') || ''
+    const res = await fetch(`/api/v1/admin/users/${row.id}/reset-password`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json()
+    message.success(`密码已重置为: ${data.password || '请查看提示'}`)
+  } catch (e) {
+    message.error(`重置失败: ${e.message}`)
+  }
 }
 
 async function handleDelete(row) {
@@ -198,7 +224,7 @@ async function submitForm() {
   }
 }
 
-onMounted(loadData)
+onMounted(() => { loadData(); loadRoles() })
 </script>
 
 <style scoped>

@@ -223,8 +223,11 @@ const loadMetrics = async () => {
 
 const updateCharts = (data) => {
   const hours = Array.from({ length: 24 }, (_, i) => `${i}:00`)
-  const cpuData = data.cpu_history || Array.from({ length: 24 }, () => Math.floor(Math.random() * 40 + 30))
-  const memData = data.memory_history || Array.from({ length: 24 }, () => Math.floor(Math.random() * 40 + 30))
+  const cpuData = data.cpu_history || []
+  const memData = data.memory_history || []
+  if (!cpuData.length || !memData.length) {
+    message.warning('该设备暂无历史性能数据')
+  }
 
   if (cpuChartRef.value) {
     if (!cpuChart) cpuChart = echarts.init(cpuChartRef.value)

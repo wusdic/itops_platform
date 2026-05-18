@@ -161,7 +161,7 @@ const handleAcknowledge = async (alert) => {
       try {
         const token = localStorage.getItem('token') || ''
         const res = await fetch(`/api/v1/monitoring/alerts/${alert.id}/acknowledge`, {
-          method: 'PATCH',
+          method: 'PUT',
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
         })
         if (res.ok) {
@@ -194,7 +194,7 @@ const handleResolve = async (alert) => {
       try {
         const token = localStorage.getItem('token') || ''
         const res = await fetch(`/api/v1/monitoring/alerts/${alert.id}/resolve`, {
-          method: 'PATCH',
+          method: 'PUT',
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
         })
         if (res.ok) {
@@ -221,7 +221,7 @@ const handleDrawerResolve = async () => {
   try {
     const token = localStorage.getItem('token') || ''
     const res = await fetch(`/api/v1/monitoring/alerts/${currentAlert.value.id}/resolve`, {
-      method: 'PATCH',
+      method: 'PUT',
       headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
     })
     if (res.ok) {

@@ -200,23 +200,44 @@ async function loadSystemLogs() {
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
-    // 系统信息用于判断健康状态，真正的系统日志从容器日志读取
-    // 这里展示API健康状态作为系统日志概览
-    systemLogs.value = [{
-      idx: 1, time: new Date().toLocaleString('zh-CN'), level: 'INFO',
-      source: 'api.health', message: `API服务运行正常 | 版本: ${data.version} | 环境: ${data.environment}`
-    }, {
-      idx: 2, time: new Date().toLocaleString('zh-CN'), level: data.database?.status === 'connected' ? 'INFO' : 'ERROR',
-      source: 'db.connection', message: `数据库: ${data.database?.status} | 类型: ${data.database?.type}`
-    }, {
-      idx: 3, time: new Date().toLocaleString('zh-CN'), level: data.redis?.status === 'connected' ? 'INFO' : 'ERROR',
-      source: 'redis.connection', message: `Redis: ${data.redis?.status}`
-    }]
+    // 从系统信息 API 构造真实健康日志
+    const entries = []
+    entries.push({
+      idx: 1,
+      time: new Date().toLocaleString('zh-CN'),
+      level: 'INFO',
+      source: 'api.health',
+      message: `API服务运行正常 | 版本: ${data.version || 'unknown'} | 环境: ${data.environment || 'unknown'} | 运行时间: ${formatUptime(data.uptime)}`
+    })
+    entries.push({
+      idx: 2,
+      time: new Date().toLocaleString('zh-CN'),
+      level: data.database?.status === 'connected' ? 'INFO' : 'ERROR',
+      source: 'db.connection',
+      message: `数据库: ${data.database?.status || 'unknown'} | 类型: ${data.database?.type || 'unknown'} | 连接数: ${data.database?.connections || 0}`
+    })
+    entries.push({
+      idx: 3,
+      time: new Date().toLocaleString('zh-CN'),
+      level: data.redis?.status === 'connected' ? 'INFO' : 'ERROR',
+      source: 'redis.connection',
+      message: `Redis: ${data.redis?.status || 'unknown'}`
+    })
+    systemLogs.value = entries
   } catch (e) {
     message.error(`加载系统日志失败: ${e.message}`)
   } finally {
     systemLoading.value = false
   }
+}
+
+function formatUptime(seconds) {
+  if (!seconds) return '-'
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  const s = seconds % 60
+  if (h > 24) return `${Math.floor(h/24)}天${h%24}小时`
+  return `${h}小时${m}分钟`
 }
 
 // ==================== 告警审计日志 ====================
@@ -272,22 +293,35 @@ const collectionColumns = [
 async function loadCollectionLogs() {
   collectionLoading.value = true
   try {
-    // 从设备统计API获取采集历史
     const token = localStorage.getItem('token')
     const res = await fetch('/api/v1/devices/stats', {
       headers: { 'Authorization': `Bearer ${token}` }
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
-    // 生成伪采集日志用于展示
-    collectionLogs.value = [{
-      idx: 1, time: new Date().toLocaleString('zh-CN'), device: 'localhost (API Server)',
-      protocol: 'internal', status: 'success', duration: '0ms', message: '系统心跳检测正常'
-    }, {
-      idx: 2, time: new Date().toLocaleString('zh-CN'), device: 'localhost (API Server)',
-      protocol: 'mysql', status: data.database?.status === 'connected' ? 'success' : 'failed',
-      duration: '<1ms', message: `数据库连接池: ${data.database?.connections || 0} 连接`
-    }]
+    // 从设备统计 API 构造真实采集状态
+    const now = new Date()
+    const entries = [
+      {
+        idx: 1, time: now.toLocaleString('zh-CN'),
+        device: `设备总数`, protocol: 'monitoring',
+        status: 'success', duration: '-', message: `总计 ${data.total} 台设备 | 在线 ${data.online} | 离线 ${data.offline}`
+      },
+      {
+        idx: 2, time: now.toLocaleString('zh-CN'),
+        device: `设备类型分布`, protocol: 'classification',
+        status: 'success', duration: '-',
+        message: Object.entries(data.by_type || {}).map(([k, v]) => `${k}: ${v}`).join(' | ') || '无数据'
+      }
+    ]
+    if (data.offline > 0) {
+      entries.push({
+        idx: 3, time: now.toLocaleString('zh-CN'),
+        device: `离线告警`, protocol: 'heartbeat',
+        status: 'failed', duration: '-', message: `${data.offline} 台设备离线，请检查网络连接`
+      })
+    }
+    collectionLogs.value = entries
     pagination.total = collectionLogs.value.length
   } catch (e) {
     message.error(`加载采集日志失败: ${e.message}`)

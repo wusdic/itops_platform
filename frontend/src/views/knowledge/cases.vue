@@ -162,6 +162,6 @@ function handlePageSizeChange(pageSize) {
 }
 
 function handleAdd() {
-  message.info('添加案例功能开发中')
+  message.warning('故障案例创建功能需后端支持故障案例数据模型和 API')
 }
 </script>

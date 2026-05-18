@@ -187,10 +187,11 @@
 
 <script setup>
 import { ref, reactive, onMounted, h } from 'vue'
-import { useMessage } from 'naive-ui'
+import { useMessage, useDialog } from 'naive-ui'
 import { AddOutline, RefreshOutline } from '@vicons/ionicons5'
 
 const message = useMessage()
+const dialog = useDialog()
 const activeTab = ref('adapters')
 const adapterLoading = ref(false)
 const protocolLoading = ref(false)
@@ -315,19 +316,26 @@ const saveAdapter = async () => {
 }
 
 const deleteAdapter = async (row) => {
-  if (!confirm('确定删除适配器「' + row.name + '」？')) return
-  try {
-    const token = localStorage.getItem('token')
-    const res = await fetch(`/api/v1/admin/adapters/${row.id}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${token}` },
-    })
-    if (!res.ok) throw new Error('删除失败')
-    message.success('删除成功')
-    loadAdapters()
-  } catch (e) {
-    message.error(e.message)
-  }
+  dialog.warning({
+    title: '删除确认',
+    content: `确定删除适配器「${row.name}」吗？`,
+    positiveText: '确定',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        const token = localStorage.getItem('token')
+        const res = await fetch(`/api/v1/admin/adapters/${row.id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` },
+        })
+        if (!res.ok) throw new Error('删除失败')
+        message.success('删除成功')
+        loadAdapters()
+      } catch (e) {
+        message.error(e.message)
+      }
+    }
+  })
 }
 
 const adapterColumns = [

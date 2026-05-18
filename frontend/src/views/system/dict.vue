@@ -93,11 +93,12 @@
 
 <script setup>
 import { ref, reactive, onMounted, h } from 'vue'
-import { useMessage } from 'naive-ui'
+import { useMessage, useDialog } from 'naive-ui'
 import { AddOutline, CreateOutline, TrashOutline } from '@vicons/ionicons5'
 import { NTag, NButton } from 'naive-ui'
 
 const message = useMessage()
+const dialog = useDialog()
 const loading = ref(false)
 const searchKeyword = ref('')
 const dictList = ref([])
@@ -241,7 +242,7 @@ const handleEdit = (row) => {
 }
 
 const handleDelete = (row) => {
-  window.$dialog.warning({
+  dialog.warning({
     title: '提示',
     content: `确定删除字典 "${row.name}" 吗?`,
     positiveText: '确定',
@@ -274,9 +275,9 @@ const handleItems = (row) => {
   itemsDialogVisible.value = true
 }
 
-const handleAddItem = () => { message.info('添加字典项') }
-const handleEditItem = (row) => { message.info('编辑字典项') }
-const handleDeleteItem = (row) => { message.info('删除字典项') }
+const handleAddItem = () => { message.info('字典项管理功能需后端提供独立 API 接口支持') }
+const handleEditItem = (row) => { message.info(`编辑字典项「${row.label}」（${row.value}）需后端 API 支持`) }
+const handleDeleteItem = (row) => { message.info(`删除字典项「${row.label}」需后端 API 支持`) }
 
 const submitForm = async () => {
   try {
