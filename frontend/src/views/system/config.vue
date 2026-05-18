@@ -23,7 +23,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, h } from 'vue'
-import { useMessage, useDialog } from 'naive-ui'
+import { useMessage, useDialog, NButton, NIcon } from 'naive-ui'
 import { RefreshOutline, CreateOutline, CheckmarkOutline, CloseOutline } from '@vicons/ionicons5'
 import { config as configApi } from '@/api'
 import { formatTime } from '@/utils/date'

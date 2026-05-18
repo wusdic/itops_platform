@@ -33,13 +33,12 @@
       :collapsed="collapsed"
       :collapsed-width="64"
       :width="220"
-      :show-trigger="false"
+      show-trigger="bar"
       collapse-mode="width"
       :native-scrollbar="false"
       class="sider"
       :class="{ 'mobile-sider': isMobile }"
       :style="isMobile && !collapsed ? { position: 'fixed', left: 0, top: 0, bottom: 0, zIndex: 1000, transform: 'translateX(-100%)', transition: 'transform 0.3s' } : {}"
-      :collapsed-show-trigger="false"
     >
       <!-- Overlay for mobile -->
       <div v-if="isMobile && !collapsed" class="sidebar-overlay" @click="collapsed = true"></div>

@@ -144,6 +144,7 @@ const columns = [
 
 onMounted(() => {
   loadDevices()
+  startRefresh()
 })
 
 onUnmounted(() => {
