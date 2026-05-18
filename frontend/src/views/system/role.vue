@@ -227,7 +227,7 @@ async function handlePermission(row) {
   // 加载该角色的现有权限
   try {
     const token = localStorage.getItem('token') || ''
-    const res = await fetch(`/api/v1/system/roles/${row.id}/permissions`, {
+    const res = await fetch(`/api/v1/admin/roles/${row.id}/permissions`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     if (!res.ok) {
@@ -257,7 +257,7 @@ async function submitPermission() {
   permSubmitting.value = true
   try {
     const token = localStorage.getItem('token') || ''
-    const res = await fetch(`/api/v1/system/roles/${currentRoleId.value}/permissions`, {
+    const res = await fetch(`/api/v1/admin/roles/${currentRoleId.value}/permissions`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ permissions: currentCheckedKeys.value })

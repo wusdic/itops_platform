@@ -217,11 +217,28 @@ const handleView = (row) => {
   detailModalVisible.value = true
 }
 
-const handleRestore = (row) => {
+const handleRestore = async (row) => {
   if (row) {
     currentBackup.value = row
   }
-  message.info('恢复功能开发中，备份: ' + (currentBackup.value?.name || currentBackup.value?.backup_name))
+  if (!currentBackup.value) return
+  try {
+    const token = localStorage.getItem('token') || ''
+    const res = await fetch(`/api/v1/admin/backup/${currentBackup.value.id}/restore`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({})
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: `HTTP ${res.status}` }))
+      message.error(`恢复失败: ${err.message || res.status}`)
+      return
+    }
+    message.success('备份恢复成功')
+    detailModalVisible.value = false
+  } catch (e) {
+    message.error(`恢复失败: ${e.message}`)
+  }
 }
 
 onMounted(() => {
