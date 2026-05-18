@@ -359,7 +359,7 @@ function getHeaders() {
 // API Functions
 async function fetchStats() {
   try {
-    const response = await fetch('http://localhost:8000/api/v1/reports/stats', {
+    const response = await fetch('/api/v1/reports/stats', {
       method: 'GET',
       headers: getHeaders()
     })
@@ -388,7 +388,7 @@ async function fetchReportList() {
       params.append('end_date', new Date(filters.dateRange[1]).toISOString())
     }
 
-    const response = await fetch(`http://localhost:8000/api/v1/reports/?${params}`, {
+    const response = await fetch(`/api/v1/reports/?${params}`, {
       method: 'GET',
       headers: getHeaders()
     })
@@ -409,7 +409,7 @@ async function fetchReportList() {
 async function fetchReportPreview(id) {
   previewModal.loading = true
   try {
-    const response = await fetch(`http://localhost:8000/api/v1/reports/${id}/preview`, {
+    const response = await fetch(`/api/v1/reports/${id}/preview`, {
       method: 'GET',
       headers: getHeaders()
     })
@@ -427,7 +427,7 @@ async function fetchReportPreview(id) {
 
 async function downloadReport(id) {
   try {
-    const response = await fetch(`http://localhost:8000/api/v1/reports/${id}/download`, {
+    const response = await fetch(`/api/v1/reports/${id}/download`, {
       method: 'GET',
       headers: getHeaders()
     })
@@ -451,7 +451,7 @@ async function downloadReport(id) {
 
 async function deleteReport(id) {
   try {
-    const response = await fetch(`http://localhost:8000/api/v1/reports/${id}`, {
+    const response = await fetch(`/api/v1/reports/${id}`, {
       method: 'DELETE',
       headers: getHeaders()
     })

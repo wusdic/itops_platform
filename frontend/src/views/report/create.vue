@@ -426,7 +426,7 @@ function validateForm() {
 async function fetchTemplates() {
   templatesLoading.value = true
   try {
-    const response = await fetch('http://localhost:8000/api/v1/reports/template', {
+    const response = await fetch('/api/v1/reports/template', {
       method: 'GET',
       headers: getHeaders()
     })
@@ -459,7 +459,7 @@ async function fetchPreview() {
       alert_level: formData.alert_level
     }
     
-    const response = await fetch('http://localhost:8000/api/v1/reports/preview', {
+    const response = await fetch('/api/v1/reports/preview', {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(payload)
@@ -507,7 +507,7 @@ async function generateReport() {
       }
     }
     
-    const response = await fetch('http://localhost:8000/api/v1/reports/generate', {
+    const response = await fetch('/api/v1/reports/generate', {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(payload)
@@ -554,7 +554,7 @@ async function saveAsTemplate() {
       active: true
     }
     
-    const response = await fetch('http://localhost:8000/api/v1/reports/template', {
+    const response = await fetch('/api/v1/reports/template', {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(payload)

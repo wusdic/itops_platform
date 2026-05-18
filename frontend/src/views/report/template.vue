@@ -250,7 +250,7 @@ function resetForm() {
 async function fetchTemplates() {
   loading.value = true
   try {
-    const response = await fetch('http://localhost:8000/api/v1/reports/template', {
+    const response = await fetch('/api/v1/reports/template', {
       method: 'GET',
       headers: getHeaders()
     })
@@ -268,7 +268,7 @@ async function fetchTemplates() {
 
 async function createTemplate() {
   try {
-    const response = await fetch('http://localhost:8000/api/v1/reports/template', {
+    const response = await fetch('/api/v1/reports/template', {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(formData)
@@ -289,7 +289,7 @@ async function createTemplate() {
 
 async function updateTemplate() {
   try {
-    const response = await fetch(`http://localhost:8000/api/v1/reports/template/${modal.currentId}`, {
+    const response = await fetch(`/api/v1/reports/template/${modal.currentId}`, {
       method: 'PUT',
       headers: getHeaders(),
       body: JSON.stringify(formData)
@@ -310,7 +310,7 @@ async function updateTemplate() {
 
 async function deleteTemplate(id) {
   try {
-    const response = await fetch(`http://localhost:8000/api/v1/reports/template/${id}`, {
+    const response = await fetch(`/api/v1/reports/template/${id}`, {
       method: 'DELETE',
       headers: getHeaders()
     })
