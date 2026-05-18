@@ -93,6 +93,7 @@
 import { ref, reactive, h, onMounted, onUnmounted } from 'vue'
 import { useMessage, NTag, NButton, NSpace } from 'naive-ui'
 import { AddOutline } from '@vicons/ionicons5'
+import { workorder as workorderApi } from '@/api'
 
 const message = useMessage()
 
@@ -116,9 +117,13 @@ const statusTransitionOptions = ref([])
 
 const statusOptions = [
   { label: '待处理', value: 'pending' },
-  { label: '处理中', value: 'open' },
+  { label: '处理中', value: 'processing' },
+  { label: '待审批', value: 'pending_approval' },
+  { label: '已批准', value: 'approved' },
+  { label: '已拒绝', value: 'rejected' },
   { label: '已解决', value: 'resolved' },
-  { label: '已关闭', value: 'closed' }
+  { label: '已关闭', value: 'closed' },
+  { label: '已取消', value: 'cancelled' }
 ]
 
 const priorityOptions = [
@@ -130,12 +135,12 @@ const priorityOptions = [
 
 const priorityType = (p) => ({ P1: 'error', P2: 'warning', P3: 'info', P4: 'default' })[p] || 'default'
 const priorityText = (p) => ({ P1: 'P1', P2: 'P2', P3: 'P3', P4: 'P4' })[p] || p
-const statusType = (s) => ({ pending: 'warning', open: 'info', resolved: 'success', closed: 'default' })[s] || 'default'
-const statusText = (s) => ({ pending: '待处理', open: '处理中', resolved: '已解决', closed: '已关闭' })[s] || s
+const statusType = (s) => ({ pending: 'warning', processing: 'info', pending_approval: 'warning', approved: 'success', rejected: 'error', resolved: 'success', closed: 'default', cancelled: 'default' })[s] || 'default'
+const statusText = (s) => ({ pending: '待处理', processing: '处理中', pending_approval: '待审批', approved: '已批准', rejected: '已拒绝', resolved: '已解决', closed: '已关闭', cancelled: '已取消' })[s] || s
 
-// 状态流转选项：pending→open→resolved→closed
+// 状态流转选项
 const getStatusTransitionOptions = (currentStatus) => {
-  const flow = ['pending', 'open', 'resolved', 'closed']
+  const flow = ['pending', 'processing', 'pending_approval', 'approved', 'rejected', 'resolved', 'closed', 'cancelled']
   const currentIndex = flow.indexOf(currentStatus)
   if (currentIndex === -1 || currentIndex === flow.length - 1) return []
   return flow.slice(currentIndex + 1).map(s => ({ label: statusText(s), value: s }))
@@ -175,13 +180,9 @@ async function loadData() {
     if (filterStatus.value) params.status = filterStatus.value
     if (filterPriority.value) params.priority = filterPriority.value
 
-    const res = await fetch(`/api/v1/workorders/?${new URLSearchParams(params)}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
-    })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const data = await res.json()
-    workorderList.value = data.items || data.data?.items || []
-    pagination.itemCount = data.total || data.data?.total || 0
+    const res = await workorderApi.getList(params)
+    workorderList.value = res.items || res.data?.items || []
+    pagination.itemCount = res.total || res.data?.total || 0
   } catch (e) {
     console.error('加载工单列表失败:', e)
     message.error(`加载工单列表失败: ${e.message}`)
@@ -204,11 +205,7 @@ function resetFilters() {
 // 查看工单
 async function handleView(row) {
   try {
-    const res = await fetch(`/api/v1/workorders/${row.id}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
-    })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const data = await res.json()
+    const data = await workorderApi.getById(row.id)
     viewData.value = data
     viewModalVisible.value = true
   } catch (e) {
@@ -237,38 +234,10 @@ async function submitEdit() {
   }
   editSubmitting.value = true
   try {
-    const token = localStorage.getItem('token') || ''
-    // 先尝试 PUT /api/v1/workorders/{id}/status
-    let res = await fetch(`/api/v1/workorders/${editForm.id}/status`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        status: editForm.status,
-        handling_notes: editForm.handling_notes,
-        assignee: editForm.assignee
-      })
+    await workorderApi.update(editForm.id, {
+      status: editForm.status,
+      assignee: editForm.assignee
     })
-    
-    // 如果 status 端点不存在（404），则使用 PATCH /api/v1/workorders/{id}
-    if (res.status === 404) {
-      res = await fetch(`/api/v1/workorders/${editForm.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          status: editForm.status,
-          handling_notes: editForm.handling_notes,
-          assignee: editForm.assignee
-        })
-      })
-    }
-    
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
     message.success('工单更新成功')
     editModalVisible.value = false
     loadData()
@@ -283,38 +252,7 @@ async function submitEdit() {
 // 关闭工单
 async function handleClose(row) {
   try {
-    const token = localStorage.getItem('token') || ''
-    // 先尝试 PUT /api/v1/workorders/{id}/status 关闭
-    let res = await fetch(`/api/v1/workorders/${row.id}/status`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({ status: 'closed', handling_notes: '关闭工单' })
-    })
-    
-    // 如果 404，尝试 PATCH /api/v1/workorders/{id}/close
-    if (res.status === 404) {
-      res = await fetch(`/api/v1/workorders/${row.id}/close`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` }
-      })
-    }
-    
-    // 如果还是 404，尝试 PATCH 主资源
-    if (res.status === 404) {
-      res = await fetch(`/api/v1/workorders/${row.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ status: 'closed' })
-      })
-    }
-    
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    await workorderApi.update(row.id, { status: 'closed' })
     message.success('工单已关闭')
     loadData()
   } catch (e) {

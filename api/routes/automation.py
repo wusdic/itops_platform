@@ -273,7 +273,7 @@ async def list_trigger_rules(
     rules = _trigger_engine.list_rules(enabled_only=enabled if enabled is not None else False)
     return {
         "total": len(rules),
-        "rules": [_rule_to_response(r) for r in rules],
+        "items": [_rule_to_response(r) for r in rules],
     }
 
 
@@ -730,7 +730,7 @@ async def list_executions(
 
     return {
         "total": len(records),
-        "executions": [
+        "items": [
             {
                 "execution_id": r.execution_id,
                 "rule_id": r.rule_id,
@@ -969,7 +969,7 @@ async def get_rollback_history(
     
     return {
         "total": len(history),
-        "history": [
+        "items": [
             {
                 "execution_id": r.execution_id,
                 "status": r.status.value,

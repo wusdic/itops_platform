@@ -365,6 +365,8 @@ async def get_notification_history(
                 "alert_id": log.alert_id,
                 "alert_level": log.alert_level,
                 "duration_ms": log.duration_ms,
+                "is_read": False,  # 兼容前端字段
+                "type": log.alert_level or "info",  # 兼容前端字段
                 "created_at": log.created_at.isoformat() if log.created_at else None,
             }
             for log in logs
@@ -373,6 +375,31 @@ async def get_notification_history(
         "page": page,
         "page_size": page_size,
     }
+
+
+@router.put("/history/{log_id}/read", summary="标记单条通知已读")
+async def mark_notification_read(
+    log_id: int,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """标记单条通知历史为已读（预留接口）"""
+    # 当前NotificationLog不存储已读状态，返回成功以兼容前端
+    log = db.query(NotificationLog).filter(NotificationLog.id == log_id).first()
+    if not log:
+        raise HTTPException(status_code=404, detail="通知记录不存在")
+    
+    return {"message": "已标记为已读", "id": log_id}
+
+
+@router.put("/history/read-all", summary="标记全部通知已读")
+async def mark_all_notifications_read(
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """标记所有通知历史为已读（预留接口）"""
+    # 当前NotificationLog不存储已读状态，返回成功以兼容前端
+    return {"message": "全部已标记为已读"}
 
 
 # ============== 通知目标规则接口 ==============

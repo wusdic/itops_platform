@@ -72,6 +72,7 @@ import { ref, reactive, onMounted, h } from 'vue'
 import { useRouter } from 'vue-router'
 import { NCard, NButton, NDataTable, NModal, NForm, NFormItem, NInput, NSelect, NSpace, NTag, NIcon, NDescriptions, NDescriptionsItem, useMessage } from 'naive-ui'
 import { AddOutline, SearchOutline } from '@vicons/ionicons5'
+import { workorder as workorderApi } from '@/api'
 
 const router = useRouter()
 const message = useMessage()
@@ -92,7 +93,7 @@ const assignForm = reactive({ handler_id: null, remark: '' })
 const statusOptions = [
   { label: '全部', value: null },
   { label: '待处理', value: 'pending' },
-  { label: '处理中', value: 'open' },
+  { label: '处理中', value: 'processing' },
   { label: '已解决', value: 'resolved' },
   { label: '已关闭', value: 'closed' }
 ]
@@ -107,8 +108,8 @@ const priorityOptions = [
 
 const getPriorityType = (p) => ({ P1: 'error', P2: 'warning', P3: 'info', P4: 'default' }[p] || 'default')
 const getPriorityText = (p) => ({ P1: 'P1', P2: 'P2', P3: 'P3', P4: 'P4' }[p] || p)
-const getStatusType = (s) => ({ pending: 'warning', open: 'info', resolved: 'success', closed: 'default' }[s] || 'default')
-const getStatusText = (s) => ({ pending: '待处理', open: '处理中', resolved: '已解决', closed: '已关闭' }[s] || s)
+const getStatusType = (s) => ({ pending: 'warning', processing: 'info', resolved: 'success', closed: 'default' }[s] || 'default')
+const getStatusText = (s) => ({ pending: '待处理', processing: '处理中', resolved: '已解决', closed: '已关闭' }[s] || s)
 
 const columns = [
   { title: 'ID', key: 'id', width: 80 },
@@ -191,13 +192,14 @@ async function handleViewAsync(row) {
 async function submitAssign() {
   if (!assignForm.handler_id) { message.warning('请选择处理人'); return }
   try {
-    const token = localStorage.getItem('token') || ''
-    const res = await fetch(`/api/v1/workorders/${currentOrder.value.id}/assign`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify(assignForm)
+    // 调用前需将 handler_id 转为 username（这里 handler_id 是用户ID，需查表或传 username）
+    // 后端 /assign 接口接收 assignee (username)
+    const handler = handlerOptions.value.find(h => h.value === assignForm.handler_id)
+    if (!handler) { message.warning('请选择处理人'); return }
+    await workorderApi.assign(currentOrder.value.id, {
+      assignee: handler.label,
+      comment: assignForm.remark
     })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
     message.success('分配成功')
     assignDialogVisible.value = false
     loadData()

@@ -163,10 +163,12 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, h } from 'vue'
-import { NGrid, NGi, NCard, NButton, NDataTable, NTag, NIcon, NSpace, NTooltip, useMessage, NModal, NSpin, NEmpty, NResult, NTabs, NTabPane, NForm, NFormItem, NInput, NInputNumber, NSwitch, NSelect } from 'naive-ui'
+import { NGrid, NGi, NCard, NButton, NDataTable, NTag, NIcon, NSpace, NTooltip, useMessage, useDialog, NModal, NSpin, NEmpty, NResult, NTabs, NTabPane, NForm, NFormItem, NInput, NInputNumber, NSwitch, NSelect } from 'naive-ui'
+import { devices } from '@/api'
 import { RefreshOutline } from '@vicons/ionicons5'
 
 const message = useMessage()
+const dialog = useDialog()
 const loading = ref(false)
 const deviceList = ref([])
 const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
@@ -377,7 +379,19 @@ const columns = [
   { title: '厂商/型号', key: 'manufacturer', width: 120, render: (r) => r.manufacturer ? `${r.manufacturer} ${r.model || ''}` : '-' },
   { title: '状态', key: 'status', width: 90, render: (r) => h(NTag, { type: statusType(r.status), size: 'small' }, () => statusText(r.status)) },
   { title: '位置', key: 'location', width: 130, ellipsis: { tooltip: true } },
-  { title: '最近采集', key: 'last_collect_time', width: 160, render: (r) => r.last_collect_time ? new Date(r.last_collect_time).toLocaleString('zh-CN') : '-' }
+  { title: '最近采集', key: 'last_collect_time', width: 160, render: (r) => r.last_collect_time ? new Date(r.last_collect_time).toLocaleString('zh-CN') : '-' },
+  {
+    title: '操作',
+    key: 'actions',
+    width: 180,
+    render(row) {
+      return h(NSpace, { size: 12 }, () => [
+        h(NButton, { size: 'small', type: 'info', onClick: () => handleEdit(row) }, () => '编辑'),
+        h(NButton, { size: 'small', type: 'warning', onClick: () => handleCollect(row) }, () => '采集'),
+        h(NButton, { size: 'small', type: 'error', onClick: () => handleDelete(row) }, () => '删除')
+      ])
+    }
+  }
 ]
 
 async function loadDevices() {
@@ -458,6 +472,58 @@ function handleRowClick(row) {
   protocolForm.enabled = true
   loadMetrics(row)
   loadDeviceProtocols(row.id)
+}
+
+function handleEdit(row) {
+  selectedDevice.value = row
+  drawerVisible.value = true
+  activeProtocolTab.value = 'config'
+  // Reset form
+  protocolForm.protocol_type = ''
+  protocolForm.adapter_template_id = null
+  protocolForm.host = ''
+  protocolForm.port = 22
+  protocolForm.username = ''
+  protocolForm.password = ''
+  protocolForm.timeout = 30
+  protocolForm.extra_json = ''
+  protocolForm.enabled = true
+  loadDeviceProtocols(row.id)
+}
+
+function handleDelete(row) {
+  dialog.warning({
+    title: '确认删除',
+    content: `确定要删除设备 "${row.name}" 吗？此操作不可恢复。`,
+    positiveText: '确认删除',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        await devices.delete(row.id)
+        message.success('删除成功')
+        loadDevices()
+      } catch (e) {
+        message.error('删除失败: ' + (e.message || e))
+      }
+    }
+  })
+}
+
+function handleCollect(row) {
+  dialog.warning({
+    title: '确认采集',
+    content: `确定要采集设备 "${row.name}" 的指标数据吗？`,
+    positiveText: '确认采集',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        await devices.collect({ device_id: row.id })
+        message.success('采集任务已触发')
+      } catch (e) {
+        message.error('采集失败: ' + (e.message || e))
+      }
+    }
+  })
 }
 
 async function loadMetrics(device) {

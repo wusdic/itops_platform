@@ -151,7 +151,7 @@ const loadData = async () => {
       params.append('is_read', filterRead.value)
     }
 
-    const res = await fetchApi(`/api/v1/notification/messages?${params}`)
+    const res = await fetchApi(`/api/v1/notifications/history?${params}`)
     // Support both {items, total} and {data, total} formats
     if (res.items) {
       messages.value = res.items
@@ -190,7 +190,7 @@ const handleViewMessage = (msg) => {
 
 const handleMarkRead = async (msg) => {
   try {
-    await fetchApi(`/api/v1/notification/messages/${msg.id}/read`, {
+    await fetchApi(`/api/v1/notifications/history/${msg.id}/read`, {
       method: 'PUT'
     })
     msg.is_read = true
@@ -202,7 +202,7 @@ const handleMarkRead = async (msg) => {
 
 const handleMarkAllRead = async () => {
   try {
-    await fetchApi('/api/v1/notification/messages/read-all', {
+    await fetchApi('/api/v1/notifications/history/read-all', {
       method: 'PUT'
     })
     message.success('全部已标为已读')

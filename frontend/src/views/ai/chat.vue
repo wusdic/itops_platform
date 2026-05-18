@@ -223,7 +223,7 @@ async function selectConversation(conv) {
   messages.value = []
   loading.value = true
   try {
-    const res = await fetch(`/api/v1/ai/conversations/${conv.conversation_id}?user_id=${encodeURIComponent(authStore.userInfo.username)}`, {
+    const res = await fetch(`/api/v1/ai/conversation/${conv.conversation_id}?user_id=${encodeURIComponent(authStore.userInfo.username)}`, {
       headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
     })
     if (res.ok) {
@@ -292,7 +292,7 @@ async function sendMessage() {
     const aiMsg = {
       id: Date.now() + 1,
       role: 'ai',
-      content: data.reply || data.content || data.message || '暂无回复',
+      content: data.message || data.content || '暂无回复',
       created_at: new Date().toISOString()
     }
     messages.value.push(aiMsg)
@@ -306,7 +306,7 @@ async function sendMessage() {
     }
   } catch (e) {
     console.error('Chat error:', e)
-    message.error('发送失败，请重试')
+    message.error('AI服务暂不可用，请稍后重试')
   } finally {
     loading.value = false
     await nextTick()
@@ -341,7 +341,8 @@ async function handleDelete(conversation_id) {
 
 async function handlePin(conv) {
   try {
-    const res = await fetch(`/api/v1/ai/conversations/${conv.conversation_id}/pin`, {
+    const isPinned = !conv.is_pinned
+    const res = await fetch(`/api/v1/ai/conversations/${conv.conversation_id}/pin?is_pinned=${isPinned}`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
@@ -350,7 +351,7 @@ async function handlePin(conv) {
       body: JSON.stringify({ user_id: authStore.userInfo.username })
     })
     if (!res.ok) throw new Error('Pin failed')
-    message.success(conv.is_pinned ? '已取消置顶' : '已置顶')
+    message.success(isPinned ? '已置顶' : '已取消置顶')
     await loadConversations()
   } catch (e) {
     console.error('Pin error:', e)

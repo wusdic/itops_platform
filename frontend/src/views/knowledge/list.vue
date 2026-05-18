@@ -194,9 +194,11 @@ const columns = [
     render: (row) => (row.tags || []).map(tag => h('span', { style: 'margin-right: 4px' }, `#${tag}`))
   },
   { title: '更新时间', key: 'updated_at', width: 180 },
-  { title: '操作', key: 'actions', width: 150,
+  { title: '操作', key: 'actions', width: 280,
     render: (row) => h('div', { style: 'display:flex;gap:8px' }, [
       h(NButton, { size: 'small', onClick: () => openEditModal(row) }, () => '编辑'),
+      row.status === 'draft' && h(NButton, { size: 'small', type: 'warning', onClick: () => submitReview(row) }, () => '提交审核'),
+      row.status === 'pending_review' && h(NButton, { size: 'small', type: 'success', onClick: () => approve(row) }, () => '审核通过'),
       h(NButton, { size: 'small', type: 'error', onClick: () => handleDelete(row) }, () => '删除')
     ])
   }
@@ -217,7 +219,7 @@ const loadData = async () => {
     })
     if (searchKeyword.value) params.append('keyword', searchKeyword.value)
     if (filterStatus.value) params.append('status', filterStatus.value)
-    if (filterCategory.value) params.append('category', filterCategory.value)
+    if (filterCategory.value) params.append('category_id', filterCategory.value)
     
     const res = await fetch(`/api/v1/knowledge/sop?${params}`, {
       headers: { Authorization: `Bearer ${token}` }
@@ -308,7 +310,7 @@ const submitForm = async () => {
       status: formData.status
     }
     const url = isEditing.value ? `/api/v1/knowledge/sop/${editingId.value}` : '/api/v1/knowledge/sop'
-    const method = isEditing.value ? 'PATCH' : 'POST'
+    const method = 'PUT'
     const res = await fetch(url, {
       method,
       headers: {
@@ -348,6 +350,54 @@ const handleDelete = (row) => {
       } catch (e) {
         message.error(`删除失败: ${e.message}`)
         console.error('[knowledge/list] handleDelete error:', e)
+      }
+    }
+  })
+}
+
+const submitReview = async (row) => {
+  dialog.info({
+    title: '确认提交审核',
+    content: `确定要提交文档「${row.title}」进行审核吗？`,
+    positiveText: '确认提交',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        const token = localStorage.getItem('token') || ''
+        const res = await fetch(`/api/v1/knowledge/sop/${row.id}/review`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        message.success('提交审核成功')
+        loadData()
+      } catch (e) {
+        message.error(`提交审核失败: ${e.message}`)
+        console.error('[knowledge/list] submitReview error:', e)
+      }
+    }
+  })
+}
+
+const approve = async (row) => {
+  dialog.info({
+    title: '确认审核通过',
+    content: `确定要让文档「${row.title}」审核通过吗？`,
+    positiveText: '确认通过',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        const token = localStorage.getItem('token') || ''
+        const res = await fetch(`/api/v1/knowledge/sop/${row.id}/approve`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        message.success('审核通过')
+        loadData()
+      } catch (e) {
+        message.error(`审核操作失败: ${e.message}`)
+        console.error('[knowledge/list] approve error:', e)
       }
     }
   })

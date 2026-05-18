@@ -108,7 +108,7 @@ async function submitForm() {
       title: form.title,
       description: form.description,
       priority: form.priority,
-      workorder_type: form.type,
+      order_type: form.type,
       device_id: form.device_id
     }
     const res = await fetch('/api/v1/workorders/', {
