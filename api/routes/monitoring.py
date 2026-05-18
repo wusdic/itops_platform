@@ -27,7 +27,9 @@ logger = logging.getLogger(__name__)
 
 class MetricQuery(BaseModel):
     """指标查询请求"""
-    metric_name: str = Field(..., description="指标名称")
+    metric_name: Optional[str] = Field(None, description="指标名称（支持 cpu_usage/memory_usage/disk_usage）")
+    metric_type: Optional[str] = Field(None, description="指标类型（cpu/memory/disk），会自动映射为 metric_name")
+    device_id: Optional[int] = Field(None, description="设备ID")
     host: Optional[str] = Field(None, description="主机名/IP")
     start_time: Optional[datetime] = Field(None, description="开始时间")
     end_time: Optional[datetime] = Field(None, description="结束时间")
@@ -355,19 +357,38 @@ async def promql_query(
 ):
     """
     PromQL风格的指标查询
-    简化实现，支持基本的指标和时间范围查询
+    支持 metric_name（cpu_usage/memory_usage/disk_usage）或 metric_type（cpu/memory/disk）查询
     """
+    # 映射 metric_type 到 metric_name
+    TYPE_TO_NAME = {
+        'cpu': 'cpu_usage',
+        'memory': 'memory_usage',
+        'disk': 'disk_usage',
+        'network': 'network_in',
+        'load': 'load_1m',
+    }
+    metric_name = query.metric_name
+    if not metric_name and query.metric_type:
+        metric_name = TYPE_TO_NAME.get(query.metric_type.lower() if query.metric_type else '', query.metric_type)
+
     if not query.start_time:
         query.start_time = datetime.now() - timedelta(hours=24)
     if not query.end_time:
         query.end_time = datetime.now()
-    
-    query_db = db.query(PerformanceMetric).filter(
-        PerformanceMetric.metric_name == query.metric_name,
+
+    query_db = db.query(PerformanceMetric)
+
+    if metric_name:
+        query_db = query_db.filter(PerformanceMetric.metric_name == metric_name)
+
+    query_db = query_db.filter(
         PerformanceMetric.timestamp >= query.start_time,
         PerformanceMetric.timestamp <= query.end_time
     )
-    
+
+    if query.device_id:
+        query_db = query_db.filter(PerformanceMetric.device_id == query.device_id)
+
     if query.host:
         query_db = query_db.filter(
             or_(
@@ -375,12 +396,13 @@ async def promql_query(
                 PerformanceMetric.device_ip == query.host
             )
         )
-    
+
     metrics = query_db.order_by(PerformanceMetric.timestamp.desc()).limit(1000).all()
-    
+
     return {
         "status": "success",
-        "metric": query.metric_name,
+        "metric": metric_name or "all",
+        "data": {"values": [{"timestamp": m.timestamp.isoformat(), "value": m.value} for m in metrics]},
         "points": [
             {"timestamp": m.timestamp.isoformat(), "value": m.value, "host": m.device_name}
             for m in metrics

@@ -268,7 +268,7 @@ async function loadAllAdapters() {
 async function loadDeviceProtocols(deviceId) {
   try {
     const token = localStorage.getItem('token')
-    const res = await fetch('/api/v1/admin/adapters/device/' + deviceId + '/protocols', { headers: { Authorization: `Bearer ${token}` } })
+    const res = await fetch('/api/v1/admin/device/' + deviceId + '/protocols', { headers: { Authorization: `Bearer ${token}` } })
     if (!res.ok) return
     const data = await res.json()
     deviceProtocols.value = data.items || []
@@ -310,7 +310,7 @@ async function saveProtocolConfig() {
     if (protocolForm.username) overrides.username = protocolForm.username
     if (protocolForm.password) overrides.password = protocolForm.password
     if (protocolForm.timeout) overrides.timeout = protocolForm.timeout
-    const res = await fetch('/api/v1/admin/adapters/device/' + selectedDevice.value.id + '/protocols', {
+    const res = await fetch('/api/v1/admin/device/' + selectedDevice.value.id + '/protocols', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify([{
@@ -339,7 +339,7 @@ async function testProtocolConfig() {
   protocolTesting.value = true
   try {
     const token = localStorage.getItem('token')
-    const res = await fetch('/api/v1/admin/adapters/device/' + selectedDevice.value.id + '/protocols/' + protocolForm.protocol_type + '/test', {
+    const res = await fetch('/api/v1/admin/device/' + selectedDevice.value.id + '/protocols/' + protocolForm.protocol_type + '/test', {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` }
     })

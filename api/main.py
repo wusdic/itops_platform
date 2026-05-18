@@ -361,7 +361,18 @@ def create_app() -> FastAPI:
             "service": "itops-platform-api",
         }
     
-    # 全局异常处理
+    # 全局异常处理 - 必须在最后添加，覆盖所有其他处理器
+    from fastapi.exceptions import RequestValidationError
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+
+    @app.exception_handler(StarletteHTTPException)
+    async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(request: Request, exc: RequestValidationError):
+        return JSONResponse(status_code=422, content={"detail": exc.errors()})
+
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
         """全局异常处理器"""
