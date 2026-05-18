@@ -13,23 +13,32 @@
     <!-- 设备列表 -->
     <n-card title="设备列表" :bordered="false">
       <template #header-extra>
-        <n-button type="primary" @click="loadDevices" :loading="loading">
-          <template #icon><n-icon><RefreshOutline /></n-icon></template>
-          刷新
-        </n-button>
+        <n-space :size="12" align="center">
+          <n-input v-model:value="searchKeyword" placeholder="搜索名称/IP" clearable style="width: 200px" @update:value="handleSearch">
+            <template #prefix>
+              <n-icon><Search /></n-icon>
+            </template>
+          </n-input>
+          <n-button type="primary" @click="loadDevices" :loading="loading">
+            <template #icon><n-icon><RefreshOutline /></n-icon></template>
+            刷新
+          </n-button>
+        </n-space>
       </template>
+
       <n-data-table
         :columns="columns"
-        :data="deviceList"
+        :data="filteredDevices"
         :loading="loading"
-        :pagination="pagination"
+        :pagination="{ pageSize: 20 }"
         :row-key="row => row.id"
+        :row-class-name="getRowClassName"
         @row-click="handleRowClick"
       />
     </n-card>
 
     <!-- 设备详情弹窗 -->
-    <n-modal v-model:show="drawerVisible" preset="card" :title="selectedDevice?.name || '设备详情'" :style="{ width: '600px' }" :mask-closable="true">
+    <n-modal v-model:show="drawerVisible" preset="card" :title="selectedDevice?.name || '设备详情'" :style="{ width: '800px' }" :mask-closable="true">
       <template #header-extra>
         <n-button size="small" @click="drawerVisible = false">关闭</n-button>
       </template>
@@ -47,6 +56,7 @@
               <span class="label">状态:</span>
               <n-tag :type="statusType(selectedDevice?.status)" size="small">{{ statusText(selectedDevice?.status) }}</n-tag>
             </div>
+            <div class="info-item"><span class="label">厂商:</span> {{ selectedDevice?.manufacturer || '-' }}</div>
           </div>
         </div>
 
@@ -61,6 +71,7 @@
                     :options="protocolTypeOptions"
                     placeholder="选择协议类型"
                     style="width: 100%"
+                    filterable
                     @update:value="onProtocolTypeChange"
                   />
                 </n-form-item>
@@ -83,7 +94,7 @@
                   <n-input v-model:value="protocolForm.username" placeholder="协议用户名" />
                 </n-form-item>
                 <n-form-item label="密码">
-                  <n-input v-model:value="protocolForm.password" type="password" placeholder="协议密码" />
+                  <n-input v-model:value="protocolForm.password" type="password" placeholder="协议密码" show-password-on="click" />
                 </n-form-item>
                 <n-form-item label="超时(秒)">
                   <n-input-number v-model:value="protocolForm.timeout" :min="5" :max="300" style="width: 100%" />
@@ -102,75 +113,76 @@
                 </n-form-item>
               </n-form>
 
-              <!-- 当前配置状态 -->
-              <div v-if="deviceProtocols.length > 0" class="protocol-list">
-                <h4>已配置协议</h4>
-                <n-data-table
-                  :columns="protocolListColumns"
-                  :data="deviceProtocols"
-                  size="small"
-                  :row-key="row => row.protocol_type"
-                />
+              <!-- 已配置协议 - 折叠 -->
+              <n-collapse v-if="deviceProtocols.length > 0" class="protocol-collapse">
+                <n-collapse-item title="已配置协议" name="protocols">
+                  <n-data-table
+                    :columns="protocolListColumns"
+                    :data="deviceProtocols"
+                    size="small"
+                    :row-key="row => row.protocol_type"
+                  />
+                </n-collapse-item>
+              </n-collapse>
+            </div>
+          </n-tab-pane>
+
+          <!-- 性能Tab -->
+          <n-tab-pane name="metrics" tab="性能指标">
+            <div v-if="metricsData" class="metrics-charts">
+              <div class="metrics-grid">
+                <div class="metric-card">
+                  <div class="metric-header">
+                    <span class="metric-label">CPU 使用率</span>
+                    <span class="metric-value">{{ metricsData.cpu?.toFixed(1) || '0' }}%</span>
+                  </div>
+                  <div ref="cpuChartRef" class="metric-chart"></div>
+                </div>
+                <div class="metric-card">
+                  <div class="metric-header">
+                    <span class="metric-label">内存使用率</span>
+                    <span class="metric-value">{{ metricsData.memory?.toFixed(1) || '0' }}%</span>
+                  </div>
+                  <div ref="memoryChartRef" class="metric-chart"></div>
+                </div>
+                <div class="metric-card">
+                  <div class="metric-header">
+                    <span class="metric-label">磁盘使用率</span>
+                    <span class="metric-value">{{ metricsData.disk?.toFixed(1) || '0' }}%</span>
+                  </div>
+                  <div ref="diskChartRef" class="metric-chart"></div>
+                </div>
               </div>
+            </div>
+            <div v-else-if="!metricsLoading && metricsError" class="no-data">
+              <n-result status="error" title="加载失败" :description="metricsError">
+                <template #footer>
+                  <n-button size="small" @click="loadMetrics(selectedDevice)">重试</n-button>
+                </template>
+              </n-result>
+            </div>
+            <div v-else-if="!metricsLoading" class="no-data">
+              <n-empty description="暂无性能数据" />
             </div>
           </n-tab-pane>
         </n-tabs>
-
-        <!-- 性能图表 -->
-        <div class="metrics-charts" v-if="metricsData">
-          <h4>性能指标 (近48小时)</h4>
-
-          <div class="chart-section">
-            <div class="chart-label">CPU 使用率</div>
-            <div class="chart-bar-container">
-              <div class="chart-bar" :style="{ width: (metricsData.cpu || 0) + '%', backgroundColor: '#18a058' }"></div>
-            </div>
-            <div class="chart-value">{{ metricsData.cpu?.toFixed(1) || '0' }}%</div>
-          </div>
-
-          <div class="chart-section">
-            <div class="chart-label">内存使用率</div>
-            <div class="chart-bar-container">
-              <div class="chart-bar" :style="{ width: (metricsData.memory || 0) + '%', backgroundColor: '#2080f0' }"></div>
-            </div>
-            <div class="chart-value">{{ metricsData.memory?.toFixed(1) || '0' }}%</div>
-          </div>
-
-          <div class="chart-section">
-            <div class="chart-label">磁盘使用率</div>
-            <div class="chart-bar-container">
-              <div class="chart-bar" :style="{ width: (metricsData.disk || 0) + '%', backgroundColor: '#f0a020' }"></div>
-            </div>
-            <div class="chart-value">{{ metricsData.disk?.toFixed(1) || '0' }}%</div>
-          </div>
-        </div>
-
-        <!-- 无数据提示 -->
-        <div v-else-if="!metricsLoading && metricsError" class="no-data">
-          <n-result status="error" title="加载失败" :description="metricsError">
-            <template #footer>
-              <n-button size="small" @click="loadMetrics">重试</n-button>
-            </template>
-          </n-result>
-        </div>
-        <div v-else-if="!metricsLoading" class="no-data">
-          <n-empty description="暂无性能数据" />
-        </div>
       </n-spin>
     </n-modal>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted, h } from 'vue'
-import { NGrid, NGi, NCard, NButton, NDataTable, NTag, NIcon, NSpace, NTooltip, useMessage, useDialog, NModal, NSpin, NEmpty, NResult, NTabs, NTabPane, NForm, NFormItem, NInput, NInputNumber, NSwitch, NSelect } from 'naive-ui'
+import { ref, reactive, computed, onMounted, onUnmounted, h, nextTick } from 'vue'
+import { NGrid, NGi, NCard, NButton, NDataTable, NTag, NIcon, NSpace, NTooltip, useMessage, useDialog, NModal, NSpin, NEmpty, NResult, NTabs, NTabPane, NForm, NFormItem, NInput, NInputNumber, NSwitch, NSelect, NCollapse, NCollapseItem } from 'naive-ui'
+import * as echarts from 'echarts'
 import { devices } from '@/api'
-import { RefreshOutline } from '@vicons/ionicons5'
+import { RefreshOutline, Search } from '@vicons/ionicons5'
 
 const message = useMessage()
 const dialog = useDialog()
 const loading = ref(false)
 const deviceList = ref([])
+const searchKeyword = ref('')
 const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
 
 // 抽屉相关
@@ -179,6 +191,14 @@ const selectedDevice = ref(null)
 const metricsLoading = ref(false)
 const metricsData = ref(null)
 const metricsError = ref(null)
+
+// 图表 ref
+const cpuChartRef = ref(null)
+const memoryChartRef = ref(null)
+const diskChartRef = ref(null)
+let cpuChart = null
+let memoryChart = null
+let diskChart = null
 
 // 协议配置相关
 const activeProtocolTab = ref('config')
@@ -228,6 +248,20 @@ const filteredAdapterOptions = computed(() => {
     .filter(a => a.protocol_type === protocolForm.protocol_type && a.enabled)
     .map(a => ({ label: a.name, value: a.id }))
 })
+
+// 本地搜索过滤
+const filteredDevices = computed(() => {
+  if (!searchKeyword.value) return deviceList.value
+  const kw = searchKeyword.value.toLowerCase()
+  return deviceList.value.filter(d =>
+    (d.name || '').toLowerCase().includes(kw) ||
+    (d.ip_address || '').toLowerCase().includes(kw)
+  )
+})
+
+const handleSearch = () => {
+  // 搜索在 computed 中实时过滤，无需额外操作
+}
 
 const protocolListColumns = [
   {
@@ -371,22 +405,28 @@ let pollTimer = null
 const statusType = (s) => ({ online: 'success', offline: 'warning', unknown: 'default' })[s] || 'default'
 const statusText = (s) => ({ online: '在线', offline: '离线', unknown: '未知' })[s] || s
 
+const getRowClassName = ({ row }) => {
+  if (row.status === 'offline') return 'row-offline'
+  if (row.status === 'online') return 'row-online'
+  return ''
+}
+
 const columns = [
   { title: '名称', key: 'name', ellipsis: { tooltip: true }, render(row) { return h('a', { style: 'color: #18a058; cursor: pointer', onClick: (e) => { e.preventDefault(); e.stopPropagation(); handleRowClick(row) } }, row.name) } },
   { title: 'IP地址', key: 'ip_address', width: 140 },
-  { title: '系统', key: 'os_type', width: 80, render: (r) => r.os_type || '-' },
-  { title: '系统版本', key: 'os_version', width: 160, ellipsis: { tooltip: true } },
-  { title: '厂商/型号', key: 'manufacturer', width: 120, render: (r) => r.manufacturer ? `${r.manufacturer} ${r.model || ''}` : '-' },
+  { title: '系统', key: 'os_type', width: 100, render: (r) => r.os_type || '-' },
+  { title: '系统版本', key: 'os_version', width: 150, ellipsis: { tooltip: true } },
+  { title: '厂商型号', key: 'manufacturer', width: 160, render: (r) => r.manufacturer ? `${r.manufacturer} ${r.model || ''}` : '-' },
   { title: '状态', key: 'status', width: 90, render: (r) => h(NTag, { type: statusType(r.status), size: 'small' }, () => statusText(r.status)) },
-  { title: '位置', key: 'location', width: 130, ellipsis: { tooltip: true } },
-  { title: '最近采集', key: 'last_collect_time', width: 160, render: (r) => r.last_collect_time ? new Date(r.last_collect_time).toLocaleString('zh-CN') : '-' },
+  { title: '位置', key: 'location', width: 150, ellipsis: { tooltip: true } },
+  { title: '最近采集', key: 'last_collect_time', width: 170, render: (r) => r.last_collect_time ? new Date(r.last_collect_time).toLocaleString('zh-CN') : '-' },
   {
     title: '操作',
     key: 'actions',
-    width: 180,
+    width: 200,
     render(row) {
-      return h(NSpace, { size: 12 }, () => [
-        h(NButton, { size: 'small', type: 'info', onClick: () => handleEdit(row) }, () => '编辑'),
+      return h(NSpace, { size: 8 }, () => [
+        h(NButton, { size: 'small', type: 'primary', ghost: true, onClick: () => handleRowClick(row) }, () => '详情'),
         h(NButton, { size: 'small', type: 'warning', onClick: () => handleCollect(row) }, () => '采集'),
         h(NButton, { size: 'small', type: 'error', onClick: () => handleDelete(row) }, () => '删除')
       ])
@@ -398,12 +438,10 @@ async function loadDevices() {
   loading.value = true
   try {
     const token = localStorage.getItem('token')
-    
-    // 尝试从 /api/v1/devices/stats 获取真实统计，失败时从列表计算
+
+    // 统计
     try {
-      const statsRes = await fetch('/api/v1/devices/stats', {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      const statsRes = await fetch('/api/v1/devices/stats', { headers: { Authorization: `Bearer ${token}` } })
       if (statsRes.ok) {
         const statsData = await statsRes.json()
         stats[0].value = statsData.total || 0
@@ -411,10 +449,7 @@ async function loadDevices() {
         stats[2].value = statsData.offline || 0
         stats[3].value = statsData.unknown || 0
       } else {
-        // 备用：从列表计算
-        const listRes = await fetch('/api/v1/assets/device?page=1&page_size=1000', {
-          headers: { Authorization: `Bearer ${token}` }
-        })
+        const listRes = await fetch('/api/v1/assets/device?page=1&page_size=1000', { headers: { Authorization: `Bearer ${token}` } })
         if (listRes.ok) {
           const listData = await listRes.json()
           const devices = listData.items || listData.data?.items || []
@@ -424,11 +459,8 @@ async function loadDevices() {
           stats[3].value = devices.filter(d => d.status !== 'online' && d.status !== 'offline').length
         }
       }
-    } catch {
-      // 忽略统计错误，继续加载列表
-    }
+    } catch { /* ignore */ }
 
-    // 设备列表从分页接口获取
     const res = await fetch(`/api/v1/assets/device?page=${pagination.page}&page_size=${pagination.pageSize}`, {
       headers: { Authorization: `Bearer ${token}` }
     })
@@ -447,38 +479,16 @@ async function loadDevices() {
   }
 }
 
-function handleDetail(row) {
-  message.info(`设备详情: ${row.name} (${row.ip_address})`)
-}
-
-function handleMetrics(row) {
-  window.location.hash = `#/monitoring/performance?device=${encodeURIComponent(row.name)}`
-  message.info(`跳转性能监控: ${row.name}`)
-}
-
 function handleRowClick(row) {
   selectedDevice.value = row
   drawerVisible.value = true
   activeProtocolTab.value = 'config'
-  // Reset form
-  protocolForm.protocol_type = ''
-  protocolForm.adapter_template_id = null
-  protocolForm.host = ''
-  protocolForm.port = 22
-  protocolForm.username = ''
-  protocolForm.password = ''
-  protocolForm.timeout = 30
-  protocolForm.extra_json = ''
-  protocolForm.enabled = true
+  resetProtocolForm()
   loadMetrics(row)
   loadDeviceProtocols(row.id)
 }
 
-function handleEdit(row) {
-  selectedDevice.value = row
-  drawerVisible.value = true
-  activeProtocolTab.value = 'config'
-  // Reset form
+function resetProtocolForm() {
   protocolForm.protocol_type = ''
   protocolForm.adapter_template_id = null
   protocolForm.host = ''
@@ -488,7 +498,6 @@ function handleEdit(row) {
   protocolForm.timeout = 30
   protocolForm.extra_json = ''
   protocolForm.enabled = true
-  loadDeviceProtocols(row.id)
 }
 
 function handleDelete(row) {
@@ -532,13 +541,20 @@ async function loadMetrics(device) {
   metricsError.value = null
   metricsData.value = null
 
+  // 销毁旧图表
+  cpuChart?.dispose()
+  memoryChart?.dispose()
+  diskChart?.dispose()
+  cpuChart = null
+  memoryChart = null
+  diskChart = null
+
   try {
     const token = localStorage.getItem('token')
     const now = new Date()
     const startTime = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString()
     const endTime = now.toISOString()
 
-    // 并行请求 CPU、内存、磁盘指标
     const [cpuRes, memRes, diskRes] = await Promise.all([
       fetch('/api/v1/monitoring/metrics/query', {
         method: 'POST',
@@ -563,7 +579,6 @@ async function loadMetrics(device) {
 
     const [cpuData, memData, diskData] = await Promise.all([cpuRes.json(), memRes.json(), diskRes.json()])
 
-    // 计算平均值
     const calcAvg = (data) => {
       if (!data?.data?.values || data.data.values.length === 0) return 0
       const sum = data.data.values.reduce((acc, v) => acc + (v.value ?? 0), 0)
@@ -575,6 +590,10 @@ async function loadMetrics(device) {
       memory: calcAvg(memData),
       disk: calcAvg(diskData)
     }
+
+    // 等 DOM 更新后初始化图表
+    await nextTick()
+    initCharts(cpuData, memData, diskData)
   } catch (e) {
     metricsError.value = e.message
     message.error(`加载性能指标失败: ${e.message}`)
@@ -583,6 +602,40 @@ async function loadMetrics(device) {
     metricsLoading.value = false
   }
 }
+
+function initCharts(cpuData, memData, diskData) {
+  const makeOption = (values, color, label) => ({
+    tooltip: { trigger: 'axis' },
+    grid: { left: '2%', right: '2%', bottom: '2%', top: '8%', containLabel: true },
+    xAxis: { type: 'category', data: values.map((_, i) => `${i}`), show: false },
+    yAxis: { type: 'value', max: 100, show: false },
+    series: [{
+      type: 'line',
+      smooth: true,
+      areaStyle: { opacity: 0.4 },
+      data: values.map(v => v.value ?? 0),
+      lineStyle: { color },
+      itemStyle: { color },
+      showSymbol: false
+    }]
+  })
+
+  if (cpuChartRef.value) {
+    cpuChart = echarts.init(cpuChartRef.value)
+    cpuChart.setOption(makeOption(cpuData.data?.values || [], '#18a058', 'CPU'))
+  }
+  if (memoryChartRef.value) {
+    memoryChart = echarts.init(memoryChartRef.value)
+    memoryChart.setOption(makeOption(memData.data?.values || [], '#2080f0', '内存'))
+  }
+  if (diskChartRef.value) {
+    diskChart = echarts.init(diskChartRef.value)
+    diskChart.setOption(makeOption(diskData.data?.values || [], '#f0a020', '磁盘'))
+  }
+}
+
+// 监听 tab 切换，切换到 metrics 时 resize 图表
+let resizeObserver = null
 
 function handlePageChange(page) {
   pagination.page = page
@@ -594,114 +647,76 @@ function handlePageSizeChange(pageSize) {
   loadDevices()
 }
 
-// 开始轮询
 function startPoll() {
   stopPoll()
-  pollTimer = setInterval(() => {
-    loadDevices()
-  }, 30000) // 每30秒刷新一次
+  pollTimer = setInterval(() => { loadDevices() }, 30000)
 }
 
-// 停止轮询
 function stopPoll() {
-  if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
-  }
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
+  resizeObserver?.disconnect()
 }
 
 onMounted(() => {
   loadAllAdapters()
   loadDevices()
   startPoll()
+
+  // 监听窗口 resize
+  window.addEventListener('resize', handleResize)
 })
 
 onUnmounted(() => {
   stopPoll()
+  cpuChart?.dispose()
+  memoryChart?.dispose()
+  diskChart?.dispose()
+  window.removeEventListener('resize', handleResize)
 })
+
+function handleResize() {
+  cpuChart?.resize()
+  memoryChart?.resize()
+  diskChart?.resize()
+}
 </script>
 
 <style scoped>
 .devices-container { padding: 16px; }
-.stat-card { text-align: center; }
+.stat-card { text-align: center; cursor: default; transition: transform 0.2s, box-shadow 0.2s; }
+.stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
 .stat-value { font-size: 28px; font-weight: 700; color: #1d2129; }
 .stat-label { font-size: 13px; color: #86909c; margin-top: 4px; }
 
-/* 设备信息 */
-.device-info {
-  margin-bottom: 24px;
-}
-.device-info h4 {
-  margin: 0 0 12px 0;
-  font-size: 14px;
-  color: #1d2129;
-}
-.info-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-.info-item {
-  font-size: 13px;
-  color: #4b4b4b;
-}
-.info-item .label {
-  color: #86909c;
-}
+.device-info { margin-bottom: 24px; }
+.device-info h4 { margin: 0 0 12px 0; font-size: 14px; color: #1d2129; }
+.info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.info-item { font-size: 13px; color: #4b4b4b; }
+.info-item .label { color: #86909c; }
 
-/* 性能图表 */
-.metrics-charts {
-  margin-top: 16px;
-}
-.metrics-charts h4 {
-  margin: 16px 0 12px 0;
-  font-size: 14px;
-  color: #1d2129;
-}
-.chart-section {
-  margin-bottom: 20px;
-}
-.chart-label {
-  font-size: 13px;
-  color: #4b4b4b;
-  margin-bottom: 6px;
-}
-.chart-bar-container {
-  height: 20px;
-  background-color: #f0f0f0;
-  border-radius: 4px;
-  overflow: hidden;
-}
-.chart-bar {
-  height: 100%;
-  border-radius: 4px;
-  transition: width 0.3s ease;
-}
-.chart-value {
-  font-size: 13px;
-  color: #1d2129;
-  font-weight: 500;
-  margin-top: 4px;
-}
+.protocol-config-form { padding: 8px 0; }
+.protocol-collapse { margin-top: 16px; }
 
-/* 无数据 */
-.no-data {
-  padding: 24px 0;
-  text-align: center;
+.metrics-charts { padding: 8px 0; }
+.metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.metric-card {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 12px;
 }
+.metric-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.metric-label { font-size: 13px; color: #606266; }
+.metric-value { font-size: 18px; font-weight: 700; color: #303133; }
+.metric-chart { width: 100%; height: 60px; }
 
-/* 协议配置 */
-.protocol-config-form {
-  padding: 8px 0;
-}
-.protocol-config-form h4 {
-  margin: 16px 0 12px 0;
-  font-size: 14px;
-  color: #1d2129;
-  border-bottom: 1px solid #f0f0f0;
-  padding-bottom: 8px;
-}
-.protocol-list {
-  margin-top: 20px;
-}
+.no-data { padding: 24px 0; text-align: center; }
+
+/* Row status */
+:deep(.row-offline) { background-color: #fff1f0 !important; }
+:deep(.row-online) { background-color: #f0f9eb !important; }
 </style>

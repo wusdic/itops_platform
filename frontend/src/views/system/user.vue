@@ -8,11 +8,11 @@
         </n-button>
       </template>
 
-      <n-space style="margin-bottom: 12px">
-        <n-input v-model:value="searchKeyword" placeholder="搜索用户名/姓名" clearable style="width: 200px" @change="loadData">
+      <n-space style="margin-bottom: 12px" align="center">
+        <n-input v-model:value="searchKeyword" placeholder="搜索用户名/姓名" clearable style="width: 200px" @update:value="debouncedSearch">
           <template #prefix><n-icon><SearchOutline /></n-icon></template>
         </n-input>
-        <n-select v-model:value="filterStatus" :options="statusOptions" placeholder="用户状态" clearable style="width: 120px" @change="loadData" />
+        <n-select v-model:value="filterStatus" :options="statusOptions" placeholder="用户状态" clearable style="width: 120px" @update:value="debouncedSearch" />
       </n-space>
 
       <n-data-table
@@ -31,7 +31,12 @@
           <n-input v-model:value="form.username" placeholder="请输入用户名" :disabled="!!form.id" />
         </n-form-item>
         <n-form-item v-if="!form.id" label="密码">
-          <n-input v-model:value="form.password" type="password" placeholder="请输入密码" />
+          <n-input
+            v-model:value="form.password"
+            type="password"
+            placeholder="请输入密码"
+            show-password-on="click"
+          />
         </n-form-item>
         <n-form-item label="姓名">
           <n-input v-model:value="form.full_name" placeholder="请输入姓名" />
@@ -69,6 +74,15 @@ const searchKeyword = ref('')
 const filterStatus = ref(null)
 const dialogVisible = ref(false)
 const dialogTitle = ref('添加用户')
+
+let searchTimer = null
+function debouncedSearch() {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    pagination.page = 1
+    loadData()
+  }, 300)
+}
 
 const pagination = reactive({ page: 1, pageSize: 10, total: 0 })
 const form = reactive({ id: null, username: '', password: '', full_name: '', email: '', phone: '', role: null })
@@ -200,6 +214,7 @@ async function submitForm() {
     message.warning('请填写用户名')
     return
   }
+  if (submitting.value) return
   submitting.value = true
   try {
     const token = localStorage.getItem('token') || ''

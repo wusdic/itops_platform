@@ -11,7 +11,7 @@
     </div>
 
     <n-card class="filter-bar">
-      <n-space>
+      <n-space align="center">
         <n-input
           v-model:value="searchKeyword"
           placeholder="搜索备份名称"
@@ -33,6 +33,13 @@
           :options="statusOptions"
           clearable
           style="width: 120px"
+          @change="handleSearch"
+        />
+        <n-date-picker
+          v-model:value="timeRange"
+          type="daterange"
+          clearable
+          style="width: 260px"
           @change="handleSearch"
         />
       </n-space>
@@ -84,16 +91,18 @@ import { ref, reactive, computed, onMounted, h } from 'vue'
 import {
   NCard, NInput, NSelect, NButton, NSpace,
   NDataTable, NPagination, NTag, NModal,
-  NDescriptions, NDescriptionsItem, NDivider
+  NDescriptions, NDescriptionsItem, NDivider, NDatePicker, useDialog
 } from 'naive-ui'
 import { useMessage } from 'naive-ui'
 
 const message = useMessage()
+const dialog = useDialog()
 
 const loading = ref(false)
 const searchKeyword = ref('')
 const filterType = ref(null)
 const filterStatus = ref(null)
+const timeRange = ref(null)
 const backupList = ref([])
 const detailModalVisible = ref(false)
 const currentBackup = ref(null)
@@ -183,6 +192,10 @@ const loadData = async () => {
     if (searchKeyword.value) params.append('keyword', searchKeyword.value)
     if (filterType.value) params.append('type', filterType.value)
     if (filterStatus.value) params.append('status', filterStatus.value)
+    if (timeRange.value && timeRange.value[0]) {
+      params.append('start_time', new Date(timeRange.value[0]).toISOString())
+      params.append('end_time', new Date(timeRange.value[1]).toISOString())
+    }
 
     const res = await fetchApi(`/api/v1/backup/list?${params}`)
     // Support both {items, total} and {data, total} formats
@@ -222,23 +235,32 @@ const handleRestore = async (row) => {
     currentBackup.value = row
   }
   if (!currentBackup.value) return
-  try {
-    const token = localStorage.getItem('token') || ''
-    const res = await fetch(`/api/v1/admin/backup/${currentBackup.value.id}/restore`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({})
-    })
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ message: `HTTP ${res.status}` }))
-      message.error(`恢复失败: ${err.message || res.status}`)
-      return
+
+  dialog.warning({
+    title: '确认恢复',
+    content: `确定要恢复备份 "${currentBackup.value.name || currentBackup.value.backup_name}" 吗？恢复操作会覆盖当前数据，此操作不可逆。`,
+    positiveText: '确认恢复',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        const token = localStorage.getItem('token') || ''
+        const res = await fetch(`/api/v1/admin/backup/${currentBackup.value.id}/restore`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({})
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ message: `HTTP ${res.status}` }))
+          message.error(`恢复失败: ${err.message || res.status}`)
+          return
+        }
+        message.success('备份恢复成功')
+        detailModalVisible.value = false
+      } catch (e) {
+        message.error(`恢复失败: ${e.message}`)
+      }
     }
-    message.success('备份恢复成功')
-    detailModalVisible.value = false
-  } catch (e) {
-    message.error(`恢复失败: ${e.message}`)
-  }
+  })
 }
 
 onMounted(() => {

@@ -6,7 +6,7 @@
         <p class="page-subtitle">实时监控系统性能指标</p>
       </div>
       <div class="page-actions">
-        <n-button @click="loadDevices">
+        <n-button @click="loadDevices" :loading="loading">
           <template #icon>
             <n-icon><Refresh /></n-icon>
           </template>
@@ -17,11 +17,12 @@
 
     <!-- 设备选择 -->
     <n-card title="选择设备" class="mb-4">
-      <n-space align="center">
+      <n-space align="center" :wrap="true" :size="12">
         <n-select
           v-model:value="selectedDeviceId"
           :options="deviceOptions"
           placeholder="请选择设备"
+          filterable
           style="width: 300px"
           @update:value="handleDeviceChange"
         />
@@ -29,22 +30,25 @@
           v-model:value="timeRange"
           type="datetimerange"
           clearable
+          style="width: 380px"
           @update:value="loadMetrics"
         />
-        <n-button type="primary" @click="loadMetrics">
+        <n-button type="primary" @click="loadMetrics" :loading="loading">
           查询
         </n-button>
       </n-space>
     </n-card>
 
     <!-- 性能概览 -->
-    <div class="stats-grid stats-grid-4">
+    <div v-if="selectedDeviceId" class="stats-grid stats-grid-4">
       <div class="stat-card">
         <div class="stat-icon" style="background: #e8f0ff">
           <n-icon size="24" color="#165dff"><HardwareChipOutline /></n-icon>
         </div>
         <div class="stat-content">
-          <div class="stat-value">{{ metrics.cpu }}%</div>
+          <div class="stat-value" :class="{ loading: loading }">
+            {{ loading ? '-' : metrics.cpu }}%
+          </div>
           <div class="stat-title">CPU使用率</div>
         </div>
       </div>
@@ -53,7 +57,9 @@
           <n-icon size="24" color="#00b42a"><Tickets /></n-icon>
         </div>
         <div class="stat-content">
-          <div class="stat-value">{{ metrics.memory }}%</div>
+          <div class="stat-value" :class="{ loading: loading }">
+            {{ loading ? '-' : metrics.memory }}%
+          </div>
           <div class="stat-title">内存使用率</div>
         </div>
       </div>
@@ -62,7 +68,9 @@
           <n-icon size="24" color="#ff7d00"><FolderOpenOutline /></n-icon>
         </div>
         <div class="stat-content">
-          <div class="stat-value">{{ metrics.disk }}%</div>
+          <div class="stat-value" :class="{ loading: loading }">
+            {{ loading ? '-' : metrics.disk }}%
+          </div>
           <div class="stat-title">磁盘使用率</div>
         </div>
       </div>
@@ -71,37 +79,43 @@
           <n-icon size="24" color="#f53f3f"><CloudOutline /></n-icon>
         </div>
         <div class="stat-content">
-          <div class="stat-value">{{ metrics.network }} Mbps</div>
-          <div class="stat-title">网络带宽</div>
+          <div class="stat-value" :class="{ loading: loading }">
+            {{ loading ? '-' : metrics.network }}
+          </div>
+          <div class="stat-title">网络带宽 (Mbps)</div>
         </div>
       </div>
     </div>
 
+    <!-- 空状态：未选择设备 -->
+    <n-card v-if="!selectedDeviceId" class="empty-state-card">
+      <div class="empty-state">
+        <n-icon size="64" color="#c0c4cc"><ServerOutline /></n-icon>
+        <p class="empty-title">请选择设备</p>
+        <p class="empty-desc">从上方下拉框选择一个设备，即可查看其性能指标和历史趋势</p>
+      </div>
+    </n-card>
+
     <!-- 性能图表 -->
-    <div class="performance-grid">
+    <div v-if="selectedDeviceId" class="performance-grid">
       <n-card title="CPU使用率趋势">
+        <template #header-extra>
+          <span v-if="lastUpdateTime" class="update-time">更新于 {{ lastUpdateTime }}</span>
+        </template>
         <div ref="cpuChartRef" class="chart-container"></div>
       </n-card>
       <n-card title="内存使用率趋势">
+        <template #header-extra>
+          <span v-if="lastUpdateTime" class="update-time">更新于 {{ lastUpdateTime }}</span>
+        </template>
         <div ref="memoryChartRef" class="chart-container"></div>
       </n-card>
     </div>
-
-    <!-- 设备列表 -->
-    <n-card title="设备列表">
-      <n-data-table
-        :columns="columns"
-        :data="deviceList"
-        :loading="loading"
-        :pagination="false"
-        :row-key="row => row.id"
-      />
-    </n-card>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import { NIcon, useMessage } from 'naive-ui'
 import * as echarts from 'echarts'
 import {
@@ -121,6 +135,7 @@ const selectedDeviceId = ref(null)
 const timeRange = ref(null)
 const deviceList = ref([])
 const deviceOptions = ref([])
+const lastUpdateTime = ref('')
 
 const metrics = reactive({ cpu: 0, memory: 0, disk: 0, network: 0 })
 
@@ -180,12 +195,18 @@ const loadDevices = async () => {
 
 const handleDeviceChange = (value) => {
   selectedDeviceId.value = value
+  // Reset metrics display
+  metrics.cpu = 0
+  metrics.memory = 0
+  metrics.disk = 0
+  metrics.network = 0
+  lastUpdateTime.value = ''
   loadMetrics()
 }
 
 const loadMetrics = async () => {
   if (!selectedDeviceId.value) return
-  
+
   loading.value = true
   try {
     const token = localStorage.getItem('token') || ''
@@ -206,12 +227,14 @@ const loadMetrics = async () => {
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
     if (!data || typeof data !== 'object') throw new Error('响应格式异常')
-    
-    if (data.cpu !== undefined) metrics.cpu = data.cpu
-    if (data.memory !== undefined) metrics.memory = data.memory
-    if (data.disk !== undefined) metrics.disk = data.disk
-    if (data.network !== undefined) metrics.network = data.network
-    
+
+    metrics.cpu = data.cpu ?? 0
+    metrics.memory = data.memory ?? 0
+    metrics.disk = data.disk ?? 0
+    metrics.network = data.network ?? 0
+
+    lastUpdateTime.value = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+
     updateCharts(data)
   } catch (e) {
     message.error(`加载指标失败: ${e.message}`)
@@ -222,17 +245,28 @@ const loadMetrics = async () => {
 }
 
 const updateCharts = (data) => {
-  const hours = Array.from({ length: 24 }, (_, i) => `${i}:00`)
+  // Generate time labels from actual data length
+  const dataLen = (data.cpu_history || []).length || 24
+  const hours = Array.from({ length: dataLen }, (_, i) => {
+    const totalPoints = dataLen
+    const timeSpan = timeRange.value
+      ? (timeRange.value[1] - timeRange.value[0]) / 3600000
+      : 24
+    const hour = new Date(timeRange.value ? timeRange.value[0] : Date.now() - 3600000)
+    hour.setHours(hour.getHours() + Math.floor((i / totalPoints) * timeSpan))
+    return `${hour.getHours().toString().padStart(2, '0')}:00`
+  })
+
   const cpuData = data.cpu_history || []
   const memData = data.memory_history || []
-  if (!cpuData.length || !memData.length) {
-    message.warning('该设备暂无历史性能数据')
-  }
 
   if (cpuChartRef.value) {
     if (!cpuChart) cpuChart = echarts.init(cpuChartRef.value)
     cpuChart.setOption({
-      tooltip: { trigger: 'axis' },
+      tooltip: { trigger: 'axis', formatter: (params) => {
+        const p = params[0]
+        return `${p.axisValue}<br/>${p.marker} CPU: ${p.value}%`
+      }},
       grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
       xAxis: { type: 'category', data: hours, boundaryGap: false },
       yAxis: { type: 'value', max: 100, axisLabel: { formatter: '{value}%' } },
@@ -242,7 +276,9 @@ const updateCharts = (data) => {
         areaStyle: { opacity: 0.3 },
         data: cpuData,
         lineStyle: { color: '#165dff' },
-        itemStyle: { color: '#165dff' }
+        itemStyle: { color: '#165dff' },
+        showSymbol: cpuData.length < 20,
+        emphasis: { focus: 'series' }
       }]
     })
   }
@@ -250,7 +286,10 @@ const updateCharts = (data) => {
   if (memoryChartRef.value) {
     if (!memoryChart) memoryChart = echarts.init(memoryChartRef.value)
     memoryChart.setOption({
-      tooltip: { trigger: 'axis' },
+      tooltip: { trigger: 'axis', formatter: (params) => {
+        const p = params[0]
+        return `${p.axisValue}<br/>${p.marker} 内存: ${p.value}%`
+      }},
       grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
       xAxis: { type: 'category', data: hours, boundaryGap: false },
       yAxis: { type: 'value', max: 100, axisLabel: { formatter: '{value}%' } },
@@ -260,7 +299,9 @@ const updateCharts = (data) => {
         areaStyle: { opacity: 0.3 },
         data: memData,
         lineStyle: { color: '#00b42a' },
-        itemStyle: { color: '#00b42a' }
+        itemStyle: { color: '#00b42a' },
+        showSymbol: memData.length < 20,
+        emphasis: { focus: 'series' }
       }]
     })
   }
@@ -298,4 +339,42 @@ const stopRefresh = () => {
   margin: 20px 0;
 }
 .chart-container { width: 100%; height: 300px; }
+
+.empty-state-card {
+  margin: 20px 0;
+}
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+.empty-title {
+  margin-top: 16px;
+  font-size: 16px;
+  color: #606266;
+  font-weight: 500;
+}
+.empty-desc {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #909399;
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #303133;
+  transition: color 0.3s;
+  &.loading {
+    color: #c0c4cc;
+  }
+}
+
+.update-time {
+  font-size: 12px;
+  color: #909399;
+}
 </style>

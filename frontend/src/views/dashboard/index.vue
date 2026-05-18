@@ -5,7 +5,7 @@
       <!-- 统计卡片 -->
       <n-grid :cols="4" :x-gap="16" :y-gap="16" class="stats-grid" responsive="screen" :item-responsive="true">
         <n-gi v-for="stat in stats" :key="stat.key" span="24:6">
-          <div class="stat-card" :style="{ borderLeftColor: stat.color }">
+          <div class="stat-card" :style="{ borderLeftColor: stat.color }" @click="handleStatClick(stat.key)">
             <div class="stat-icon-wrap" :style="{ background: stat.bgColor }">
               <n-icon :component="stat.icon" :size="24" :color="stat.color" />
             </div>
@@ -450,6 +450,11 @@ const handleResize = () => {
   deviceChart?.resize()
 }
 
+function handleStatClick(key) {
+  const routes = { total: '/monitoring/devices', online: '/monitoring/devices', alert: '/monitoring/alerts', workorder: '/workorder/list' }
+  if (routes[key]) window.location.hash = routes[key]
+}
+
 // Dashboard polling timer
 let pollTimer = null
 
@@ -481,16 +486,14 @@ onUnmounted(() => {
 })
 </script>
 
-<style lang="scss" scoped>
+<style scoped>
 .page-container {
   padding: 20px;
   min-height: calc(100vh - 40px);
 }
-
 .stats-grid {
   margin-bottom: 20px;
 }
-
 .stat-card {
   background: #fff;
   border-radius: 8px;
@@ -498,139 +501,116 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 16px;
-  border-left: 4px solid;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-
-  .stat-icon-wrap {
-    width: 48px;
-    height: 48px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-
-  .stat-content {
-    flex: 1;
-    min-width: 0;
-
-    .stat-value {
-      font-size: 24px;
-      font-weight: 700;
-      color: #1d2129;
-      line-height: 1;
-    }
-
-    .stat-label {
-      font-size: 13px;
-      color: #86909c;
-      margin-top: 4px;
-    }
-  }
 }
-
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+}
+.stat-icon-wrap {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.stat-content {
+  flex: 1;
+  min-width: 0;
+}
+.stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1d2129;
+  line-height: 1;
+}
+.stat-label {
+  font-size: 13px;
+  color: #86909c;
+  margin-top: 4px;
+}
 .health-card {
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   margin-bottom: 20px;
-
-  .health-header {
-    padding: 16px 20px;
-    border-bottom: 1px solid #f0f0f0;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-
-    .card-title {
-      font-size: 16px;
-      font-weight: 500;
-      color: #1d2129;
-    }
-  }
-
-  .health-body {
-    padding: 16px 20px;
-
-    .health-item {
-      flex: 1;
-      padding: 0 12px;
-
-      .health-label {
-        display: block;
-        font-size: 13px;
-        color: #86909c;
-        margin-bottom: 8px;
-      }
-    }
-  }
 }
-
+.health-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.card-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: #1d2129;
+}
+.health-body {
+  padding: 16px 20px;
+}
+.health-item {
+  flex: 1;
+  padding: 0 12px;
+}
+.health-label {
+  display: block;
+  font-size: 13px;
+  color: #86909c;
+  margin-bottom: 8px;
+}
 .chart-grid,
 .table-grid {
   margin-bottom: 20px;
 }
-
 .card {
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-
-  .card-header {
-    padding: 16px 20px;
-    border-bottom: 1px solid #f0f0f0;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-
-    .card-title {
-      font-size: 16px;
-      font-weight: 500;
-      color: #1d2129;
-    }
-  }
-
-  .card-body {
-    padding: 16px 20px;
-    min-height: 200px;
-  }
 }
-
+.card-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.card-body {
+  padding: 16px 20px;
+  min-height: 200px;
+}
 .chart-container {
   width: 100%;
   height: 280px;
 }
-
 .error-state {
   padding: 60px 20px;
   text-align: center;
 }
-
 @media (max-width: 768px) {
   .page-container {
     padding: 12px;
   }
-
   .stat-card {
     padding: 16px;
-
-    .stat-icon-wrap {
-      width: 40px;
-      height: 40px;
-    }
-
-    .stat-content .stat-value {
-      font-size: 20px;
-    }
   }
-
+  .stat-icon-wrap {
+    width: 40px;
+    height: 40px;
+  }
+  .stat-value {
+    font-size: 20px;
+  }
   .health-body {
     flex-direction: column;
-
-    .health-item {
-      padding: 8px 0;
-    }
+  }
+  .health-item {
+    padding: 8px 0;
   }
 }
 </style>

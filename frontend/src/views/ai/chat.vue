@@ -85,8 +85,18 @@
                 :style="{ background: '#18a058' }"
               >AI</n-avatar>
               <div class="bubble" :class="msg.role === 'user' ? 'bubble-user' : 'bubble-ai'">
-                <div class="bubble-text">{{ msg.content }}</div>
-                <div class="bubble-time">{{ formatTime(msg.created_at) }}</div>
+                <div class="bubble-text" :class="{ 'bubble-text-ai': msg.role === 'ai' }" v-html="msg.role === 'ai' ? renderMarkdown(msg.content) : msg.content"></div>
+                <div class="bubble-footer">
+                  <span class="bubble-time">{{ formatTime(msg.created_at) }}</span>
+                  <n-tooltip v-if="msg.role === 'user'" trigger="hover">
+                    <template #trigger>
+                      <n-button text size="tiny" @click.stop="copyMessage(msg.content)" class="copy-btn">
+                        <n-icon size="12"><CopyOutline /></n-icon>
+                      </n-button>
+                    </template>
+                    复制
+                  </n-tooltip>
+                </div>
               </div>
               <n-avatar
                 v-if="msg.role === 'user'"
@@ -149,7 +159,7 @@ import { ref, computed, nextTick, onMounted } from 'vue'
 import { useMessage } from 'naive-ui'
 import {
   CreateOutline, SearchOutline, StarOutline, ChatbubbleOutline,
-  TrashOutline, SendOutline, ChatbubbleEllipsesOutline
+  TrashOutline, SendOutline, ChatbubbleEllipsesOutline, CopyOutline
 } from '@vicons/ionicons5'
 import { useAuthStore } from '@/stores/auth'
 
@@ -196,6 +206,33 @@ function formatDate(d) {
 function formatTime(d) {
   if (!d) return ''
   return new Date(d).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+}
+
+function renderMarkdown(text) {
+  if (!text) return ''
+  let html = text
+    // 代码块
+    .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+    // 行内代码
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    // 粗体
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    // 斜体
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    // 链接
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    // 换行
+    .replace(/\n/g, '<br>')
+  return html
+}
+
+async function copyMessage(content) {
+  try {
+    await navigator.clipboard.writeText(content)
+    message.success('已复制')
+  } catch {
+    message.error('复制失败')
+  }
 }
 
 async function loadConversations() {
@@ -392,9 +429,20 @@ onMounted(() => {
 .bubble { max-width: 70%; padding: 10px 14px; border-radius: 12px; position: relative; word-break: break-word; }
 .bubble-user { background: #18a058; color: #fff; border-bottom-right-radius: 4px; }
 .bubble-ai { background: #f0f0f0; color: #333; border-bottom-left-radius: 4px; }
-.bubble-time { font-size: 11px; margin-top: 4px; opacity: 0.6; text-align: right; }
+.bubble-text { line-height: 1.5; }
+.bubble-text-ai { font-size: 14px; }
+.bubble-text-ai :deep(pre) { background: #e8e8e8; border-radius: 6px; padding: 10px; overflow-x: auto; margin: 8px 0; font-size: 13px; }
+.bubble-text-ai :deep(code) { background: #e8e8e8; border-radius: 3px; padding: 1px 4px; font-size: 13px; font-family: monospace; }
+.bubble-text-ai :deep(p) { margin: 4px 0; }
+.bubble-text-ai :deep(ul), .bubble-text-ai :deep(ol) { margin: 4px 0; padding-left: 20px; }
+.bubble-text-ai :deep(table) { border-collapse: collapse; margin: 8px 0; }
+.bubble-text-ai :deep(th), .bubble-text-ai :deep(td) { border: 1px solid #ddd; padding: 4px 8px; font-size: 13px; }
+.bubble-footer { display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin-top: 4px; }
+.bubble-time { font-size: 11px; opacity: 0.6; }
 .bubble-user .bubble-time { color: rgba(255,255,255,0.7); }
 .bubble-ai .bubble-time { color: #999; }
+.copy-btn { opacity: 0; transition: opacity 0.2s; padding: 2px !important; min-width: unset !important; }
+.bubble:hover .copy-btn { opacity: 1; }
 .chat-input { display: flex; align-items: flex-end; gap: 12px; padding: 16px 20px; border-top: 1px solid #eee; background: #fff; }
 .input-area { flex: 1; }
 .send-btn { flex-shrink: 0; }
