@@ -54,8 +54,10 @@
         :collapsed-icon-size="22"
         :options="menuOptions"
         :value="activeKey"
+        :expanded-keys="expandedKeys"
         :indent="16"
         @update:value="onMenuSelect"
+        @update:expanded-keys="onExpandChange"
       />
     </n-layout-sider>
 
@@ -92,7 +94,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, h } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, h } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useMessage, useDialog } from 'naive-ui'
 import {
@@ -113,6 +115,7 @@ const collapsed = ref(false)
 const isMobile = ref(false)
 const notificationCount = ref(0)
 const activeKey = computed(() => route.path)
+const expandedKeys = ref([])
 
 const username = computed(() => {
   try {
@@ -126,60 +129,88 @@ function icon(comp) {
   return () => h(comp)
 }
 
-// Helper to create parent menu items (non-clickable headers)
-function parentItem(label, iconComp) {
-  return {
-    key: label,
-    label,
-    icon: icon(iconComp),
-    disabled: true,
-    show: true
-  }
-}
-
-// Helper to create child menu items
-function childItem(path, label) {
-  return {
-    key: path,
-    label,
-    path
-  }
-}
-
 const menuOptions = [
   { key: '/dashboard', label: '仪表盘', icon: icon(GridOutline) },
-  parentItem('监控中心', ServerOutline),
-  childItem('/monitoring/devices', '设备监控'),
-  childItem('/monitoring/alerts', '告警管理'),
-  childItem('/monitoring/performance', '性能监控'),
-  parentItem('工单管理', TicketOutline),
-  childItem('/workorder/list', '工单列表'),
-  childItem('/workorder/create', '创建工单'),
-  childItem('/workorder/my', '我的工单'),
-  parentItem('知识库', BookOutline),
-  childItem('/knowledge/list', '知识文档'),
-  childItem('/knowledge/category', '分类管理'),
-  parentItem('AI助手', SparklesOutline),
-  childItem('/ai/copilot', '智能问答'),
-  childItem('/ai/analyze', '智能分析'),
-  parentItem('自动化', FlashOutline),
-  childItem('/automation/script', '脚本管理'),
-  childItem('/automation/task', '任务调度'),
-  childItem('/automation/execute', '执行记录'),
-  parentItem('备份管理', DocumentText),
-  childItem('/backup/list', '备份记录'),
-  childItem('/backup/restore', '恢复管理'),
-  parentItem('消息中心', NotificationsOutline),
-  childItem('/notification/message', '我的消息'),
-  childItem('/notification/config', '通知配置'),
-  parentItem('系统管理', SettingsOutline),
-  childItem('/system/user', '用户管理'),
-  childItem('/system/role', '角色管理'),
-  childItem('/system/menu', '菜单管理'),
-  childItem('/system/dict', '字典管理'),
-  childItem('/system/config', '参数配置'),
-  childItem('/system/logs', '日志查看'),
-  childItem('/system/adapters', '适配器管理'),
+  {
+    key: 'monitoring',
+    label: '监控中心',
+    icon: icon(ServerOutline),
+    children: [
+      { key: '/monitoring/devices', label: '设备监控' },
+      { key: '/monitoring/alerts', label: '告警管理' },
+      { key: '/monitoring/performance', label: '性能监控' },
+    ]
+  },
+  {
+    key: 'workorder',
+    label: '工单管理',
+    icon: icon(TicketOutline),
+    children: [
+      { key: '/workorder/list', label: '工单列表' },
+      { key: '/workorder/create', label: '创建工单' },
+      { key: '/workorder/my', label: '我的工单' },
+    ]
+  },
+  {
+    key: 'knowledge',
+    label: '知识库',
+    icon: icon(BookOutline),
+    children: [
+      { key: '/knowledge/list', label: '知识文档' },
+      { key: '/knowledge/category', label: '分类管理' },
+    ]
+  },
+  {
+    key: 'ai',
+    label: 'AI助手',
+    icon: icon(SparklesOutline),
+    children: [
+      { key: '/ai/copilot', label: '智能问答' },
+      { key: '/ai/analyze', label: '智能分析' },
+    ]
+  },
+  {
+    key: 'automation',
+    label: '自动化',
+    icon: icon(FlashOutline),
+    children: [
+      { key: '/automation/script', label: '脚本管理' },
+      { key: '/automation/task', label: '任务调度' },
+      { key: '/automation/execute', label: '执行记录' },
+    ]
+  },
+  {
+    key: 'backup',
+    label: '备份管理',
+    icon: icon(DocumentText),
+    children: [
+      { key: '/backup/list', label: '备份记录' },
+      { key: '/backup/restore', label: '恢复管理' },
+    ]
+  },
+  {
+    key: 'notification',
+    label: '消息中心',
+    icon: icon(NotificationsOutline),
+    children: [
+      { key: '/notification/message', label: '我的消息' },
+      { key: '/notification/config', label: '通知配置' },
+    ]
+  },
+  {
+    key: 'system',
+    label: '系统管理',
+    icon: icon(SettingsOutline),
+    children: [
+      { key: '/system/user', label: '用户管理' },
+      { key: '/system/role', label: '角色管理' },
+      { key: '/system/menu', label: '菜单管理' },
+      { key: '/system/dict', label: '字典管理' },
+      { key: '/system/config', label: '参数配置' },
+      { key: '/system/logs', label: '日志查看' },
+      { key: '/system/adapters', label: '适配器管理' },
+    ]
+  },
 ]
 
 const breadcrumbs = computed(() => {
@@ -196,12 +227,17 @@ function toggleSidebar() {
   collapsed.value = !collapsed.value
 }
 
-function onMenuSelect(key) {
-  // Ignore clicks on parent menu items (they have spaces in key or are disabled)
-  if (!key || key.includes(' ') || key === key.toUpperCase().slice(0, -1)) {
-    return
+function onMenuSelect(key, item) {
+  // If item has a path (child items), navigate to it
+  // Child items have key = path (e.g. '/monitoring/devices'), parent items have no children
+  if (item.children === undefined) {
+    router.push(key)
   }
-  router.push(key)
+}
+
+function onExpandChange(keys) {
+  // Accordion: only keep the last expanded parent
+  expandedKeys.value = keys.length > 0 ? [keys[keys.length - 1]] : []
 }
 
 const userDropdown = [
@@ -258,6 +294,14 @@ onMounted(() => {
   const interval = setInterval(fetchNotificationCount, 60000)
   onUnmounted(() => clearInterval(interval))
 })
+
+// Auto-expand parent menu when route changes
+watch(() => route.path, () => {
+  const parent = menuOptions.find(m => m.children?.some(c => c.key === route.path))
+  if (parent) {
+    expandedKeys.value = [parent.key]
+  }
+}, { immediate: true })
 
 onUnmounted(() => {
   window.removeEventListener('resize', checkMobile)
