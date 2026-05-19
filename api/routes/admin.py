@@ -1069,7 +1069,7 @@ async def create_backup(
 ):
     """创建新的备份"""
     from modules.business.backup_manager import (
-        get_backup_manager, BackupType, BackupTarget
+        get_backup_manager, BackupStatus, BackupType, BackupTarget
     )
     
     manager = get_backup_manager()

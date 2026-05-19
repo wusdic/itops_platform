@@ -28,6 +28,7 @@ services:
       - ITOPS_DB_PASSWORD=itops_secure_password
       - ITOPS_DB_NAME=itops_platform
       - REDIS_HOST=itops-redis
+      - ITOPS_BACKUP_DIR=/app/data/backup
     networks:
       - itops-network
     extra_hosts:
@@ -36,9 +37,9 @@ services:
       - ./config:/app/config:rw
       - ./api:/app/api:rw
       - ./modules:/app/modules
-      - ./logs:/app/logs
-      - ./data:/app/data
-      - ./reports:/app/reports
+      - api_logs:/app/logs
+      - api_data:/app/data
+      - api_reports:/app/reports
     depends_on:
       mysql:
         condition: service_healthy
@@ -244,6 +245,9 @@ services:
 # Volumes
 # ==========================================
 volumes:
+  api_logs:
+  api_data:
+  api_reports:
   mysql_data:
     driver: local
   redis_data:

@@ -30,9 +30,8 @@
         :columns="columns"
         :data="filteredDevices"
         :loading="loading"
-        :pagination="{ pageSize: 20 }"
+        :pagination="pagination"
         :row-key="row => row.id"
-        :row-class-name="getRowClassName"
         @row-click="handleRowClick"
       />
     </n-card>
@@ -464,11 +463,11 @@ const getRowClassName = ({ row }) => {
 }
 
 const columns = [
-  { title: '名称', key: 'name', ellipsis: { tooltip: true }, render(row) { return h('a', { style: 'color: #18a058; cursor: pointer', onClick: (e) => { e.preventDefault(); e.stopPropagation(); handleRowClick(row) } }, row.name) } },
+  { title: '名称', key: 'name', ellipsis: { tooltip: true }, render: (row) => h('a', { style: 'color: #18a058; cursor: pointer', onClick: () => handleRowClick(row) }, row.name) },
   { title: 'IP地址', key: 'ip_address', width: 140 },
   { title: '系统', key: 'os_type', width: 100, render: (r) => r.os_type || '-' },
   { title: '系统版本', key: 'os_version', width: 150, ellipsis: { tooltip: true } },
-  { title: '厂商型号', key: 'manufacturer', width: 160, render: (r) => r.manufacturer ? `${r.manufacturer} ${r.model || ''}` : '-' },
+  { title: '厂商型号', key: 'manufacturer', width: 160, render: (r) => r.manufacturer ? r.manufacturer + ' ' + (r.model || '') : '-' },
   { title: '状态', key: 'status', width: 90, render: (r) => h(NTag, { type: statusType(r.status), size: 'small' }, () => statusText(r.status)) },
   { title: '位置', key: 'location', width: 150, ellipsis: { tooltip: true } },
   { title: '最近采集', key: 'last_collect_time', width: 170, render: (r) => r.last_collect_time ? new Date(r.last_collect_time).toLocaleString('zh-CN') : '-' },

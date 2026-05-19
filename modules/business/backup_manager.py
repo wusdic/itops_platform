@@ -56,8 +56,8 @@ class RestoreStatus(str, Enum):
 @dataclass
 class BackupConfig:
     """备份配置"""
-    # 备份存储路径
-    backup_dir: str = '/data/backup'
+    # 备份存储路径（支持环境变量覆盖）
+    backup_dir: str = os.getenv('ITOPS_BACKUP_DIR', '/data/backup')
     
     # 保留策略
     retention_days: int = 30  # 保留天数

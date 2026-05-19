@@ -197,7 +197,7 @@ const loadData = async () => {
       params.append('end_time', new Date(timeRange.value[1]).toISOString())
     }
 
-    const res = await fetchApi(`/api/v1/backup/list?${params}`)
+    const res = await fetchApi(`/api/v1/admin/backups?${params}`)
     // Support both {items, total} and {data, total} formats
     if (res.items) {
       backupList.value = res.items
@@ -244,7 +244,7 @@ const handleRestore = async (row) => {
     onPositiveClick: async () => {
       try {
         const token = localStorage.getItem('token') || ''
-        const res = await fetch(`/api/v1/admin/backup/${currentBackup.value.id}/restore`, {
+        const res = await fetch(`/api/v1/admin/backups/${currentBackup.value.id}/restore`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({})

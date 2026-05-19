@@ -10,6 +10,7 @@ from typing import Optional, Generator, List, Any
 from dataclasses import dataclass
 
 from fastapi import Depends, HTTPException, status, Query, Header
+from fastapi.exceptions import RequestValidationError
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
@@ -92,6 +93,9 @@ def get_db() -> Generator[Session, None, None]:
             raise
         finally:
             session.close()
+    except (HTTPException, RequestValidationError):
+        # Re-raise FastAPI's own exceptions so they propagate correctly
+        raise
     except Exception as e:
         logger = logging.getLogger(__name__)
         logger.warning(f"Database not available: {e}")
