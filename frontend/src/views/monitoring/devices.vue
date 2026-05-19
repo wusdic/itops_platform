@@ -493,7 +493,7 @@ async function loadDevices() {
 
     // 统计
     try {
-      const statsRes = await fetch('/api/v1/monitoring/devices/stats', { headers: { Authorization: `Bearer ${token}` } })
+      const statsRes = await fetch('/api/v1/devices/stats', { headers: { Authorization: `Bearer ${token}` } })
       if (statsRes.status === 401) {
         message.warning('登录已过期，请重新登录')
         localStorage.removeItem('token')
@@ -507,7 +507,7 @@ async function loadDevices() {
         stats[2].value = statsData.offline || 0
         stats[3].value = statsData.unknown || 0
       } else {
-        const listRes = await fetch('/api/v1/assets/device?page=1&page_size=1000', { headers: { Authorization: `Bearer ${token}` } })
+        const listRes = await fetch('/api/v1/assets/device?page=1&page_size=100', { headers: { Authorization: `Bearer ${token}` } })
         if (listRes.status === 401) {
           message.warning('登录已过期，请重新登录')
           localStorage.removeItem('token')
