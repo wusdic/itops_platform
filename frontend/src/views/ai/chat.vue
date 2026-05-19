@@ -278,6 +278,12 @@ async function loadConversations() {
     const res = await fetch('/api/v1/ai/conversations?user_id=' + encodeURIComponent(authStore.userInfo.username), {
       headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
     })
+    if (res.status === 401) {
+      message.warning('登录已过期，请重新登录')
+      localStorage.removeItem('token')
+      window.location.href = '/login'
+      return
+    }
     if (res.ok) {
       const data = await res.json()
       conversations.value = data.items || data || []
@@ -300,6 +306,12 @@ async function selectConversation(conv) {
     const res = await fetch(`/api/v1/ai/conversation/${conv.conversation_id}?user_id=${encodeURIComponent(authStore.userInfo.username)}`, {
       headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
     })
+    if (res.status === 401) {
+      message.warning('登录已过期，请重新登录')
+      localStorage.removeItem('token')
+      window.location.href = '/login'
+      return
+    }
     if (res.ok) {
       const data = await res.json()
       if (data.messages) {
@@ -360,6 +372,12 @@ async function sendMessage() {
       },
       body: JSON.stringify(payload)
     })
+    if (res.status === 401) {
+      message.warning('登录已过期，请重新登录')
+      localStorage.removeItem('token')
+      window.location.href = '/login'
+      return
+    }
     if (!res.ok) {
       throw new Error('Send message failed')
     }
@@ -416,10 +434,16 @@ function handleKeydown(e) {
 
 async function handleDelete(conversation_id) {
   try {
-    await fetch(`/api/v1/ai/conversations/${conversation_id}`, {
+    const res = await fetch(`/api/v1/ai/conversations/${conversation_id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
     })
+    if (res.status === 401) {
+      message.warning('登录已过期，请重新登录')
+      localStorage.removeItem('token')
+      window.location.href = '/login'
+      return
+    }
     message.success('会话已删除')
     if (currentConversation.value?.conversation_id === conversation_id) {
       currentConversation.value = null
@@ -443,6 +467,12 @@ async function handlePin(conv) {
       },
       body: JSON.stringify({ user_id: authStore.userInfo.username })
     })
+    if (res.status === 401) {
+      message.warning('登录已过期，请重新登录')
+      localStorage.removeItem('token')
+      window.location.href = '/login'
+      return
+    }
     if (!res.ok) throw new Error('Pin failed')
     message.success(isPinned ? '已置顶' : '已取消置顶')
     await loadConversations()

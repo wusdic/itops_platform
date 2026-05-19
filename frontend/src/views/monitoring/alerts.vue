@@ -226,6 +226,12 @@ const handleAcknowledge = async (alert) => {
           method: 'PUT',
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
         })
+        if (res.status === 401) {
+          getMessage().warning('登录已过期，请重新登录')
+          localStorage.removeItem('token')
+          window.location.href = '/login'
+          return
+        }
         if (res.ok) {
           getMessage().success('告警已确认')
           showDrawer.value = false
@@ -258,6 +264,12 @@ const handleResolve = async (alert) => {
           method: 'PUT',
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
         })
+        if (res.status === 401) {
+          getMessage().warning('登录已过期，请重新登录')
+          localStorage.removeItem('token')
+          window.location.href = '/login'
+          return
+        }
         if (res.ok) {
           getMessage().success('告警已解决')
           showDrawer.value = false
@@ -286,6 +298,12 @@ const loadAlerts = async (fromPoll = false) => {
     const res = await fetch(`/api/v1/monitoring/alerts?${params}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
+    if (res.status === 401) {
+      getMessage().warning('登录已过期，请重新登录')
+      localStorage.removeItem('token')
+      window.location.href = '/login'
+      return
+    }
     if (res.ok) {
       const data = await res.json()
       alerts.value = data.items || []

@@ -143,6 +143,12 @@ async function loadData() {
     const res = await fetch(`/api/v1/workorders/?${params}`, {
       headers: { Authorization: `Bearer ${token}` }
     })
+    if (res.status === 401) {
+      message.warning('登录已过期，请重新登录')
+      localStorage.removeItem('token')
+      window.location.href = '/login'
+      return
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
     if (!data || typeof data !== 'object') throw new Error('响应格式异常')
@@ -163,6 +169,12 @@ async function loadHandlers() {
     const res = await fetch('/api/v1/admin/users?page=1&page_size=50', {
       headers: { Authorization: `Bearer ${token}` }
     })
+    if (res.status === 401) {
+      message.warning('登录已过期，请重新登录')
+      localStorage.removeItem('token')
+      window.location.href = '/login'
+      return
+    }
     if (!res.ok) throw new Error()
     const data = await res.json()
     handlerOptions.value = (data.items || []).map(u => ({ label: u.username, value: u.id }))
@@ -181,6 +193,12 @@ async function handleViewAsync(row) {
     const res = await fetch(`/api/v1/workorders/${row.id}`, {
       headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
     })
+    if (res.status === 401) {
+      message.warning('登录已过期，请重新登录')
+      localStorage.removeItem('token')
+      window.location.href = '/login'
+      return
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     viewData.value = await res.json()
     viewModalVisible.value = true

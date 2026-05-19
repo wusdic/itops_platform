@@ -175,6 +175,12 @@ const loadDevices = async () => {
     const res = await fetch('/api/v1/assets/device?page=1&page_size=100', {
       headers: { Authorization: `Bearer ${token}` }
     })
+    if (res.status === 401) {
+      message.warning('登录已过期，请重新登录')
+      localStorage.removeItem('token')
+      window.location.href = '/login'
+      return
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
     if (!data || typeof data !== 'object') throw new Error('响应格式异常')
@@ -229,6 +235,12 @@ const loadMetrics = async () => {
       },
       body: JSON.stringify(body)
     })
+    if (res.status === 401) {
+      message.warning('登录已过期，请重新登录')
+      localStorage.removeItem('token')
+      window.location.href = '/login'
+      return
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
     if (!data || typeof data !== 'object') throw new Error('响应格式异常')

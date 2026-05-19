@@ -493,7 +493,13 @@ async function loadDevices() {
 
     // 统计
     try {
-      const statsRes = await fetch('/api/v1/devices/stats', { headers: { Authorization: `Bearer ${token}` } })
+      const statsRes = await fetch('/api/v1/monitoring/devices/stats', { headers: { Authorization: `Bearer ${token}` } })
+      if (statsRes.status === 401) {
+        message.warning('登录已过期，请重新登录')
+        localStorage.removeItem('token')
+        window.location.href = '/login'
+        return
+      }
       if (statsRes.ok) {
         const statsData = await statsRes.json()
         stats[0].value = statsData.total || 0
@@ -502,6 +508,12 @@ async function loadDevices() {
         stats[3].value = statsData.unknown || 0
       } else {
         const listRes = await fetch('/api/v1/assets/device?page=1&page_size=1000', { headers: { Authorization: `Bearer ${token}` } })
+        if (listRes.status === 401) {
+          message.warning('登录已过期，请重新登录')
+          localStorage.removeItem('token')
+          window.location.href = '/login'
+          return
+        }
         if (listRes.ok) {
           const listData = await listRes.json()
           const devices = listData.items || listData.data?.items || []
@@ -516,6 +528,12 @@ async function loadDevices() {
     const res = await fetch(`/api/v1/assets/device?page=${pagination.page}&page_size=${pagination.pageSize}`, {
       headers: { Authorization: `Bearer ${token}` }
     })
+    if (res.status === 401) {
+      message.warning('登录已过期，请重新登录')
+      localStorage.removeItem('token')
+      window.location.href = '/login'
+      return
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
     if (!data || typeof data !== 'object') throw new Error('响应格式异常')
