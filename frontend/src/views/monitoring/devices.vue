@@ -38,39 +38,45 @@
     </n-card>
 
     <!-- 设备详情弹窗 -->
-    <n-modal v-model:show="drawerVisible" preset="card" :title="selectedDevice?.name || '设备详情'" :style="{ width: '800px' }" :mask-closable="true">
+    <n-modal v-model:show="drawerVisible" preset="card" :title="selectedDevice?.name || '设备详情'" :style="{ width: '880px' }" :mask-closable="true">
       <template #header-extra>
         <n-button size="small" @click="drawerVisible = false">关闭</n-button>
       </template>
 
       <n-spin :show="metricsLoading">
-        <!-- 设备基本信息 -->
-        <div class="device-info">
-          <h4>基本信息</h4>
-          <div class="info-grid">
-            <div class="info-item"><span class="label">IP地址:</span> {{ selectedDevice?.ip_address || '-' }}</div>
-            <div class="info-item"><span class="label">操作系统:</span> {{ selectedDevice?.os_type || '-' }} {{ selectedDevice?.os_version || '' }}</div>
-            <div class="info-item"><span class="label">设备类型:</span> {{ selectedDevice?.device_type || '-' }}</div>
-            <div class="info-item"><span class="label">位置:</span> {{ selectedDevice?.location || '-' }}</div>
-            <div class="info-item">
-              <span class="label">状态:</span>
-              <n-tag :type="statusType(selectedDevice?.status)" size="small">{{ statusText(selectedDevice?.status) }}</n-tag>
+        <n-tabs type="line" animated v-model:value="activeDeviceTab" size="small">
+          <!-- 基本信息Tab -->
+          <n-tab-pane name="info" tab="基本信息">
+            <div class="device-info">
+              <div class="info-grid">
+                <div class="info-item"><span class="label">IP地址:</span> {{ selectedDevice?.ip_address || '-' }}</div>
+                <div class="info-item"><span class="label">操作系统:</span> {{ selectedDevice?.os_type || '-' }} {{ selectedDevice?.os_version || '' }}</div>
+                <div class="info-item"><span class="label">设备类型:</span> {{ selectedDevice?.device_type || '-' }}</div>
+                <div class="info-item"><span class="label">位置:</span> {{ selectedDevice?.location || '-' }}</div>
+                <div class="info-item">
+                  <span class="label">状态:</span>
+                  <n-tag :type="statusType(selectedDevice?.status)" size="small">{{ statusText(selectedDevice?.status) }}</n-tag>
+                </div>
+                <div class="info-item"><span class="label">厂商:</span> {{ selectedDevice?.manufacturer || '-' }}</div>
+                <div class="info-item"><span class="label">型号:</span> {{ selectedDevice?.model || '-' }}</div>
+                <div class="info-item"><span class="label">序列号:</span> {{ selectedDevice?.serial_number || '-' }}</div>
+                <div class="info-item"><span class="label">最近采集:</span> {{ selectedDevice?.last_collect_time ? new Date(selectedDevice.last_collect_time).toLocaleString('zh-CN') : '-' }}</div>
+                <div class="info-item"><span class="label">创建时间:</span> {{ selectedDevice?.created_at ? new Date(selectedDevice.created_at).toLocaleString('zh-CN') : '-' }}</div>
+              </div>
             </div>
-            <div class="info-item"><span class="label">厂商:</span> {{ selectedDevice?.manufacturer || '-' }}</div>
-          </div>
-        </div>
+          </n-tab-pane>
 
-        <!-- 协议配置Tab -->
-        <n-tabs type="line" animated size="small" v-model:value="activeProtocolTab">
+          <!-- 协议配置Tab -->
           <n-tab-pane name="config" tab="协议配置">
             <div class="protocol-config-form">
               <n-form label-placement="left" label-width="100" size="small">
                 <n-form-item label="选择协议">
-                  <n-select
+                  <n-tree-select
                     v-model:value="protocolForm.protocol_type"
-                    :options="protocolTypeOptions"
+                    :options="protocolTypeGroups"
                     placeholder="选择协议类型"
                     style="width: 100%"
+                    clearable
                     filterable
                     @update:value="onProtocolTypeChange"
                   />
@@ -173,7 +179,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, h, nextTick } from 'vue'
-import { NGrid, NGi, NCard, NButton, NDataTable, NTag, NIcon, NSpace, NTooltip, useMessage, useDialog, NModal, NSpin, NEmpty, NResult, NTabs, NTabPane, NForm, NFormItem, NInput, NInputNumber, NSwitch, NSelect, NCollapse, NCollapseItem } from 'naive-ui'
+import { NGrid, NGi, NCard, NButton, NDataTable, NTag, NIcon, NSpace, NTooltip, useMessage, useDialog, NModal, NSpin, NEmpty, NResult, NTabs, NTabPane, NForm, NFormItem, NInput, NInputNumber, NSwitch, NSelect, NTreeSelect, NCollapse, NCollapseItem } from 'naive-ui'
 import * as echarts from 'echarts'
 import { devices } from '@/api'
 import { RefreshOutline, Search } from '@vicons/ionicons5'
@@ -200,8 +206,8 @@ let cpuChart = null
 let memoryChart = null
 let diskChart = null
 
-// 协议配置相关
-const activeProtocolTab = ref('config')
+// 设备详情标签页
+const activeDeviceTab = ref('info')
 const protocolSaving = ref(false)
 const protocolTesting = ref(false)
 const deviceProtocols = ref([])
@@ -219,28 +225,74 @@ const protocolForm = reactive({
   enabled: true,
 })
 
-const protocolTypeOptions = [
-  { label: 'SNMP', value: 'snmp' },
-  { label: 'SSH', value: 'ssh' },
-  { label: 'HTTP', value: 'http' },
-  { label: 'MySQL', value: 'mysql' },
-  { label: 'PostgreSQL', value: 'postgres' },
-  { label: 'Redis', value: 'redis' },
-  { label: 'RabbitMQ', value: 'rabbitmq' },
-  { label: 'Kafka', value: 'kafka' },
-  { label: 'Elasticsearch', value: 'elasticsearch' },
-  { label: 'VMware', value: 'vmware' },
-  { label: 'IPMI', value: 'ipmi' },
-  { label: 'WinRM', value: 'winrm' },
-  { label: 'Kubernetes', value: 'kubernetes' },
-  { label: 'Docker', value: 'docker' },
-  { label: 'Zabbix', value: 'zabbix' },
-  { label: 'Prometheus', value: 'prometheus' },
-  { label: 'Browser', value: 'browser' },
-  { label: 'Redfish', value: 'redfish' },
-  { label: 'Syslog', value: 'syslog' },
-  { label: 'Telnet', value: 'telnet' },
+// 协议类型分组（带折叠功能）
+const protocolTypeGroups = [
+  {
+    label: '远程访问',
+    key: 'remote',
+    children: [
+      { label: 'SSH', value: 'ssh' },
+      { label: 'Telnet', value: 'telnet' },
+      { label: 'WinRM', value: 'winrm' },
+    ]
+  },
+  {
+    label: '数据库',
+    key: 'database',
+    children: [
+      { label: 'MySQL', value: 'mysql' },
+      { label: 'PostgreSQL', value: 'postgres' },
+      { label: 'Redis', value: 'redis' },
+    ]
+  },
+  {
+    label: '消息队列',
+    key: 'mq',
+    children: [
+      { label: 'RabbitMQ', value: 'rabbitmq' },
+      { label: 'Kafka', value: 'kafka' },
+    ]
+  },
+  {
+    label: '监控采集',
+    key: 'monitoring',
+    children: [
+      { label: 'SNMP', value: 'snmp' },
+      { label: 'IPMI', value: 'ipmi' },
+      { label: 'Zabbix', value: 'zabbix' },
+      { label: 'Prometheus', value: 'prometheus' },
+    ]
+  },
+  {
+    label: '虚拟化/容器',
+    key: 'vm',
+    children: [
+      { label: 'VMware', value: 'vmware' },
+      { label: 'Kubernetes', value: 'kubernetes' },
+      { label: 'Docker', value: 'docker' },
+    ]
+  },
+  {
+    label: 'Web/应用',
+    key: 'web',
+    children: [
+      { label: 'HTTP', value: 'http' },
+      { label: 'Browser', value: 'browser' },
+      { label: 'Elasticsearch', value: 'elasticsearch' },
+    ]
+  },
+  {
+    label: '其他',
+    key: 'other',
+    children: [
+      { label: 'Redfish', value: 'redfish' },
+      { label: 'Syslog', value: 'syslog' },
+    ]
+  },
 ]
+
+// 扁平化选项（用于兼容现有逻辑）
+const protocolTypeOptions = protocolTypeGroups.flatMap(g => g.children)
 
 const filteredAdapterOptions = computed(() => {
   if (!protocolForm.protocol_type) return []
@@ -482,7 +534,7 @@ async function loadDevices() {
 function handleRowClick(row) {
   selectedDevice.value = row
   drawerVisible.value = true
-  activeProtocolTab.value = 'config'
+  activeDeviceTab.value = 'info'
   resetProtocolForm()
   loadMetrics(row)
   loadDeviceProtocols(row.id)
@@ -604,34 +656,70 @@ async function loadMetrics(device) {
 }
 
 function initCharts(cpuData, memData, diskData) {
-  const makeOption = (values, color, label) => ({
-    tooltip: { trigger: 'axis' },
-    grid: { left: '2%', right: '2%', bottom: '2%', top: '8%', containLabel: true },
-    xAxis: { type: 'category', data: values.map((_, i) => `${i}`), show: false },
-    yAxis: { type: 'value', max: 100, show: false },
-    series: [{
-      type: 'line',
-      smooth: true,
-      areaStyle: { opacity: 0.4 },
-      data: values.map(v => v.value ?? 0),
-      lineStyle: { color },
-      itemStyle: { color },
-      showSymbol: false
-    }]
+  const chartData = [
+    { ref: cpuChartRef, data: cpuData, color: '#18a058', label: 'CPU' },
+    { ref: memoryChartRef, data: memData, color: '#2080f0', label: '内存' },
+    { ref: diskChartRef, data: diskData, color: '#f0a020', label: '磁盘' },
+  ]
+
+  chartData.forEach(({ ref, data, color, label }) => {
+    if (!ref.value) return
+    const values = data.data?.values || []
+    const currentValue = values.length > 0 ? values[values.length - 1].value ?? 0 : 0
+
+    const chart = echarts.init(ref.value)
+    const option = {
+      series: [
+        // 仪表盘
+        {
+          type: 'gauge',
+          startAngle: 200,
+          endAngle: -20,
+          radius: '90%',
+          center: ['50%', '60%'],
+          min: 0,
+          max: 100,
+          splitNumber: 4,
+          itemStyle: { color },
+          progress: { show: true, width: 8, itemStyle: { color } },
+          pointer: { show: false },
+          axisLine: { lineStyle: { width: 8, color: [[1, '#e8e8e8']] } },
+          axisTick: { show: false },
+          splitLine: { show: false },
+          axisLabel: { show: false },
+          anchor: { show: false },
+          title: { show: false },
+          detail: {
+            valueAnimation: true,
+            fontSize: 14,
+            fontWeight: 'bold',
+            offsetCenter: [0, '10%'],
+            formatter: '{value}%',
+            color: '#303133',
+          },
+          data: [{ value: currentValue }],
+        },
+        // 迷你趋势线
+        {
+          type: 'line',
+          smooth: true,
+          symbol: 'none',
+          areaStyle: { opacity: 0.3, color },
+          lineStyle: { color, width: 1.5 },
+          data: values.map(v => v.value ?? 0),
+          xAxis: { show: false },
+          yAxis: { show: false },
+          grid: { left: 0, right: 0, top: 0, bottom: 0 },
+        },
+      ],
+    }
+    chart.setOption(option)
   })
 
-  if (cpuChartRef.value) {
-    cpuChart = echarts.init(cpuChartRef.value)
-    cpuChart.setOption(makeOption(cpuData.data?.values || [], '#18a058', 'CPU'))
-  }
-  if (memoryChartRef.value) {
-    memoryChart = echarts.init(memoryChartRef.value)
-    memoryChart.setOption(makeOption(memData.data?.values || [], '#2080f0', '内存'))
-  }
-  if (diskChartRef.value) {
-    diskChart = echarts.init(diskChartRef.value)
-    diskChart.setOption(makeOption(diskData.data?.values || [], '#f0a020', '磁盘'))
-  }
+  // 保存图表实例
+  cpuChart = cpuChartRef.value ? echarts.getInstanceByDom(cpuChartRef.value) : null
+  memoryChart = memoryChartRef.value ? echarts.getInstanceByDom(memoryChartRef.value) : null
+  diskChart = diskChartRef.value ? echarts.getInstanceByDom(diskChartRef.value) : null
 }
 
 // 监听 tab 切换，切换到 metrics 时 resize 图表

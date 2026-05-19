@@ -1,12 +1,14 @@
 <template>
   <div class="chat-page">
-    <n-layout has-sider class="chat-layout">
+    <n-layout has-sider class="chat-layout" :collapsed="sidebarCollapsed" collapsible @update:collapsed="sidebarCollapsed = $event">
       <!-- 左侧会话列表 -->
       <n-layout-sider
         bordered
         :width="280"
+        :collapsed-width="0"
         :native-scrollbar="false"
         class="conversation-sider"
+        :collapsed="sidebarCollapsed"
       >
         <div class="sider-header">
           <n-button type="primary" block @click="createConversation">
@@ -67,6 +69,9 @@
       <n-layout-content class="chat-content" :native-scrollbar="false" ref="chatContentRef">
         <div class="chat-main" v-if="currentConversation">
           <div class="chat-header">
+            <n-button text @click="sidebarCollapsed = !sidebarCollapsed" class="collapse-btn">
+              <n-icon size="20"><MenuOutline /></n-icon>
+            </n-button>
             <h3>{{ currentConversation.title || '智能问答' }}</h3>
           </div>
 
@@ -88,13 +93,21 @@
                 <div class="bubble-text" :class="{ 'bubble-text-ai': msg.role === 'ai' }" v-html="msg.role === 'ai' ? renderMarkdown(msg.content) : msg.content"></div>
                 <div class="bubble-footer">
                   <span class="bubble-time">{{ formatTime(msg.created_at) }}</span>
-                  <n-tooltip v-if="msg.role === 'user'" trigger="hover">
+                  <n-tooltip trigger="hover">
                     <template #trigger>
                       <n-button text size="tiny" @click.stop="copyMessage(msg.content)" class="copy-btn">
                         <n-icon size="12"><CopyOutline /></n-icon>
                       </n-button>
                     </template>
                     复制
+                  </n-tooltip>
+                  <n-tooltip trigger="hover">
+                    <template #trigger>
+                      <n-button text size="tiny" @click.stop="resendMessage(msg)" class="copy-btn">
+                        <n-icon size="12"><RefreshOutline /></n-icon>
+                      </n-button>
+                    </template>
+                    重发
                   </n-tooltip>
                 </div>
               </div>
@@ -110,10 +123,7 @@
             <div v-if="loading" class="message message-ai">
               <n-avatar round size="small" :style="{ background: '#18a058' }">AI</n-avatar>
               <div class="bubble bubble-ai">
-                <div class="bubble-text">
-                  <n-spin size="small" />
-                  <span style="margin-left: 8px; color: #999">正在思考...</span>
-                </div>
+                <div class="bubble-text bubble-text-ai" v-html="streamingContent ? renderMarkdown(streamingContent) + '<span class=\'typing-cursor\'></span>' : '<span style=\'color:#999\'>正在思考<span class=\'typing-cursor\'></span></span>'"></div>
               </div>
             </div>
           </div>
@@ -159,7 +169,8 @@ import { ref, computed, nextTick, onMounted } from 'vue'
 import { useMessage } from 'naive-ui'
 import {
   CreateOutline, SearchOutline, StarOutline, ChatbubbleOutline,
-  TrashOutline, SendOutline, ChatbubbleEllipsesOutline, CopyOutline
+  TrashOutline, SendOutline, ChatbubbleEllipsesOutline, CopyOutline,
+  RefreshOutline, MenuOutline
 } from '@vicons/ionicons5'
 import { useAuthStore } from '@/stores/auth'
 
@@ -178,6 +189,8 @@ const conversationsLoading = ref(false)
 const messages = ref([])
 const inputText = ref('')
 const loading = ref(false)
+const streamingContent = ref('')
+const sidebarCollapsed = ref(false)
 
 // refs
 const messagesRef = ref(null)
@@ -210,19 +223,34 @@ function formatTime(d) {
 
 function renderMarkdown(text) {
   if (!text) return ''
+  // 转义HTML特殊字符（先处理，防止XSS）
   let html = text
-    // 代码块
-    .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
-    // 行内代码
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    // 粗体
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    // 斜体
-    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-    // 链接
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
-    // 换行
-    .replace(/\n/g, '<br>')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+  // 代码块 - 带语言标识
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
+    const langAttr = lang ? ` data-lang="${lang}"` : ''
+    const langClass = lang ? ` class="language-${lang}"` : ''
+    return `<pre${langAttr}><code${langClass}>${code.trim()}</code></pre>`
+  })
+  // 行内代码
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>')
+  // 标题
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>')
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>')
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>')
+  // 粗体
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+  // 斜体
+  html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>')
+  // 链接
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+  // 列表
+  html = html.replace(/^\s*[-*]\s+(.+)$/gm, '<li>$1</li>')
+  html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
+  // 换行
+  html = html.replace(/\n/g, '<br>')
   return html
 }
 
@@ -233,6 +261,15 @@ async function copyMessage(content) {
   } catch {
     message.error('复制失败')
   }
+}
+
+async function resendMessage(msg) {
+  if (msg.role !== 'user') return
+  inputText.value = msg.content
+  // 删除原消息
+  const idx = messages.value.findIndex(m => m.id === msg.id)
+  if (idx !== -1) messages.value.splice(idx, 1)
+  await sendMessage()
 }
 
 async function loadConversations() {
@@ -304,6 +341,7 @@ async function sendMessage() {
   messages.value.push(userMsg)
   inputText.value = ''
   loading.value = true
+  streamingContent.value = ''
 
   await nextTick()
   scrollToBottom()
@@ -325,19 +363,36 @@ async function sendMessage() {
     if (!res.ok) {
       throw new Error('Send message failed')
     }
-    const data = await res.json()
+    
+    // 流式读取
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let fullContent = ''
+    
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      const chunk = decoder.decode(value, { stream: true })
+      fullContent += chunk
+      streamingContent.value = fullContent
+      await nextTick()
+      scrollToBottom()
+    }
+    
     const aiMsg = {
       id: Date.now() + 1,
       role: 'ai',
-      content: data.message || data.content || '暂无回复',
+      content: fullContent,
       created_at: new Date().toISOString()
     }
     messages.value.push(aiMsg)
+    streamingContent.value = ''
 
-    if (data.conversation_id) {
+    if (res.headers.get('X-Conversation-Id')) {
+      const convId = res.headers.get('X-Conversation-Id')
       if (!currentConversation.value.conversation_id) {
-        currentConversation.value.conversation_id = data.conversation_id
-        currentConversation.value.title = data.title || text.slice(0, 20)
+        currentConversation.value.conversation_id = convId
+        currentConversation.value.title = text.slice(0, 20)
       }
       await loadConversations()
     }
@@ -346,6 +401,7 @@ async function sendMessage() {
     message.error('AI服务暂不可用，请稍后重试')
   } finally {
     loading.value = false
+    streamingContent.value = ''
     await nextTick()
     scrollToBottom()
   }
@@ -410,7 +466,7 @@ onMounted(() => {
 <style scoped>
 .chat-page { height: 100%; display: flex; flex-direction: column; }
 .chat-layout { height: calc(100vh - 140px); border-radius: 8px; overflow: hidden; }
-.conversation-sider { background: #fafafa; display: flex; flex-direction: column; }
+.conversation-sider { background: #fafafa; display: flex; flex-direction: column; transition: width 0.2s; }
 .sider-header { padding: 12px; background: #fff; border-bottom: 1px solid #eee; }
 .conversation-list { flex: 1; overflow-y: auto; }
 .conversation-item { cursor: pointer; transition: background 0.2s; padding: 8px 12px !important; }
@@ -420,8 +476,9 @@ onMounted(() => {
 .conv-title { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .conv-time { font-size: 12px; color: #999; margin-top: 2px; }
 .chat-main { display: flex; flex-direction: column; height: 100%; }
-.chat-header { padding: 16px 20px; border-bottom: 1px solid #eee; background: #fff; }
+.chat-header { padding: 16px 20px; border-bottom: 1px solid #eee; background: #fff; display: flex; align-items: center; gap: 12px; }
 .chat-header h3 { margin: 0; font-size: 16px; font-weight: 600; }
+.collapse-btn { padding: 4px !important; }
 .messages { flex: 1; overflow-y: auto; padding: 20px; }
 .message { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 16px; }
 .message-user { flex-direction: row-reverse; }
@@ -431,12 +488,23 @@ onMounted(() => {
 .bubble-ai { background: #f0f0f0; color: #333; border-bottom-left-radius: 4px; }
 .bubble-text { line-height: 1.5; }
 .bubble-text-ai { font-size: 14px; }
-.bubble-text-ai :deep(pre) { background: #e8e8e8; border-radius: 6px; padding: 10px; overflow-x: auto; margin: 8px 0; font-size: 13px; }
-.bubble-text-ai :deep(code) { background: #e8e8e8; border-radius: 3px; padding: 1px 4px; font-size: 13px; font-family: monospace; }
+/* Markdown 样式 */
+.bubble-text-ai :deep(pre) { background: #282c34; border-radius: 6px; padding: 12px; overflow-x: auto; margin: 8px 0; font-size: 13px; position: relative; }
+.bubble-text-ai :deep(pre)::before { content: attr(data-lang); position: absolute; top: 4px; right: 8px; font-size: 11px; color: #888; text-transform: uppercase; }
+.bubble-text-ai :deep(code) { background: rgba(0,0,0,0.08); border-radius: 3px; padding: 1px 4px; font-size: 13px; font-family: 'Fira Code', 'Consolas', monospace; }
+.bubble-text-ai :deep(pre code) { background: transparent; padding: 0; color: #abb2bf; line-height: 1.5; }
 .bubble-text-ai :deep(p) { margin: 4px 0; }
 .bubble-text-ai :deep(ul), .bubble-text-ai :deep(ol) { margin: 4px 0; padding-left: 20px; }
+.bubble-text-ai :deep(li) { margin: 2px 0; }
 .bubble-text-ai :deep(table) { border-collapse: collapse; margin: 8px 0; }
 .bubble-text-ai :deep(th), .bubble-text-ai :deep(td) { border: 1px solid #ddd; padding: 4px 8px; font-size: 13px; }
+.bubble-text-ai :deep(th) { background: #e8e8e8; }
+.bubble-text-ai :deep(h1), .bubble-text-ai :deep(h2), .bubble-text-ai :deep(h3) { margin: 8px 0; font-weight: 600; }
+.bubble-text-ai :deep(a) { color: #18a058; }
+.bubble-text-ai :deep(strong) { font-weight: 600; }
+/* 打字机光标 */
+.bubble-text-ai :deep(.typing-cursor)::after { content: '▊'; animation: blink 1s infinite; color: #18a058; }
+@keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
 .bubble-footer { display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin-top: 4px; }
 .bubble-time { font-size: 11px; opacity: 0.6; }
 .bubble-user .bubble-time { color: rgba(255,255,255,0.7); }
@@ -447,4 +515,9 @@ onMounted(() => {
 .input-area { flex: 1; }
 .send-btn { flex-shrink: 0; }
 .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; }
+
+/* 响应式 - 小屏幕收起侧边栏 */
+@media (max-width: 768px) {
+  .chat-layout :deep(.n-layout-sider) { position: absolute; z-index: 100; height: 100%; }
+}
 </style>

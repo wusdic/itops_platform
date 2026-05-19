@@ -37,6 +37,7 @@
         <n-input v-model:value="searchKeyword" placeholder="搜索工单标题" clearable style="width:200px" @keyup.enter="loadData" />
         <n-select v-model:value="filterStatus" placeholder="工单状态" clearable :options="statusOptions" style="width:140px" @update:value="loadData" />
         <n-select v-model:value="filterPriority" placeholder="优先级" clearable :options="priorityOptions" style="width:140px" @update:value="loadData" />
+        <n-select v-model:value="filterDevice" placeholder="关联设备" clearable :options="deviceList" filterable :filter="(pattern, option) => option.label.toLowerCase().includes(pattern.toLowerCase())" style="width:180px" @update:value="loadData" />
         <n-button type="primary" @click="loadData">搜索</n-button>
         <n-button @click="resetFilters">重置</n-button>
       </n-space>
@@ -66,7 +67,12 @@
         <n-descriptions-item label="工单标题">{{ viewData.title || '-' }}</n-descriptions-item>
         <n-descriptions-item label="类型">{{ viewData.type || '-' }}</n-descriptions-item>
         <n-descriptions-item label="优先级">
-          <n-tag :type="priorityType(viewData.priority)" size="small">{{ priorityText(viewData.priority) }}</n-tag>
+          <n-tooltip trigger="hover">
+            <template #trigger>
+              <n-tag :type="priorityType(viewData.priority)" size="small">{{ priorityText(viewData.priority) }}</n-tag>
+            </template>
+            {{ priorityDescriptions[viewData.priority] || viewData.priority }}
+          </n-tooltip>
         </n-descriptions-item>
         <n-descriptions-item label="状态">
           <n-tag :type="statusType(viewData.status)" size="small">{{ statusText(viewData.status) }}</n-tag>
@@ -120,9 +126,9 @@
 
 <script setup>
 import { ref, reactive, computed, h, onMounted, onUnmounted } from 'vue'
-import { useMessage, NTag, NButton, NSpace, NAlert } from 'naive-ui'
-import { AddOutline } from '@vicons/ionicons5'
-import { workorder as workorderApi } from '@/api'
+import { useMessage, NTag, NButton, NSpace, NAlert, NTooltip, NIcon } from 'naive-ui'
+import { AddOutline, ChevronForward } from '@vicons/ionicons5'
+import { workorder as workorderApi, devices as devicesApi } from '@/api'
 
 const message = useMessage()
 
@@ -131,6 +137,8 @@ const editSubmitting = ref(false)
 const searchKeyword = ref('')
 const filterStatus = ref(null)
 const filterPriority = ref(null)
+const filterDevice = ref(null)
+const deviceList = ref([])
 const workorderList = ref([])
 
 const pagination = reactive({ page: 1, pageSize: 10, itemCount: 0, showSizePicker: true, pageSizes: [10, 20, 50] })
@@ -160,25 +168,49 @@ const priorityOptions = [
   { label: 'P4 - 低', value: 'P4' }
 ]
 
-const workorderStats = computed(() => {
-  const stats = { pending: 0, processing: 0, resolved: 0, closed: 0 }
-  workorderList.value.forEach(w => {
-    if (w.status === 'pending') stats.pending++
-    else if (w.status === 'processing') stats.processing++
-    else if (w.status === 'resolved') stats.resolved++
-    else if (w.status === 'closed') stats.closed++
-  })
-  return stats
-})
+const priorityDescriptions = {
+  P1: 'P1-紧急：系统宕机或核心功能不可用，需立即处理',
+  P2: 'P2-高：业务功能严重受损，需尽快处理',
+  P3: 'P3-中：功能部分受损，但有替代方案',
+  P4: 'P4-低：轻微问题或优化建议'
+}
+
+// 状态流转配置
+const statusFlow = ['pending', 'processing', 'pending_approval', 'approved', 'rejected', 'resolved', 'closed', 'cancelled']
+const statusLabels = { pending: '待处理', processing: '处理中', pending_approval: '待审批', approved: '已批准', rejected: '已拒绝', resolved: '已解决', closed: '已关闭', cancelled: '已取消' }
+const statusTransitionMap = {
+  pending: ['processing'],
+  processing: ['pending_approval'],
+  pending_approval: ['approved', 'rejected'],
+  approved: ['resolved'],
+  rejected: ['closed'],
+  resolved: ['closed'],
+  closed: [],
+  cancelled: []
+}
+
+const workorderStats = ref({ pending: 0, processing: 0, resolved: 0, closed: 0 })
+
+async function loadStats() {
+  try {
+    const res = await workorderApi.getStatistics()
+    workorderStats.value = {
+      pending: res.pending || 0,
+      processing: res.processing || 0,
+      resolved: res.resolved || 0,
+      closed: res.closed || 0
+    }
+  } catch (e) {
+    console.warn('加载工单统计失败:', e)
+  }
+}
 
 // 状态流转提示
 const statusTransitionHint = computed(() => {
   if (!editForm.status) return ''
-  const flow = ['pending', 'processing', 'pending_approval', 'approved', 'rejected', 'resolved', 'closed']
-  const labels = { pending: '待处理', processing: '处理中', pending_approval: '待审批', approved: '已批准', rejected: '已拒绝', resolved: '已解决', closed: '已关闭' }
-  const idx = flow.indexOf(editForm.status)
-  if (idx === -1 || idx === flow.length - 1) return '当前状态无法流转'
-  const nextSteps = flow.slice(idx + 1).map(s => labels[s]).join(' → ')
+  const nextStatuses = statusTransitionMap[editForm.status]
+  if (!nextStatuses || nextStatuses.length === 0) return '当前状态无法流转'
+  const nextSteps = nextStatuses.map(s => statusLabels[s]).join(' / ')
   return `可流转至：${nextSteps}`
 })
 
@@ -199,12 +231,29 @@ const columns = [
   { title: '工单标题', key: 'title', ellipsis: { tooltip: true } },
   {
     title: '优先级',
-    key: 'priority', width: 100,
-    render: (row) => h(NTag, { type: priorityType(row.priority), size: 'small' }, { default: () => priorityText(row.priority) })
+    key: 'priority', width: 120,
+    render: (row) => h(NTooltip, { trigger: 'hover', delay: 100 }, {
+      trigger: () => h(NTag, { type: priorityType(row.priority), size: 'small' }, { default: () => priorityText(row.priority) }),
+      default: () => priorityDescriptions[row.priority] || row.priority
+    })
   },
   {
-    title: '状态', key: 'status', width: 100,
-    render: (row) => h(NTag, { type: statusType(row.status), size: 'small' }, { default: () => statusText(row.status) })
+    title: '状态',
+    key: 'status', width: 160,
+    render: (row) => {
+      const nextStatuses = statusTransitionMap[row.status] || []
+      const transitionTags = nextStatuses.length > 0
+        ? nextStatuses.map(s => h(NTag, { type: statusType(s), size: 'tiny', round: true, style: 'margin-left:4px' }, { default: () => statusLabels[s] }))
+        : []
+      return h('div', { style: 'display:flex;align-items:center;flex-wrap:wrap' }, [
+        h(NTag, { type: statusType(row.status), size: 'small' }, { default: () => statusText(row.status) }),
+        h(NTooltip, { trigger: 'hover', delay: 100 }, {
+          trigger: () => h(NIcon, { component: ChevronForward, size: 14, style: 'margin-left:6px;color:#909399;cursor:help' }),
+          default: () => nextStatuses.length > 0 ? `可流转至：${nextStatuses.map(s => statusLabels[s]).join(' / ')}` : '无下一步流转'
+        }),
+        ...transitionTags
+      ])
+    }
   },
   { title: '创建人', key: 'creator', width: 120 },
   { title: '处理人', key: 'assignee', width: 120, render: (row) => row.assignee || '-' },
@@ -228,6 +277,7 @@ async function loadData() {
     if (searchKeyword.value) params.keyword = searchKeyword.value
     if (filterStatus.value) params.status = filterStatus.value
     if (filterPriority.value) params.priority = filterPriority.value
+    if (filterDevice.value) params.device_id = filterDevice.value
 
     const res = await workorderApi.getList(params)
     workorderList.value = res.items || res.data?.items || []
@@ -240,6 +290,15 @@ async function loadData() {
   }
 }
 
+async function loadDevices() {
+  try {
+    const res = await devicesApi.getList({ page: 1, page_size: 500 })
+    deviceList.value = (res.items || res.data?.items || []).map(d => ({ label: d.name || d.device_name || `设备-${d.id}`, value: d.id }))
+  } catch (e) {
+    console.warn('加载设备列表失败:', e)
+  }
+}
+
 function handlePageChange(p) { pagination.page = p; loadData() }
 function handlePageSizeChange(ps) { pagination.pageSize = ps; pagination.page = 1; loadData() }
 
@@ -247,6 +306,7 @@ function resetFilters() {
   searchKeyword.value = ''
   filterStatus.value = null
   filterPriority.value = null
+  filterDevice.value = null
   pagination.page = 1
   loadData()
 }
@@ -314,7 +374,7 @@ function stopPoll() {
   if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
 }
 
-onMounted(() => { loadData(); startPoll() })
+onMounted(() => { loadData(); loadStats(); loadDevices(); startPoll() })
 onUnmounted(() => { stopPoll() })
 </script>
 

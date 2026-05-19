@@ -9,7 +9,7 @@
       </template>
 
       <n-space style="margin-bottom: 12px" align="center">
-        <n-input v-model:value="searchKeyword" placeholder="搜索用户名/姓名" clearable style="width: 200px" @update:value="debouncedSearch">
+        <n-input v-model:value="searchKeyword" placeholder="搜索用户名/姓名" clearable style="width: 200px" @input="handleSearchInput">
           <template #prefix><n-icon><SearchOutline /></n-icon></template>
         </n-input>
         <n-select v-model:value="filterStatus" :options="statusOptions" placeholder="用户状态" clearable style="width: 120px" @update:value="debouncedSearch" />
@@ -76,12 +76,33 @@ const dialogVisible = ref(false)
 const dialogTitle = ref('添加用户')
 
 let searchTimer = null
+function handleSearchInput() {
+  // 实时筛选，立即清空旧定时器，每次输入都重新开始计时
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    pagination.page = 1
+    loadData()
+  }, 300)
+}
+
 function debouncedSearch() {
   if (searchTimer) clearTimeout(searchTimer)
   searchTimer = setTimeout(() => {
     pagination.page = 1
     loadData()
   }, 300)
+}
+
+// 手机号格式校验
+function validatePhone(phone) {
+  if (!phone) return true
+  return /^1[3-9]\d{9}$/.test(phone)
+}
+
+// 邮箱格式校验
+function validateEmail(email) {
+  if (!email) return true
+  return /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)
 }
 
 const pagination = reactive({ page: 1, pageSize: 10, total: 0 })
@@ -131,9 +152,9 @@ const columns = [
   },
   { title: '创建时间', key: 'created_at', width: 180 },
   {
-    title: '操作', key: 'actions', width: 180, fixed: 'right',
+    title: '操作', key: 'actions', width: 240, fixed: 'right',
     render(row) {
-      return h(NSpace, { size: 8 }, () => [
+      return h(NSpace, { size: 12 }, () => [
         h(NButton, { size: 'small', quaternary: true, type: 'primary', onClick: () => handleEdit(row) }, () => '编辑'),
         h(NButton, { size: 'small', quaternary: true, type: 'warning', onClick: () => handleResetPwd(row) }, () => '重置密码'),
         h(NButton, { size: 'small', quaternary: true, type: 'error', onClick: () => handleDelete(row) }, () => '删除')
@@ -187,7 +208,7 @@ async function handleResetPwd(row) {
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
-    message.success(`密码已重置为: ${data.password || '请查看提示'}`)
+    message.success('密码已重置，请查看系统通知或联系管理员')
   } catch (e) {
     message.error(`重置失败: ${e.message}`)
   }
@@ -212,6 +233,14 @@ async function handleDelete(row) {
 async function submitForm() {
   if (!form.username) {
     message.warning('请填写用户名')
+    return
+  }
+  if (form.email && !validateEmail(form.email)) {
+    message.warning('邮箱格式不正确')
+    return
+  }
+  if (form.phone && !validatePhone(form.phone)) {
+    message.warning('手机号格式不正确')
     return
   }
   if (submitting.value) return

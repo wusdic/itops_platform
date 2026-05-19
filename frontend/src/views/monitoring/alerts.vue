@@ -26,7 +26,11 @@
         <span class="stat-count">{{ alertStats.active || 0 }}</span>
         <span class="stat-label">待处理</span>
       </div>
-      <span v-if="lastUpdateTime" class="update-time">最后更新: {{ lastUpdateTime }}</span>
+      <div class="update-time" :class="{ 'is-loading': loading }">
+        <n-spin v-if="loading" :size="14" stroke-width="20" />
+        <span v-else-if="lastUpdateTime">最后更新: {{ lastUpdateTime }}</span>
+        <span v-else>加载中...</span>
+      </div>
     </div>
 
     <!-- Filter Bar -->
@@ -61,7 +65,7 @@
     </n-card>
 
     <!-- Detail Drawer -->
-    <n-drawer v-model:show="showDrawer" :width="600" placement="right">
+    <n-drawer v-model:show="showDrawer" :width="720" placement="right">
       <n-drawer-content title="告警详情">
         <n-descriptions v-if="currentAlert" :column="1" label-placement="left" bordered size="large">
           <n-descriptions-item label="告警ID">{{ currentAlert.id }}</n-descriptions-item>
@@ -95,7 +99,7 @@
 import { ref, h, computed, onMounted, onUnmounted } from 'vue'
 import {
   NCard, NDataTable, NButton, NSpace, NSelect, NDrawer, NDrawerContent,
-  NDescriptions, NDescriptionsItem, NTag, NIcon, useMessage, useDialog
+  NDescriptions, NDescriptionsItem, NTag, NIcon, NSpin, useMessage, useDialog
 } from 'naive-ui'
 import { Refresh } from '@vicons/ionicons5'
 
@@ -107,6 +111,7 @@ const filterLevel = ref(null)
 const filterStatus = ref(null)
 const actionLoading = ref(false)
 const lastUpdateTime = ref('')
+const isPolling = ref(false)
 
 const levelOptions = [
   { label: '严重 (Critical)', value: 'critical' },
@@ -142,6 +147,7 @@ const formatTime = (ts) => ts ? new Date(ts).toLocaleString('zh-CN') : '-'
 
 const getRowClassName = ({ row }) => {
   if (row.status === 'active') return 'row-active'
+  if (row.status === 'acknowledged') return 'row-acknowledged'
   if (row.status === 'resolved') return 'row-resolved'
   return ''
 }
@@ -269,7 +275,7 @@ const handleResolve = async (alert) => {
   })
 }
 
-const loadAlerts = async () => {
+const loadAlerts = async (fromPoll = false) => {
   loading.value = true
   try {
     const token = localStorage.getItem('token') || ''
@@ -288,14 +294,24 @@ const loadAlerts = async () => {
     console.error('Failed to load alerts:', e)
   } finally {
     loading.value = false
+    isPolling.value = false
     lastUpdateTime.value = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
   }
 }
 
 let pollTimer = null
 
-onMounted(() => { loadAlerts() })
+onMounted(() => { loadAlerts(); startPolling() })
 onUnmounted(() => { if (pollTimer) clearInterval(pollTimer) })
+
+const startPolling = () => {
+  pollTimer = setInterval(() => {
+    if (!showDrawer.value) {
+      isPolling.value = true
+      loadAlerts(true)
+    }
+  }, 30000)
+}
 </script>
 
 <style scoped>
@@ -378,9 +394,21 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer) })
 }
 
 .update-time {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
   color: #909399;
   margin-left: auto;
+  min-height: 20px;
+}
+
+.update-time.is-loading {
+  color: #165dff;
+}
+
+.update-time .n-spin {
+  flex-shrink: 0;
 }
 
 .filter-card {
@@ -398,12 +426,20 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer) })
   margin-left: 8px;
 }
 
-/* Row status colors */
+/* Row status colors - distinct visual separation */
 :deep(.row-active) {
-  background-color: #fff1f0 !important;
+  background-color: #fff2f0 !important;
+  border-left: 3px solid #f53f3f;
+}
+
+:deep(.row-acknowledged) {
+  background-color: #fffbe6 !important;
+  border-left: 3px solid #ff7d00;
 }
 
 :deep(.row-resolved) {
-  background-color: #f0f9eb !important;
+  background-color: #f5f5f5 !important;
+  border-left: 3px solid #52c41a;
+  color: #909399;
 }
 </style>

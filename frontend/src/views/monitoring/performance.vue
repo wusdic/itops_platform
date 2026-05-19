@@ -31,7 +31,6 @@
           type="datetimerange"
           clearable
           style="width: 380px"
-          @update:value="loadMetrics"
         />
         <n-button type="primary" @click="loadMetrics" :loading="loading">
           查询
@@ -47,7 +46,7 @@
         </div>
         <div class="stat-content">
           <div class="stat-value" :class="{ loading: loading }">
-            {{ loading ? '-' : metrics.cpu }}%
+            {{ loading ? '-' : (metrics.cpu ?? '--') }}%
           </div>
           <div class="stat-title">CPU使用率</div>
         </div>
@@ -58,7 +57,7 @@
         </div>
         <div class="stat-content">
           <div class="stat-value" :class="{ loading: loading }">
-            {{ loading ? '-' : metrics.memory }}%
+            {{ loading ? '-' : (metrics.memory ?? '--') }}%
           </div>
           <div class="stat-title">内存使用率</div>
         </div>
@@ -69,7 +68,7 @@
         </div>
         <div class="stat-content">
           <div class="stat-value" :class="{ loading: loading }">
-            {{ loading ? '-' : metrics.disk }}%
+            {{ loading ? '-' : (metrics.disk ?? '--') }}%
           </div>
           <div class="stat-title">磁盘使用率</div>
         </div>
@@ -80,7 +79,7 @@
         </div>
         <div class="stat-content">
           <div class="stat-value" :class="{ loading: loading }">
-            {{ loading ? '-' : metrics.network }}
+            {{ loading ? '-' : (metrics.network ?? '--') }}
           </div>
           <div class="stat-title">网络带宽 (Mbps)</div>
         </div>
@@ -137,7 +136,7 @@ const deviceList = ref([])
 const deviceOptions = ref([])
 const lastUpdateTime = ref('')
 
-const metrics = reactive({ cpu: 0, memory: 0, disk: 0, network: 0 })
+const metrics = reactive({ cpu: null, memory: null, disk: null, network: null })
 
 const columns = [
   { title: '序号', type: 'index', width: 60 },
@@ -179,7 +178,11 @@ const loadDevices = async () => {
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
     if (!data || typeof data !== 'object') throw new Error('响应格式异常')
-    deviceList.value = data.items || data.data?.items || []
+    const newDevices = data.items || data.data?.items || []
+    // 去重：基于设备ID过滤
+    const existingIds = new Set(deviceList.value.map(d => d.id))
+    const uniqueDevices = newDevices.filter(d => !existingIds.has(d.id))
+    deviceList.value = [...deviceList.value, ...uniqueDevices]
     deviceOptions.value = deviceList.value.map(d => ({
       label: `${d.name} (${d.ip_address})`,
       value: d.id
@@ -195,13 +198,15 @@ const loadDevices = async () => {
 
 const handleDeviceChange = (value) => {
   selectedDeviceId.value = value
-  // Reset metrics display
-  metrics.cpu = 0
-  metrics.memory = 0
-  metrics.disk = 0
-  metrics.network = 0
+  // Reset metrics display to null (will show '--')
+  metrics.cpu = null
+  metrics.memory = null
+  metrics.disk = null
+  metrics.network = null
   lastUpdateTime.value = ''
-  loadMetrics()
+  if (value) {
+    loadMetrics()
+  }
 }
 
 const loadMetrics = async () => {

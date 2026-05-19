@@ -16,13 +16,13 @@
         </n-tabs>
       </template>
 
-      <n-input v-model:value="searchKeyword" placeholder="搜索备份名称" clearable style="width: 200px; margin-bottom: 12px" @change="loadData">
+      <n-input v-model:value="searchKeyword" placeholder="搜索备份名称" clearable style="width: 200px; margin-bottom: 12px" @update:value="() => {}">
         <template #prefix><n-icon><SearchOutline /></n-icon></template>
       </n-input>
 
       <n-data-table
         :columns="columns"
-        :data="backupList"
+        :data="filteredBackupList"
         :loading="loading"
         :pagination="pagination"
         :row-key="row => row.id"
@@ -33,7 +33,7 @@
     <n-drawer v-model:show="resultDrawer" :width="600" placement="right">
       <n-drawer-content title="执行结果">
         <n-spin :show="executing">
-          <n-input type="textarea" :value="executeResult" :rows="15" readonly placeholder="暂无执行结果" />
+          <n-input type="textarea" :value="formatResult(executeResult)" :rows="15" readonly placeholder="暂无执行结果" style="font-family: monospace;" />
         </n-spin>
       </n-drawer-content>
     </n-drawer>
@@ -41,11 +41,12 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, h } from 'vue'
-import { NCard, NButton, NDataTable, NTabs, NTab, NInput, NSpace, NTag, NIcon, NDrawer, NDrawerContent, NSpin, NInputGroup, useMessage } from 'naive-ui'
+import { ref, reactive, onMounted, h, computed } from 'vue'
+import { NCard, NButton, NDataTable, NTabs, NTab, NInput, NSpace, NTag, NIcon, NDrawer, NDrawerContent, NSpin, NInputGroup, useMessage, useDialog } from 'naive-ui'
 import { CloudUploadOutline, SearchOutline, PlayOutline } from '@vicons/ionicons5'
 
 const message = useMessage()
+const dialog = useDialog()
 const loading = ref(false)
 const creating = ref(false)
 const executing = ref(false)
@@ -56,6 +57,30 @@ const resultDrawer = ref(false)
 const executeResult = ref('')
 
 const pagination = reactive({ page: 1, pageSize: 10, total: 0 })
+
+// 计算属性：基于搜索关键词过滤备份列表
+const filteredBackupList = computed(() => {
+  if (!searchKeyword.value) return backupList.value
+  const kw = searchKeyword.value.toLowerCase()
+  return backupList.value.filter(item =>
+    (item.name && item.name.toLowerCase().includes(kw)) ||
+    (item.creator_name && item.creator_name.toLowerCase().includes(kw)) ||
+    (item.type && item.type.toLowerCase().includes(kw)) ||
+    (item.status && item.status.toLowerCase().includes(kw))
+  )
+})
+
+// 格式化执行结果（JSON转友好格式）
+const formatResult = (data) => {
+  if (!data) return ''
+  if (typeof data === 'string') return data
+  try {
+    const obj = typeof data === 'object' ? data : JSON.parse(data)
+    return JSON.stringify(obj, null, 2)
+  } catch {
+    return String(data)
+  }
+}
 
 const columns = [
   { title: 'ID', key: 'id', width: 80 },
@@ -143,19 +168,27 @@ function handleDownload(row) {
 }
 
 async function handleDelete(row) {
-  try {
-    const token = localStorage.getItem('token') || ''
-    const res = await fetch(`/api/v1/admin/backups/${row.id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    message.success('删除成功')
-    loadData()
-  } catch (e) {
-    message.error(`删除失败: ${e.message}`)
-    console.error('[backup] delete error:', e)
-  }
+  dialog.warning({
+    title: '确认删除',
+    content: `确定要删除备份 "${row.name}" 吗？此操作不可逆。`,
+    positiveText: '确认删除',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        const token = localStorage.getItem('token') || ''
+        const res = await fetch(`/api/v1/admin/backups/${row.id}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        message.success('删除成功')
+        loadData()
+      } catch (e) {
+        message.error(`删除失败: ${e.message}`)
+        console.error('[backup] delete error:', e)
+      }
+    }
+  })
 }
 
 onMounted(loadData)
